@@ -1,11 +1,19 @@
 [project]
-name = "sci_fi_parser"
+name = "sci-fi-parser"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
   "docling>=2.90"
 ]
+description = "A package to to parse data from graphs in documents."
+readme = "README.md"
+license = "MIT"
 
 [build-system]
 requires = ["hatchling >= 1.26"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
