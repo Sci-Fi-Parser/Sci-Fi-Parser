@@ -14,6 +14,6 @@ jobs:
         with:
           version: "latest"
       - name: Lint
-        run: PYTHONPATH=src poetry run pylint src
+        run: PYTHONPATH=src run pylint src
       - run: uv sync --group dev   # install package + dev deps
       - run: uv run pytest
