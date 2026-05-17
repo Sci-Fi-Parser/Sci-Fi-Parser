@@ -20,7 +20,8 @@ disable=raw-checker-failed,
         too-many-instance-attributes,
         too-many-arguments,
         protected-access,
-        too-many-positional-arguments
+        too-many-positional-arguments,
+        unused-import
 
 [FORMAT]
 max-line-length=90
