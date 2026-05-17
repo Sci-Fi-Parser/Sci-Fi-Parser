@@ -1,0 +1,35 @@
+[MASTER]
+
+ignore-paths=src/tests
+
+[MESSAGE CONTROL]
+
+disable=raw-checker-failed,
+        bad-inline-option,
+        locally-disabled,
+        file-ignored,
+        suppressed-message,
+        useless-suppression,
+        deprecated-pragma,
+        use-symbolic-message-instead,
+        missing-module-docstring,
+        missing-function-docstring,
+        missing-class-docstring,
+        too-few-public-methods,
+        missing-final-newline,
+        too-many-instance-attributes,
+        too-many-arguments,
+        protected-access,
+        too-many-positional-arguments
+
+[FORMAT]
+max-line-length=90
+indent-after-paren=4
+
+[REFACTORING]
+max-nested-blocks=2
+
+[DESIGN]
+max-statements=20
+max-locals=20
+max-branches=8
