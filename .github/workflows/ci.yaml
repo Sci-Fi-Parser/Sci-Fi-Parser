@@ -13,7 +13,7 @@ jobs:
       - uses: astral-sh/setup-uv@v1
         with:
           version: "latest"
-      - name: Lint
-        run: PYTHONPATH=src uv run pylint src
       - run: uv sync --group dev   # install package + dev deps
       - run: uv run pytest
+      - name: Lint
+        run: PYTHONPATH=src uv run pylint src
