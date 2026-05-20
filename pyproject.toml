@@ -3,7 +3,9 @@ name = "sci-fi-parser"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-  "docling>=2.90"
+  "docling>=2.90",
+  "torch>=2.11.0",
+  "transformers>=5.8.0",
 ]
 description = "A package to to parse data from graphs in documents."
 readme = "README.md"
