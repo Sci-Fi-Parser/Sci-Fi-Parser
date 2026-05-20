@@ -53,3 +53,53 @@ Don't really know how trustworthy or accurate the OCR/CV is
 Start implementing and experimenting with OCR
 
 For the first pipeline we should probably do the option 1. where we just don't pass the information if it is low confidence
+
+
+## 20-05-2026
+
+### Worked On
+Research on how OCR and CV tools interact and which tools could be used.
+
+### Learned
+OCR, CV and probably some manually written code make up the pre-VLM part of the pipeline.
+
+OpenCV seems probably the best CV library, it can also be used for preprocessing.
+
+This can be a rough example of the potential pipeline.
+
+1. Preprocess the image
+  - Upscale? (To *some* resolution)
+  - Increase contrast?
+  - Binariwation?
+  - CV seems to prefer mostly non-altered images, OCR can benefit more on preprocessing.
+  - Store all variants created
+
+2. Detect chart structure
+  - Plot area
+  - Axes
+  - Gridlines
+  - Panels
+  - Tick marks
+
+3. OCR text regions with PaddleOCRv5
+  - Axis values and title
+  - legend
+  - Bar values (if present)
+
+4. Build coordinate system
+  - Linear or log scale or categories
+  - y pixel -> value 
+  - x pixel -> value, category etc.
+
+5. Extract coordinate data
+  - What is the y-coordinate of the top/bottom of bar graph
+  - Do this for every x-point
+  - Compare with bar values if they exist
+
+- If the bar values exist later steps might not be needed
+
+### Problems
+
+### Next
+
+Exploring OpenCV and PaddleOCRv5 at code level.
