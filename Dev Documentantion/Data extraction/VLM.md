@@ -19,3 +19,12 @@ Format:
 ### Worked On
 .....
 ```
+## 20-05-2026
+
+### Worked On
+
+Wrote backend for VLM using transformers with Claude. 
+
+### 
+
+Setting up the model is quite slow. We haven't discussed the interface yet, so this is only a draft.
