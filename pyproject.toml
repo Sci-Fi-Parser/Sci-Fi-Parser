@@ -11,6 +11,9 @@ dependencies = [
   "ollama>=0.3",
   "pillow>=10.0",
   "pydantic>=2.0",
+  "docling>=2.90",
+  "paddleocr>=3.5.0",
+  "paddlepaddle==3.2.0",
 ]
 description = "A package to to parse data from graphs in documents."
 readme = "README.md"
