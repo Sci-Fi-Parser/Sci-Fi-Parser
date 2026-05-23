@@ -127,3 +127,31 @@ Rotated text needs to be properly handled. But perhaps this should be tackled on
 
 #### Next
 Figure out how the data could be used in conjuction with the VLM. Test other OCR unless PaddleOCR is deemed good enough.
+
+
+## 23-05-2026
+
+### Aapo
+
+#### Worked On
+Research and starting implementing CV:
+Using OpenCV to detect lines and bar chart bars.
+The implementation is on the OcrCV branch
+
+#### Learned
+OpenCV operates on images as numpy.ndarray
+Same things in OpenCV can be done in many ways
+What preprossessing we do matters a lot, might need to do some separate color maps depending on the image.
+Line detection should be nice for most graph types, needs a lot more work.
+Some automated accuracy test for this part is needed
+
+#### Problems
+A lot more refining and experimentation needed for bars and especially lines.
+- Lines currently get spotted at most text spaces
+- Quite a few bar charts don't have actual x and y-axes.
+- Need to merge similar close lines into one.
+- Weird colored charts don't work with the binarization techniques. 
+- charts with bars next to each other don't work cleanly
+
+#### Next
+Bar detection testing and refinement
