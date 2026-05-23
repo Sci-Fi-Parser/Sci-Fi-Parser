@@ -2638,7 +2638,6 @@ source = { editable = "." }
 dependencies = [
     { name = "docling" },
     { name = "matplotlib" },
-    { name = "numpy" },
     { name = "ollama" },
     { name = "opencv-python" },
     { name = "paddleocr" },
@@ -2662,7 +2661,6 @@ dev = [
 requires-dist = [
     { name = "docling", specifier = ">=2.90" },
     { name = "matplotlib", specifier = ">=3.9" },
-    { name = "numpy", specifier = ">=2.0" },
     { name = "ollama", specifier = ">=0.3" },
     { name = "opencv-python", specifier = ">=4.13.0.92" },
     { name = "opencv-python", marker = "extra == 'cv'", specifier = ">=4.10" },

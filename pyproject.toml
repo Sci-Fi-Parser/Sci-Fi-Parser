@@ -7,13 +7,13 @@ dependencies = [
   "paddlepaddle==3.2.0",
   "opencv-python>=4.13.0.92",
   "matplotlib>=3.9",
-  "numpy>=2.0",
   "ollama>=0.3",
   "pillow>=10.0",
   "pydantic>=2.0",
   "docling>=2.90",
   "paddleocr>=3.5.0",
   "paddlepaddle==3.2.0",
+  "opencv-python>=4.13.0.92",
 ]
 description = "A package to to parse data from graphs in documents."
 readme = "README.md"
