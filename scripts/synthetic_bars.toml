@@ -1,0 +1,52 @@
+# Synthetic bar-chart generator -- configuration
+# ----------------------------------------------
+# Every key overrides the matching field in GenConfig (scripts/synthetic_bars.py).
+# Default mode is a CONTROLLED DENSITY SERIES: per enabled type, the style is fixed
+# once and only the bar count varies across density_steps; each density is rendered
+# both with and without value labels (a 50/50 matched pair).
+#
+# Run:  .venv/bin/python scripts/synthetic_bars.py --config scripts/synthetic_bars.toml --overlay --sqlite
+
+# Which types to generate a density series for. Toggle each true/false; every
+# enabled type gets its own fixed-style series.
+[type_enabled]
+bar_chart            = true
+grouped_bar_chart    = false
+stacked_bar_chart    = false
+horizontal_bar_chart = false
+
+# The density ladder (bars per step) -- tight at the low end where degradation
+# begins, widening toward the max. Each value -> one labels-off + one labels-on chart.
+density_steps = [4, 5, 7, 9, 10, 12, 15, 20, 25, 30]
+
+# Independent fixed-style series PER enabled type. 1 -> 20 images/type (10 x off/on);
+# bump for K colour/style variants.
+per_type = 1
+
+# (min, max) INCLUSIVE series for grouped/stacked charts.
+n_series = [2, 4]
+
+# Fraction (0..1) of charts that emit full geometry (bboxes + ticks); rest values only.
+geometry_full_prob = 0.5
+
+# Figure size (inches) + DPI -- sampled ONCE per series and held fixed.
+fig_w_in = [5.0, 9.0]
+fig_h_in = [3.5, 5.5]
+dpi_choices = [90, 100, 120, 150]
+
+# Bar width as a category-unit fraction (0..1), fixed per series -> bars thin as
+# density rises (the intended density effect).
+bar_width = [0.6, 0.85]
+
+# Probabilities decided once per series.
+allow_negative = 0.15
+grid_prob = 0.5
+title_prob = 0.7
+
+# Category-label fitting: constant rotation; tick font shrinks max->min with density
+# so labels always fit without overlapping (like a real chart).
+label_rotation = 90
+tick_fontsize = [6, 11]   # [min floor, max at low density]
+
+# --random mode only: probability a random chart prints value labels.
+value_labels_prob = 0.0
