@@ -22,9 +22,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel
+
+
+ChartType = Literal[
+    "bar_chart",
+    "grouped_bar_chart",
+    "stacked_bar_chart",
+    "horizontal_bar_chart",
+    "line_chart",
+]
 
 
 def _cat_key(x: str | float) -> str:
@@ -32,6 +41,11 @@ def _cat_key(x: str | float) -> str:
     if isinstance(x, float) and x.is_integer():
         return str(int(x))
     return str(x)
+
+
+def normalize_key(series: str, category: str) -> tuple[str, str]:
+    """Whitespace- and case-insensitive form of a (series, category) match key."""
+    return (series.strip().casefold(), category.strip().casefold())
 
 
 class Point(BaseModel):
@@ -49,10 +63,18 @@ class Series(BaseModel):
 
 
 class ChartData(BaseModel):
-    """The canonical extraction output. Every extractor returns this shape."""
+    """The canonical extraction output. Every extractor returns this shape.
 
+    ``chart_type`` and ``confidence`` are *required but nullable*: a VLM
+    constrained by ``format=ChartData.model_json_schema()`` will always emit
+    both fields, but is allowed to report ``null`` when it can't determine the
+    chart type or its own confidence. Without ``required``-ness the model
+    silently omits them.
+    """
+
+    chart_type: ChartType | None
     series: list[Series]
-    confidence: float | None = None
+    confidence: float | None
 
     def series_map(self) -> dict[tuple[str, str], float]:
         """Flatten to ``{(series_name, category): value}`` for matching.
