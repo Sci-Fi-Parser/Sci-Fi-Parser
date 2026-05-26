@@ -114,6 +114,187 @@ def test_vlm_profile_load(tmp_path):
         load_profile(bad)
 
 
+def test_vlm_comparison_config_load(tmp_path):
+    """Comparison TOML parses [defaults] + [[model]] entries into VLMProfiles."""
+    from sci_fi_parser.accuracy.vlm_compare import load_comparison_config
+
+    cfg = tmp_path / "compare.toml"
+    cfg.write_text(
+        '[defaults]\n'
+        'num_ctx = 1024\n'
+        'prompt = "p"\n'
+        '\n'
+        '[[model]]\n'
+        'name = "a"\n'
+        'model = "qwen2.5vl:7b"\n'
+        '\n'
+        '[[model]]\n'
+        'name = "b"\n'
+        'model = "qwen2.5vl:3b"\n'
+        'num_ctx = 4096\n',
+        encoding="utf-8",
+    )
+    run, entries = load_comparison_config(cfg)
+    assert run.data is None and run.pull is None  # no [run] table
+    assert [e.name for e in entries] == ["a", "b"]
+    # Defaults flow through; per-model override wins.
+    assert entries[0].profile.num_ctx == 1024
+    assert entries[1].profile.num_ctx == 4096
+    assert all(e.profile.prompt == "p" for e in entries)
+
+    # Empty file rejected.
+    empty = tmp_path / "empty.toml"
+    empty.write_text("", encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_comparison_config(empty)
+
+    # Duplicate names rejected.
+    dup = tmp_path / "dup.toml"
+    dup.write_text(
+        '[[model]]\nname = "x"\nmodel = "a"\n'
+        '[[model]]\nname = "x"\nmodel = "b"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError):
+        load_comparison_config(dup)
+
+
+def test_vlm_comparison_extends(tmp_path):
+    """extends= loads a base VLMProfile; [defaults]/[[model]] layer on top."""
+    from sci_fi_parser.accuracy.vlm_compare import load_comparison_config
+
+    # Base profile with a custom prompt and num_ctx -- the values we want to
+    # inherit downstream without duplicating them.
+    base = tmp_path / "base.toml"
+    base.write_text(
+        'model = "qwen2.5vl:7b"\n'
+        'prompt = "BASE PROMPT"\n'
+        'num_ctx = 1024\n',
+        encoding="utf-8",
+    )
+
+    cmp_cfg = tmp_path / "cmp.toml"
+    cmp_cfg.write_text(
+        'extends = "base.toml"\n'
+        '[[model]]\nname = "a"\nmodel = "qwen2.5vl:7b"\n'
+        '[[model]]\nname = "b"\nmodel = "qwen2.5vl:3b"\nnum_ctx = 4096\n',
+        encoding="utf-8",
+    )
+    _, entries = load_comparison_config(cmp_cfg)
+    # Both entries inherit the base prompt; the second overrides num_ctx.
+    assert all(e.profile.prompt == "BASE PROMPT" for e in entries)
+    assert entries[0].profile.num_ctx == 1024  # inherited
+    assert entries[1].profile.num_ctx == 4096  # per-model override
+
+    # [defaults] layers between extends and [[model]] -- so it wins over the
+    # base but loses to per-model overrides. Verifies the merge order.
+    cmp_layer = tmp_path / "cmp_layer.toml"
+    cmp_layer.write_text(
+        'extends = "base.toml"\n'
+        '[defaults]\nnum_ctx = 2048\n'
+        '[[model]]\nname = "a"\nmodel = "x"\n'
+        '[[model]]\nname = "b"\nmodel = "y"\nnum_ctx = 8192\n',
+        encoding="utf-8",
+    )
+    _, layered = load_comparison_config(cmp_layer)
+    assert layered[0].profile.num_ctx == 2048
+    assert layered[1].profile.num_ctx == 8192
+    # Prompt still flows through from the base since [defaults] didn't override.
+    assert layered[0].profile.prompt == "BASE PROMPT"
+
+    # Missing extends file -> ValueError, not a silent fall-through to defaults.
+    missing = tmp_path / "missing.toml"
+    missing.write_text(
+        'extends = "nope.toml"\n'
+        '[[model]]\nname = "a"\nmodel = "x"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError):
+        load_comparison_config(missing)
+
+
+def test_vlm_comparison_run_table(tmp_path):
+    """[run] table is parsed and validated; CLI-style values come back typed."""
+    from pathlib import Path as _Path
+    from sci_fi_parser.accuracy.vlm_compare import load_comparison_config
+
+    cfg = tmp_path / "with_run.toml"
+    cfg.write_text(
+        '[run]\n'
+        'data = "data/eval"\n'
+        'out  = "reports/x"\n'
+        'limit = 3\n'
+        'seed  = 7\n'
+        'pull  = "circular"\n'
+        '[[model]]\nname = "m"\nmodel = "qwen2.5vl:7b"\n',
+        encoding="utf-8",
+    )
+    run, entries = load_comparison_config(cfg)
+    assert run.data == _Path("data/eval")
+    assert run.out == _Path("reports/x")
+    assert run.limit == 3
+    assert run.seed == 7
+    assert run.pull == "circular"
+    assert len(entries) == 1
+
+    # Unknown [run] key -> ValueError (typos must not silently slip through).
+    bad_key = tmp_path / "bad_key.toml"
+    bad_key.write_text(
+        '[run]\ndatas = "x"\n[[model]]\nname = "m"\nmodel = "x"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError):
+        load_comparison_config(bad_key)
+
+    # Invalid pull mode -> ValueError.
+    bad_pull = tmp_path / "bad_pull.toml"
+    bad_pull.write_text(
+        '[run]\npull = "yolo"\n[[model]]\nname = "m"\nmodel = "x"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError):
+        load_comparison_config(bad_pull)
+
+
+def test_vlm_comparison_pull_mode_resolution():
+    """resolve_pull_mode encodes the CLI-vs-prompt-vs-error matrix."""
+    from sci_fi_parser.accuracy.vlm_compare import resolve_pull_mode
+
+    # No missing models -> mode is irrelevant; always returns "skip".
+    assert resolve_pull_mode([], None, False) == "skip"
+    assert resolve_pull_mode([], "prefetch", True) == "skip"
+
+    # Explicit --pull wins, no prompt, with or without --yes.
+    assert resolve_pull_mode(["a"], "prefetch", False) == "prefetch"
+    assert resolve_pull_mode(["a"], "circular", True) == "circular"
+    assert resolve_pull_mode(["a"], "skip", False) == "skip"
+
+    # --yes without --pull AND missing models is a footgun -> SystemExit,
+    # not a silent default. Catches scripts that forgot to choose a mode.
+    with pytest.raises(SystemExit):
+        resolve_pull_mode(["a"], None, True)
+
+
+def test_vlm_comparison_preflight_format():
+    """format_preflight renders LOCAL/MISSING + sizes + free disk + mode."""
+    from sci_fi_parser.accuracy.vlm_compare import (
+        ModelStatus, format_preflight,
+    )
+
+    statuses = [
+        ModelStatus(tag="qwen2.5vl:7b", local=True, size_bytes=5_000_000_000),
+        ModelStatus(tag="qwen2.5vl:7b-q8_0", local=False, size_bytes=None),
+    ]
+    out = format_preflight(statuses, mode="circular")
+    assert "LOCAL" in out
+    assert "MISSING" in out
+    assert "qwen2.5vl:7b" in out and "qwen2.5vl:7b-q8_0" in out
+    assert "(pull required)" in out
+    assert "local total" in out
+    assert "free disk" in out
+    assert "mode:" in out and "circular" in out
+
+
 def test_accuracy_init_does_not_pull_matplotlib():
     # The package __init__ deliberately doesn't import `synthetic`, so a caller
     # that only needs `benchmark` shouldn't pay the matplotlib import cost.
