@@ -40,7 +40,10 @@ from statistics import mean
 import numpy as np
 from PIL import Image
 
-from sci_fi_parser.schema import ChartData, Extractor, Point, Series, parse_chartdata
+from sci_fi_parser.schema import (
+    ChartData, ChartType, Extractor, Point, Series,
+    normalize_key, parse_chartdata,
+)
 
 
 def truth_to_map(series: list[dict]) -> dict[tuple[str, str], float]:
@@ -89,7 +92,8 @@ class NoisyOracle:
         span = abs(hi - lo) or 1.0
         out_series = [self._perturb(s, lo, hi, span) for s in entry["series"]]
         conf = float(np.clip(self._rng.normal(0.9, 0.05), 0, 1))
-        return ChartData(series=out_series, confidence=conf)
+        return ChartData(chart_type=entry.get("chart_type"),
+                         series=out_series, confidence=conf)
 
 
 class OllamaVLM:
@@ -103,17 +107,20 @@ class OllamaVLM:
     PROMPT = (
         "Extract the data from this chart.\n"
         "Rules:\n"
-        "- Use the x-axis category labels EXACTLY as printed on the chart. "
-        "Do not invent dates, years, or names.\n"
-        "- Series naming: if the chart has a legend, use legend labels. "
+        "- chart_type: one of bar_chart, grouped_bar_chart, stacked_bar_chart, "
+        "horizontal_bar_chart, line_chart.\n"
+        "- Use the x-axis category labels EXACTLY as printed. Do not invent "
+        "dates, years, or names.\n"
+        "- Series naming: if there is a legend, use the legend labels. "
         "If there is NO legend (single-series chart), use the y-axis title "
         "as the series name. Never leave the name blank.\n"
-        "- Read each y-value from the chart's y-axis scale and the bar height "
-        "or marker position. If numeric value labels are printed on the bars, "
-        "prefer those.\n"
-        "- Watch the y-axis units carefully: a tick labelled '200K' means "
-        "200,000, '1.5M' means 1,500,000, '2.3B' means 2,300,000,000. "
-        "Return plain numbers (no suffixes) and do not add or drop zeros.\n"
+        "- Read each y-value from the y-axis scale and the bar / marker height. "
+        "If numeric labels are printed on the bars, prefer those.\n"
+        "- Watch y-axis units: '200K' = 200000, '1.5M' = 1500000, "
+        "'2.3B' = 2300000000. Return plain numbers, no suffixes, no extra zeros.\n"
+        "- confidence: a number from 0.0 to 1.0 reflecting how certain you are "
+        "that the extracted values are correct. Lower it for charts without "
+        "printed value labels or with hard-to-read axes.\n"
         "- Do not output series, categories, or values that do not appear on "
         "the chart."
     )
@@ -149,11 +156,14 @@ class ChartResult:
     matched: int
     missed: int                       # true bars the extractor did not return
     extra: int                        # predicted bars with no matching (series,cat)
-    errors_pct: list[float] = field(default_factory=list)  # per matched bar, % of span
+    errors_pct: list[float] = field(default_factory=list)  # per matched bar, % of |true|
     truth: dict = field(default_factory=dict)
     pred: dict = field(default_factory=dict)
     meta: dict = field(default_factory=dict)
     seconds: float = 0.0               # extractor wall-clock time for this image
+    type_true: ChartType | None = None
+    type_pred: ChartType | None = None
+    confidence: float | None = None    # VLM self-reported confidence, if any
 
     @property
     def mean_pct(self) -> float:
@@ -162,6 +172,11 @@ class ChartResult:
     @property
     def max_pct(self) -> float:
         return max(self.errors_pct) if self.errors_pct else float("nan")
+
+    @property
+    def type_matched(self) -> bool:
+        return (self.type_true is not None and self.type_pred is not None
+                and self.type_true == self.type_pred)
 
 
 def _align_series_names(tmap: dict[tuple[str, str], float],
@@ -183,29 +198,57 @@ def _align_series_names(tmap: dict[tuple[str, str], float],
     return pmap
 
 
+def _pct_of_true(pred: float, true: float) -> float:
+    """|pred - true| as a percentage of |true|.
+
+    What researchers expect: pred 400 vs true 300 -> 33%. Zero-truth case is
+    bounded (avoids division by zero exploding the aggregate): 0% if pred is
+    also 0, 100% otherwise.
+    """
+    if abs(true) < 1e-12:
+        return 0.0 if abs(pred) < 1e-12 else 100.0
+    return abs(pred - true) / abs(true) * 100.0
+
+
 def score_chart(image: str, entry: dict, pred: ChartData) -> ChartResult:
-    """Match predicted to true bars by (series, category); error = % of span."""
-    lo, hi = entry["value_range"]
-    span = abs(hi - lo) or 1.0
+    """Match predicted to true bars; error = |pred-true| / |true| as a percentage.
+
+    Matching is whitespace- and case-insensitive on the (series, category) key,
+    so 'Region A' / 'region a' / 'Region A ' all line up. For single-series
+    charts where the VLM couldn't read off a series name we already rekey via
+    `_align_series_names`; this normalization layers on top.
+    """
     tmap = truth_to_map(entry["series"])
     pmap = _align_series_names(tmap, pred.series_map())
+    pnorm = {normalize_key(s, c): k for k in pmap for s, c in [k]}
 
     errors, matched = [], 0
-    for key, tv in tmap.items():
-        if key in pmap:
+    for tkey, tv in tmap.items():
+        pkey = pnorm.get(normalize_key(*tkey))
+        if pkey is not None:
             matched += 1
-            errors.append(abs(pmap[key] - tv) / span * 100.0)
-    extra = sum(1 for k in pmap if k not in tmap)
+            errors.append(_pct_of_true(pmap[pkey], tv))
+    matched_pkeys = {pnorm[normalize_key(*k)] for k in tmap
+                     if normalize_key(*k) in pnorm}
+    extra = sum(1 for k in pmap if k not in matched_pkeys)
     return ChartResult(image, len(tmap), len(pmap), matched, len(tmap) - matched,
-                       extra, errors, tmap, pmap, entry.get("meta", {}))
+                       extra, errors, tmap, pmap, entry.get("meta", {}),
+                       type_true=entry.get("chart_type"),
+                       type_pred=pred.chart_type,
+                       confidence=pred.confidence)
 
 
 def aggregate(results: list[ChartResult]) -> dict:
     all_err = np.array([e for r in results for e in r.errors_pct], dtype=float)
     secs = np.array([r.seconds for r in results], dtype=float)
+    confs = np.array([r.confidence for r in results
+                      if r.confidence is not None], dtype=float)
     total_true = sum(r.n_true for r in results) or 1
     total_pred = sum(r.n_pred for r in results) or 1
     total_matched = sum(r.matched for r in results)
+    n_type_known = sum(1 for r in results
+                       if r.type_true is not None and r.type_pred is not None)
+    n_type_match = sum(1 for r in results if r.type_matched)
     return {
         "n_charts": len(results),
         "n_bars_true": int(total_true),
@@ -218,6 +261,8 @@ def aggregate(results: list[ChartResult]) -> dict:
         "extra_total": sum(r.extra for r in results),
         "within_1pct": float((all_err <= 1).mean()) if all_err.size else float("nan"),
         "within_5pct": float((all_err <= 5).mean()) if all_err.size else float("nan"),
+        "type_accuracy": (n_type_match / n_type_known) if n_type_known else float("nan"),
+        "mean_confidence": float(confs.mean()) if confs.size else float("nan"),
         "mean_sec": float(secs.mean()) if secs.size else 0.0,
         "median_sec": float(np.median(secs)) if secs.size else 0.0,
         "p95_sec": float(np.percentile(secs, 95)) if secs.size else 0.0,
@@ -265,11 +310,12 @@ _CSS = """
  table.full th{cursor:pointer;background:#f4f6f8;position:sticky;top:0}
 """
 
-# Click-to-sort for the all-charts table. Columns >=4 sort numerically (data-v).
+# Click-to-sort for the all-charts table. Headers with data-num="1" sort
+# numerically (using each cell's data-v if present, else its text).
 _SORT_JS = r"""
 document.querySelectorAll('#t th').forEach((h,i)=>h.onclick=()=>{
  const tb=document.querySelector('#t tbody'),rows=[...tb.rows];
- const num=i>=4, dir=h.dataset.d=h.dataset.d==='1'?'':'1';
+ const num=h.dataset.num==='1', dir=h.dataset.d=h.dataset.d==='1'?'':'1';
  rows.sort((a,b)=>{const x=a.cells[i],y=b.cells[i];
    const va=num?+(x.dataset.v??x.textContent.replace(/[^0-9.\-]/g,'')||0):x.textContent;
    const vb=num?+(y.dataset.v??y.textContent.replace(/[^0-9.\-]/g,'')||0):y.textContent;
@@ -302,12 +348,38 @@ def _group_table(title: str, rows: list[tuple]) -> str:
             f"<tbody>{body}</tbody></table>")
 
 
+def _pred_cell(r: ChartResult, series: str, cat: str) -> str:
+    """Pred value with the % error vs truth (or — if no match)."""
+    norm = normalize_key(series, cat)
+    for (ps, pc), pv in r.pred.items():
+        if normalize_key(ps, pc) == norm:
+            err = _pct_of_true(pv, r.truth[(series, cat)])
+            return f"{pv:.2f} <span style='color:#888'>({err:.1f}%)</span>"
+    return "—"
+
+
+def _type_chip(r: ChartResult) -> str:
+    if r.type_true is None:
+        return ""
+    if r.type_pred is None:
+        return (f" · type={html.escape(r.type_true)} "
+                f"<span style='color:#a00'>(no pred)</span>")
+    ok = "✓" if r.type_matched else "✗"
+    colour = "#0a0" if r.type_matched else "#a00"
+    return (f" · type=<span style='color:{colour}'>{ok}</span> "
+            f"{html.escape(r.type_pred)} (true: {html.escape(r.type_true)})")
+
+
+def _conf_chip(r: ChartResult) -> str:
+    return f" · conf {r.confidence:.2f}" if r.confidence is not None else ""
+
+
 def _detail_card(r: ChartResult, img_dir: Path) -> str:
     preset = html.escape(str(r.meta.get("preset", r.meta.get("type", ""))))
-    kv_head = "<tr><th>series</th><th>cat</th><th>true</th><th>pred</th></tr>"
+    kv_head = "<tr><th>series</th><th>cat</th><th>true</th><th>pred (err)</th></tr>"
     rows = "".join(
         f"<tr><td>{html.escape(s)}</td><td>{html.escape(c)}</td><td>{tv:.2f}</td>"
-        f"<td>{(f'{r.pred[(s, c)]:.2f}' if (s, c) in r.pred else '—')}</td></tr>"
+        f"<td>{_pred_cell(r, s, c)}</td></tr>"
         for (s, c), tv in r.truth.items()
     )
     return f"""
@@ -315,7 +387,8 @@ def _detail_card(r: ChartResult, img_dir: Path) -> str:
       <img src="data:image/png;base64,{_thumb_b64(img_dir / r.image)}"/>
       <div class="meta">
         <b>{html.escape(r.image)}</b> · {preset}
-        · d{r.meta.get('density', '?')} · labels={r.meta.get('labels_on')}<br/>
+        · d{r.meta.get('density', '?')} · labels={r.meta.get('labels_on')}
+        {_type_chip(r)}{_conf_chip(r)}<br/>
         mean {_pct(r.mean_pct)} · max {_pct(r.max_pct)} · {r.seconds*1000:.0f} ms
         · missed {r.missed} · extra {r.extra}
         <table class="kv">{kv_head}{rows}</table>
@@ -324,6 +397,10 @@ def _detail_card(r: ChartResult, img_dir: Path) -> str:
 
 
 def _summary_cards(agg: dict) -> str:
+    type_acc = agg["type_accuracy"]
+    type_str = "-" if math.isnan(type_acc) else f"{type_acc*100:.0f}%"
+    conf = agg["mean_confidence"]
+    conf_str = "-" if math.isnan(conf) else f"{conf:.2f}"
     cards = [
         ("Charts", agg["n_charts"]), ("Mean error", _pct(agg["mean_pct"])),
         ("Median", _pct(agg["median_pct"])), ("p95", _pct(agg["p95_pct"])),
@@ -331,6 +408,7 @@ def _summary_cards(agg: dict) -> str:
         ("Precision", f"{agg['precision']*100:.1f}%"),
         ("≤1%", f"{agg['within_1pct']*100:.0f}%"),
         ("≤5%", f"{agg['within_5pct']*100:.0f}%"),
+        ("Type acc", type_str), ("Mean conf", conf_str),
         ("Missed", agg["missed_total"]), ("Extra", agg["extra_total"]),
         ("Mean time", f"{agg['mean_sec']*1000:.0f} ms"),
         ("p95 time", f"{agg['p95_sec']*1000:.0f} ms"),
@@ -345,13 +423,24 @@ def _summary_cards(agg: dict) -> str:
 def _chart_row(r: ChartResult) -> str:
     mean_v = 0 if math.isnan(r.mean_pct) else r.mean_pct
     max_v = 0 if math.isnan(r.max_pct) else r.max_pct
+    if r.type_true is None:
+        type_cell = "—"
+    elif r.type_pred is None:
+        type_cell = "<span style='color:#a00'>—</span>"
+    else:
+        type_cell = ("✓" if r.type_matched
+                     else f"<span style='color:#a00'>{html.escape(r.type_pred)}</span>")
+    conf_v = "" if r.confidence is None else f"{r.confidence:.2f}"
+    conf_sort = r.confidence if r.confidence is not None else 0
     return (
         f"<tr><td>{html.escape(r.image)}</td>"
         f"<td>{html.escape(str(r.meta.get('preset','')))}</td>"
+        f"<td>{type_cell}</td>"
         f"<td>{r.meta.get('density','')}</td><td>{r.meta.get('labels_on')}</td>"
         f"<td>{r.n_true}</td><td>{r.matched}</td><td>{r.missed}</td><td>{r.extra}</td>"
         f'<td data-v="{mean_v}">{_pct(r.mean_pct)}</td>'
         f'<td data-v="{max_v}">{_pct(r.max_pct)}</td>'
+        f'<td data-v="{conf_sort}">{conf_v}</td>'
         f'<td data-v="{r.seconds}">{r.seconds*1000:.0f} ms</td></tr>')
 
 
@@ -374,8 +463,11 @@ def write_html(path: Path, extractor: str, agg: dict, results: list[ChartResult]
 <style>{_CSS}</style>
 <h1>Extractor benchmark — <code>{html.escape(extractor)}</code></h1>
 <div class="stats">{summary}</div>
-<p>Error = |predicted − true| as a percentage of the value-axis span (scale-free).
-Recall = bars found / true bars. Precision = correct (series,category) / predicted.</p>
+<p>Error = |predicted − true| as a percentage of the <b>true value</b>
+(clamped to 100 % when the true value is zero, so "pred 400 vs true 300" is
+~33 %). Recall = bars found / true bars. Precision = correct
+(series,category) / predicted. Type acc = correct chart_type / charts with a
+type prediction. Mean conf = average self-reported confidence (VLM).</p>
 
 <h2>Breakdowns</h2>
 <div class="tables">{by_preset}{by_density}{by_labels}</div>
@@ -385,8 +477,12 @@ Recall = bars found / true bars. Precision = correct (series,category) / predict
 
 <h2>All charts <small>(click a header to sort)</small></h2>
 <table class="full" id="t"><thead><tr>
- <th>image</th><th>preset</th><th>d</th><th>labels</th><th>true</th><th>matched</th>
- <th>missed</th><th>extra</th><th>mean err</th><th>max err</th><th>time</th></tr></thead>
+ <th>image</th><th>preset</th><th>type</th>
+ <th data-num="1">d</th><th>labels</th>
+ <th data-num="1">true</th><th data-num="1">matched</th>
+ <th data-num="1">missed</th><th data-num="1">extra</th>
+ <th data-num="1">mean err</th><th data-num="1">max err</th>
+ <th data-num="1">conf</th><th data-num="1">time</th></tr></thead>
  <tbody>{table_rows}</tbody></table>
 <script>{_SORT_JS}</script>
 """, encoding="utf-8")
@@ -396,15 +492,22 @@ Recall = bars found / true bars. Precision = correct (series,category) / predict
 # Runner
 # --------------------------------------------------------------------------- #
 def load_truth(data_dir: Path) -> dict:
-    """image name -> {series, value_range, meta} from labels.jsonl."""
+    """image name -> {chart_type, series, value_range, meta} from labels.jsonl.
+
+    `value_range` is clipped to ``[max(0, lo), hi]``: matplotlib's y-axis lower
+    bound often pads below zero (e.g. -20 on a positive-only chart), which
+    inflates any span-relative metric. We carry the corrected version forward.
+    """
     truth = {}
     with (data_dir / "labels.jsonl").open(encoding="utf-8") as fh:
         for line in fh:
             rec = json.loads(line)
             l2 = rec["label2"]
+            lo, hi = l2["value_range"]
             truth[rec["image"]] = {
+                "chart_type": rec.get("label1"),
                 "series": l2["series"],
-                "value_range": l2["value_range"],
+                "value_range": [max(0.0, float(lo)), float(hi)],
                 "meta": rec.get("meta", {}),
             }
     return truth
@@ -429,7 +532,7 @@ def _run_extractor(extractor: Extractor, truth: dict, images: list[str],
             pred = extractor.extract(img_dir / name)
         except Exception as exc:  # pylint: disable=broad-exception-caught
             print(f"  ! {name}: {type(exc).__name__}: {exc}")
-            pred = ChartData(series=[])
+            pred = ChartData(chart_type=None, series=[], confidence=None)
         r = score_chart(name, entry, pred)
         r.seconds = time.perf_counter() - t0
         results.append(r)
@@ -444,7 +547,10 @@ def _write_results_json(out: Path, extractor: Extractor, agg: dict,
         "by_density": group_summary(results, "density"),
         "per_chart": [{"image": r.image, "meta": r.meta, "mean_pct": r.mean_pct,
                        "max_pct": r.max_pct, "matched": r.matched,
-                       "missed": r.missed, "extra": r.extra} for r in results],
+                       "missed": r.missed, "extra": r.extra,
+                       "type_true": r.type_true, "type_pred": r.type_pred,
+                       "type_matched": r.type_matched,
+                       "confidence": r.confidence} for r in results],
     }
     (out / "results.json").write_text(
         json.dumps(payload, indent=2,
@@ -456,13 +562,19 @@ def _write_results_json(out: Path, extractor: Extractor, agg: dict,
 def _print_summary(extractor: Extractor, agg: dict, results: list[ChartResult],
                    out: Path) -> None:
     errs = f"{_pct(agg['mean_pct'])} / {_pct(agg['median_pct'])} / {_pct(agg['p95_pct'])}"
+    type_acc = agg["type_accuracy"]
+    type_str = "-" if math.isnan(type_acc) else f"{type_acc*100:.0f}%"
+    conf = agg["mean_confidence"]
+    conf_str = "-" if math.isnan(conf) else f"{conf:.2f}"
     print(f"\n  extractor : {extractor.name}")
     print(f"  charts    : {agg['n_charts']}  ({agg['n_bars_true']} bars)")
-    print(f"  mean/med/p95 error : {errs}")
+    print(f"  mean/med/p95 error : {errs}  (% of true value)")
     print(f"  recall/precision   : "
           f"{agg['recall']*100:.1f}% / {agg['precision']*100:.1f}%")
     print(f"  within 1% / 5%     : "
           f"{agg['within_1pct']*100:.0f}% / {agg['within_5pct']*100:.0f}%")
+    print(f"  type accuracy      : {type_str}")
+    print(f"  mean confidence    : {conf_str}")
     print(f"  missed/extra bars  : {agg['missed_total']} / {agg['extra_total']}")
     print(f"  time per chart     : mean {agg['mean_sec']*1000:.0f} ms · "
           f"p95 {agg['p95_sec']*1000:.0f} ms · total {agg['total_sec']:.1f} s")

@@ -10,26 +10,47 @@ from __future__ import annotations
 import subprocess
 import sys
 
+import pytest
+
 
 def test_schema_module_imports():
     from sci_fi_parser.schema import (
-        ChartData, Extractor, Point, Series, parse_chartdata,
+        ChartData, Extractor, Point, Series, normalize_key, parse_chartdata,
     )
 
     # Round-trip: dict -> ChartData -> series_map.
-    cd = ChartData(series=[Series(name="s", points=[Point(x="a", y=1.0)])])
+    cd = ChartData(chart_type=None, confidence=None,
+                   series=[Series(name="s", points=[Point(x="a", y=1.0)])])
     assert cd.series_map() == {("s", "a"): 1.0}
 
     # parse_chartdata strips code fences from messy VLM-style output.
-    parsed = parse_chartdata('```json\n{"series": []}\n```')
+    parsed = parse_chartdata(
+        '```json\n{"chart_type": null, "series": [], "confidence": null}\n```')
     assert parsed.series == []
 
     # Extractor is runtime-checkable.
     class Dummy:
         name = "d"
         def extract(self, image_path):  # noqa: ARG002
-            return ChartData(series=[])
+            return ChartData(chart_type=None, series=[], confidence=None)
     assert isinstance(Dummy(), Extractor)
+
+    # Fuzzy match key: case- and whitespace-insensitive.
+    assert normalize_key("Region A", "X") == normalize_key("region a ", " x")
+
+
+def test_chart_type_literal_constrained():
+    """chart_type is a Literal — VLMs (via ollama format=) can't drift outside the set."""
+    from pydantic import ValidationError
+    from sci_fi_parser.schema import ChartData
+
+    # Valid value: round-trips fine.
+    cd = ChartData(chart_type="bar_chart", series=[], confidence=None)
+    assert cd.chart_type == "bar_chart"
+
+    # Invalid value: rejected.
+    with pytest.raises(ValidationError):
+        ChartData(chart_type="not_a_chart", series=[], confidence=None)
 
 
 def test_schema_is_light():
