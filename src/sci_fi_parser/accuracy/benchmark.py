@@ -45,8 +45,7 @@ from PIL import Image
 from sci_fi_parser.accuracy.vlm import OllamaVLM
 from sci_fi_parser.accuracy.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.schema import (
-    ChartData, ChartType, Extractor, Point, Series,
-    normalize_key, parse_chartdata,
+    ChartData, ChartType, Extractor, Point, Series, normalize_key,
 )
 
 
@@ -63,16 +62,18 @@ def truth_to_map(series: list[dict]) -> dict[tuple[str, str], float]:
 # Test double + Ollama skeleton (the Extractor protocol lives in sci_fi_parser.schema)
 # --------------------------------------------------------------------------- #
 class NoisyOracle:
-    """Harness sanity-check — run this before any real model to confirm the pipeline works.
+    """Harness sanity-check — run before any real model to confirm the pipeline works.
 
-    Returns true values perturbed by Gaussian noise plus occasional missed/extra bars.
-    If the oracle scores ~3% error (rel_noise default), the scoring, report, and JSONL
-    output are all wired up correctly. A score of 0% or wildly off means a harness bug,
-    not a model problem. Not a substitute for a real extractor.
+    Returns true values perturbed by Gaussian noise plus occasional missed/extra
+    bars. If the oracle scores ~3% error (rel_noise default), the scoring,
+    report, and JSONL output are all wired up correctly. A score of 0% or
+    wildly off means a harness bug, not a model problem. Not a substitute for a
+    real extractor.
 
-    Noise is scaled by the value-axis span so the oracle degrades consistently across
-    charts regardless of their units. value_range in labels.jsonl must reflect the actual
-    data range — if it doesn't, the oracle looks artificially perfect and the check is useless.
+    Noise is scaled by the value-axis span so the oracle degrades consistently
+    across charts regardless of their units. ``value_range`` in labels.jsonl
+    must reflect the actual data range — if it doesn't, the oracle looks
+    artificially perfect and the check is useless.
     """
 
     def __init__(self, truth_by_image: dict, rng: np.random.Generator,
