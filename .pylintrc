@@ -23,6 +23,10 @@ disable=raw-checker-failed,
         too-many-positional-arguments,
         unused-import
 
+[TYPECHECK]
+# opencv-python's C extension members are invisible to static analysis.
+generated-members=cv2.*
+
 [FORMAT]
 max-line-length=90
 indent-after-paren=4

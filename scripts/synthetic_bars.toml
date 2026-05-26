@@ -7,17 +7,21 @@
 #
 # Run:  .venv/bin/python scripts/synthetic_bars.py --config scripts/synthetic_bars.toml --overlay --sqlite
 
-# Which types to generate a density series for. Toggle each true/false; every
-# enabled type gets its own fixed-style series.
-[type_enabled]
-bar_chart            = true
-grouped_bar_chart    = false
-stacked_bar_chart    = false
-horizontal_bar_chart = false
+# Which catalog types to generate (by alias). Run `--preview` to see a small
+# sample of every type, then list the ones you want here. Each gets its own
+# fixed-style density series. Available aliases:
+#   simple  multicolor  grouped  stacked  horizontal
+#   line    2-line      3-line   multiline
+output_types = ["simple","multicolor"]
 
-# The density ladder (bars per step) -- tight at the low end where degradation
-# begins, widening toward the max. Each value -> one labels-off + one labels-on chart.
+# The density ladder (bars/points per step) -- tight at the low end where
+# degradation begins, widening toward the max. Each value -> one off + one on chart.
 density_steps = [4, 5, 7, 9, 10, 12, 15, 20, 25, 30]
+
+# Output image HEIGHTS in pixels (aspect ratio preserved). Each chart is rendered
+# at every resolution; the value is appended to the filename (e.g. ..._240).
+# Total images = types x per_type x densities x 2 (off/on) x resolutions.
+resolutions = [480]
 
 # Independent fixed-style series PER enabled type. 1 -> 20 images/type (10 x off/on);
 # bump for K colour/style variants.
