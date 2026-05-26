@@ -18,8 +18,11 @@ points) -- benchmark it as part of a CV+OCR pipeline.
 
 Usage
 -----
-    python scripts/benchmark.py --data train_data/synthetic --out reports/run1
-    python scripts/benchmark.py --data /tmp/sweep --extractor noisy-oracle
+    benchmark --data train_data/synthetic --out reports/run1
+    benchmark --data /tmp/sweep --extractor noisy-oracle
+
+(Installed as a ``[project.scripts]`` entry point via ``uv sync``. The module
+also exposes ``main`` so ``python -m sci_fi_parser.accuracy.benchmark`` works.)
 """
 
 from __future__ import annotations
@@ -40,6 +43,7 @@ from statistics import mean
 import numpy as np
 from PIL import Image
 
+from sci_fi_parser.accuracy.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.schema import (
     ChartData, ChartType, Extractor, Point, Series,
     normalize_key, parse_chartdata,
@@ -97,47 +101,38 @@ class NoisyOracle:
 
 
 class OllamaVLM:
-    """Skeleton: local VLM via Ollama with schema-ENFORCED JSON output.
+    """Local VLM via Ollama with schema-ENFORCED JSON output.
 
     Ollama's ``format=`` accepts a JSON schema and guarantees the reply conforms
-    to it -- standardization-at-source for the VLM path. Needs ``pip install
+    to it — standardization-at-source for the VLM path. Needs ``pip install
     ollama`` and the model pulled (``ollama pull <model>``).
+
+    The model tag, prompt, and ollama options come from a :class:`VLMProfile`
+    so they're swappable from a TOML file without touching code. Env vars
+    ``BENCH_NUM_CTX`` / ``BENCH_NUM_GPU`` still win over the profile values
+    so ad-hoc experiments don't require editing the file.
     """
 
-    PROMPT = (
-        "Extract the data from this chart.\n"
-        "Rules:\n"
-        "- chart_type: one of bar_chart, grouped_bar_chart, stacked_bar_chart, "
-        "horizontal_bar_chart, line_chart.\n"
-        "- Use the x-axis category labels EXACTLY as printed. Do not invent "
-        "dates, years, or names.\n"
-        "- Series naming: if there is a legend, use the legend labels. "
-        "If there is NO legend (single-series chart), use the y-axis title "
-        "as the series name. Never leave the name blank.\n"
-        "- Read each y-value from the y-axis scale and the bar / marker height. "
-        "If numeric labels are printed on the bars, prefer those.\n"
-        "- Watch y-axis units: '200K' = 200000, '1.5M' = 1500000, "
-        "'2.3B' = 2300000000. Return plain numbers, no suffixes, no extra zeros.\n"
-        "- confidence: a number from 0.0 to 1.0 reflecting how certain you are "
-        "that the extracted values are correct. Lower it for charts without "
-        "printed value labels or with hard-to-read axes.\n"
-        "- Do not output series, categories, or values that do not appear on "
-        "the chart."
-    )
-
-    def __init__(self, model: str = "qwen2.5vl:7b"):
-        self.name = model
-        self._model = model
-        # tune via env: BENCH_NUM_CTX (context), BENCH_NUM_GPU (layers on GPU)
-        self._options = {"num_ctx": int(os.environ.get("BENCH_NUM_CTX", "2048"))}
-        if os.environ.get("BENCH_NUM_GPU") is not None:
-            self._options["num_gpu"] = int(os.environ["BENCH_NUM_GPU"])
+    def __init__(self, profile: VLMProfile | None = None,
+                 model_override: str | None = None):
+        profile = profile or VLMProfile()
+        self.name = model_override or profile.model
+        self._model = self.name
+        self._prompt = profile.prompt
+        self._options: dict = {
+            "num_ctx": int(os.environ.get("BENCH_NUM_CTX", str(profile.num_ctx))),
+        }
+        env_gpu = os.environ.get("BENCH_NUM_GPU")
+        if env_gpu is not None:
+            self._options["num_gpu"] = int(env_gpu)
+        elif profile.num_gpu is not None:
+            self._options["num_gpu"] = profile.num_gpu
 
     def extract(self, image_path: Path) -> ChartData:
         import ollama  # pylint: disable=import-outside-toplevel,import-error
         resp = ollama.chat(
             model=self._model,
-            messages=[{"role": "user", "content": self.PROMPT,
+            messages=[{"role": "user", "content": self._prompt,
                        "images": [str(image_path)]}],
             format=ChartData.model_json_schema(),   # <- guarantees schema-valid JSON
             options=self._options,
@@ -295,7 +290,7 @@ _CSS = """
  h2{margin-top:32px;border-bottom:1px solid #ddd;padding-bottom:4px}
  .stats{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
  .stat{background:#f4f6f8;border-radius:10px;padding:12px 16px;
-       min-width:90px;text-align:center}
+       min-width:90px;text-align:center;cursor:help}
  .stat .v{font-size:22px;font-weight:700} .stat .k{font-size:12px;color:#666}
  .tables{display:flex;flex-wrap:wrap;gap:24px}
  .grid{display:flex;flex-wrap:wrap;gap:14px}
@@ -339,7 +334,7 @@ def _pct(x: float) -> str:
 def _group_table(title: str, rows: list[tuple]) -> str:
     body = "".join(
         f"<tr><td>{html.escape(str(k))}</td><td>{n}</td>"
-        f"<td>{_pct(err)}</td><td>{rec*100:.1f}%</td><td>{sec*1000:.0f} ms</td></tr>"
+        f"<td>{_pct(err)}</td><td>{rec*100:.1f}%</td><td>{sec:.1f} s</td></tr>"
         for k, n, err, rec, sec in rows
     )
     return (f"<table class='full' style='max-width:560px'><thead><tr><th>{title}</th>"
@@ -389,7 +384,7 @@ def _detail_card(r: ChartResult, img_dir: Path) -> str:
         <b>{html.escape(r.image)}</b> · {preset}
         · d{r.meta.get('density', '?')} · labels={r.meta.get('labels_on')}
         {_type_chip(r)}{_conf_chip(r)}<br/>
-        mean {_pct(r.mean_pct)} · max {_pct(r.max_pct)} · {r.seconds*1000:.0f} ms
+        mean {_pct(r.mean_pct)} · max {_pct(r.max_pct)} · {r.seconds:.1f} s
         · missed {r.missed} · extra {r.extra}
         <table class="kv">{kv_head}{rows}</table>
       </div>
@@ -397,27 +392,52 @@ def _detail_card(r: ChartResult, img_dir: Path) -> str:
 
 
 def _summary_cards(agg: dict) -> str:
+    """Build the top-of-report stat strip. Each card has a hover description."""
     type_acc = agg["type_accuracy"]
     type_str = "-" if math.isnan(type_acc) else f"{type_acc*100:.0f}%"
     conf = agg["mean_confidence"]
     conf_str = "-" if math.isnan(conf) else f"{conf:.2f}"
-    cards = [
-        ("Charts", agg["n_charts"]), ("Mean error", _pct(agg["mean_pct"])),
-        ("Median", _pct(agg["median_pct"])), ("p95", _pct(agg["p95_pct"])),
-        ("Recall", f"{agg['recall']*100:.1f}%"),
-        ("Precision", f"{agg['precision']*100:.1f}%"),
-        ("≤1%", f"{agg['within_1pct']*100:.0f}%"),
-        ("≤5%", f"{agg['within_5pct']*100:.0f}%"),
-        ("Type acc", type_str), ("Mean conf", conf_str),
-        ("Missed", agg["missed_total"]), ("Extra", agg["extra_total"]),
-        ("Mean time", f"{agg['mean_sec']*1000:.0f} ms"),
-        ("p95 time", f"{agg['p95_sec']*1000:.0f} ms"),
-        ("Total time", f"{agg['total_sec']:.1f} s"),
+    cards: list[tuple[str, object, str]] = [
+        ("Charts", agg["n_charts"],
+         "Number of chart images scored in this run."),
+        ("Mean error", _pct(agg["mean_pct"]),
+         "Mean per-bar error across all matched bars. "
+         "Error = |predicted − true| as a percentage of the true value."),
+        ("Median", _pct(agg["median_pct"]),
+         "Median per-bar error. Less sensitive to outliers than the mean."),
+        ("p95", _pct(agg["p95_pct"]),
+         "95th-percentile per-bar error: 95% of matched bars are at or below this."),
+        ("Recall", f"{agg['recall']*100:.1f}%",
+         "Fraction of true bars the extractor returned and matched. "
+         "100% = no bars missed."),
+        ("Precision", f"{agg['precision']*100:.1f}%",
+         "Fraction of predicted bars that matched a true bar. "
+         "100% = no hallucinated extras."),
+        ("≤1%", f"{agg['within_1pct']*100:.0f}%",
+         "Share of matched bars whose error is within 1% of the true value."),
+        ("≤5%", f"{agg['within_5pct']*100:.0f}%",
+         "Share of matched bars whose error is within 5% of the true value."),
+        ("Type acc", type_str,
+         "Fraction of charts where the extractor's chart_type matches truth. "
+         "Only counts charts where both sides reported a type."),
+        ("Mean conf", conf_str,
+         "Average self-reported confidence (0–1). "
+         "Not necessarily calibrated against actual error."),
+        ("Missed", agg["missed_total"],
+         "Total true bars the extractor failed to return across all charts."),
+        ("Extra", agg["extra_total"],
+         "Total predicted bars with no matching true bar (hallucinations)."),
+        ("Mean time", f"{agg['mean_sec']:.1f} s",
+         "Average extractor wall-clock time per chart."),
+        ("p95 time", f"{agg['p95_sec']:.1f} s",
+         "95th-percentile per-chart time: 95% of charts finished within this."),
+        ("Total time", f"{agg['total_sec']:.1f} s",
+         "Total wall-clock time across all charts."),
     ]
     return "".join(
-        f'<div class="stat"><div class="v">{v}</div>'
-        f'<div class="k">{k}</div></div>'
-        for k, v in cards)
+        f'<div class="stat" title="{html.escape(desc)}">'
+        f'<div class="v">{v}</div><div class="k">{k}</div></div>'
+        for k, v, desc in cards)
 
 
 def _chart_row(r: ChartResult) -> str:
@@ -441,14 +461,43 @@ def _chart_row(r: ChartResult) -> str:
         f'<td data-v="{mean_v}">{_pct(r.mean_pct)}</td>'
         f'<td data-v="{max_v}">{_pct(r.max_pct)}</td>'
         f'<td data-v="{conf_sort}">{conf_v}</td>'
-        f'<td data-v="{r.seconds}">{r.seconds*1000:.0f} ms</td></tr>')
+        f'<td data-v="{r.seconds}">{r.seconds:.1f} s</td></tr>')
+
+
+def _rank_score(r: ChartResult) -> float:
+    """Composite score for ranking charts; higher = worse.
+
+    Priority order (per researcher feedback):
+    1. Per-bar value accuracy: ``mean_pct + max_pct`` (% of true value).
+       Max is included so a single 50%-off bar doesn't get washed out by a
+       bunch of near-perfect ones.
+    2. Label match: small penalty scaled by the fraction of bars that
+       missed or were hallucinated.
+
+    Zero-match charts get ``+inf`` so a catastrophic failure (recall 0%)
+    bubbles to the top of Worst even though it has no value-error data.
+    """
+    if not r.errors_pct:
+        return float("inf")
+    value_error = r.mean_pct + r.max_pct
+    denom = r.n_true + r.extra or 1
+    label_loss = (r.missed + r.extra) / denom * 5.0
+    return value_error + label_loss
+
+
+def _pane_heading(title: str, shown: int, total: int, desc: str) -> str:
+    return (f"<h2 title=\"{html.escape(desc)}\" style=\"cursor:help\">"
+            f"{title} <small>· {shown} of {total} charts</small></h2>")
 
 
 def write_html(path: Path, extractor: str, agg: dict, results: list[ChartResult],
                img_dir: Path, n_show: int = 6) -> None:
-    ok = [r for r in results if r.errors_pct]
-    best = sorted(ok, key=lambda r: r.mean_pct)[:n_show]
-    worst = sorted(ok, key=lambda r: r.mean_pct, reverse=True)[:n_show]
+    by_score = sorted(results, key=lambda r: (_rank_score(r), r.image))
+    n = min(n_show, len(by_score))
+    best = by_score[:n]
+    # Avoid overlap on small runs: worst takes from the *other* end and skips
+    # anything already in best.
+    worst = [r for r in reversed(by_score) if r not in best][:n]
 
     summary = _summary_cards(agg)
     table_rows = "".join(_chart_row(r) for r in results)
@@ -472,8 +521,16 @@ type prediction. Mean conf = average self-reported confidence (VLM).</p>
 <h2>Breakdowns</h2>
 <div class="tables">{by_preset}{by_density}{by_labels}</div>
 
-<h2>Worst {len(worst)}</h2><div class="grid">{worst_html}</div>
-<h2>Best {len(best)}</h2><div class="grid">{best_html}</div>
+{_pane_heading("Worst", len(worst), len(results),
+    "Ranked by combined value error (mean + max, % of true value) "
+    "plus a small label-match penalty. "
+    "Charts that matched no bars (recall 0%) are listed first.")}
+<div class="grid">{worst_html}</div>
+{_pane_heading("Best", len(best), len(results),
+    "Same composite score as Worst, ascending. "
+    "Charts with the lowest combined value error and the cleanest "
+    "label match are ranked first.")}
+<div class="grid">{best_html}</div>
 
 <h2>All charts <small>(click a header to sort)</small></h2>
 <table class="full" id="t"><thead><tr>
@@ -513,12 +570,26 @@ def load_truth(data_dir: Path) -> dict:
     return truth
 
 
-def build_extractor(name: str, truth: dict, rng: np.random.Generator) -> Extractor:
+def build_extractor(name: str, truth: dict, rng: np.random.Generator,
+                    profile: VLMProfile | None = None) -> Extractor:
     if name == "noisy-oracle":
         return NoisyOracle(truth, rng)
+    if name == "ollama":
+        return OllamaVLM(profile=profile)
     if name.startswith("ollama:"):
-        return OllamaVLM(name.split(":", 1)[1])
-    raise SystemExit(f"unknown extractor {name!r} (try: noisy-oracle, ollama:<model>)")
+        return OllamaVLM(profile=profile, model_override=name.split(":", 1)[1])
+    raise SystemExit(
+        f"unknown extractor {name!r} (try: noisy-oracle, ollama, ollama:<model>)")
+
+
+def _resolve_profile(config_arg: Path | None) -> VLMProfile:
+    """CLI flag > config/vlm.toml in cwd > built-in default."""
+    if config_arg is not None:
+        return load_profile(config_arg)
+    default_path = Path("config/vlm.toml")
+    if default_path.exists():
+        return load_profile(default_path)
+    return VLMProfile()
 
 
 def _run_extractor(extractor: Extractor, truth: dict, images: list[str],
@@ -576,12 +647,12 @@ def _print_summary(extractor: Extractor, agg: dict, results: list[ChartResult],
     print(f"  type accuracy      : {type_str}")
     print(f"  mean confidence    : {conf_str}")
     print(f"  missed/extra bars  : {agg['missed_total']} / {agg['extra_total']}")
-    print(f"  time per chart     : mean {agg['mean_sec']*1000:.0f} ms · "
-          f"p95 {agg['p95_sec']*1000:.0f} ms · total {agg['total_sec']:.1f} s")
+    print(f"  time per chart     : mean {agg['mean_sec']:.1f} s · "
+          f"p95 {agg['p95_sec']:.1f} s · total {agg['total_sec']:.1f} s")
     print("\n  by preset (err / recall / time):")
     for k, n, err, rec, sec in group_summary(results, "preset"):
         print(f"    {str(k):14s} {_pct(err):>8}  recall {rec*100:3.0f}%  "
-              f"{sec*1000:6.0f} ms  ({n})")
+              f"{sec:6.1f} s  ({n})")
     print(f"\n  report -> {out / 'report.html'}")
     print(f"  json   -> {out / 'results.json'}")
 
@@ -593,7 +664,10 @@ def _parse_args() -> argparse.Namespace:
                     help="synthetic dataset dir (images/ + labels.jsonl)")
     ap.add_argument("--out", type=Path, default=Path("reports/latest"))
     ap.add_argument("--extractor", default="noisy-oracle",
-                    help="noisy-oracle | ollama:<model> (see build_extractor)")
+                    help="noisy-oracle | ollama | ollama:<model> "
+                         "(ollama uses the profile's model; ollama:<tag> overrides it)")
+    ap.add_argument("--vlm-config", type=Path, default=None,
+                    help="VLM profile TOML (default: config/vlm.toml if present)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None, help="only first N charts")
     return ap.parse_args()
@@ -601,10 +675,11 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
+    profile = _resolve_profile(args.vlm_config)
     truth = load_truth(args.data)
     images = sorted(truth)[: args.limit] if args.limit else sorted(truth)
     rng = np.random.default_rng(args.seed)
-    extractor = build_extractor(args.extractor, truth, rng)
+    extractor = build_extractor(args.extractor, truth, rng, profile=profile)
     img_dir = args.data / "images"
 
     results = _run_extractor(extractor, truth, images, img_dir)

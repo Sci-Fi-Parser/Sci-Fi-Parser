@@ -1,11 +1,12 @@
 # Synthetic bar-chart generator -- configuration
 # ----------------------------------------------
-# Every key overrides the matching field in GenConfig (scripts/synthetic_bars.py).
+# Every key overrides the matching field in GenConfig
+# (src/sci_fi_parser/accuracy/synthetic/config.py).
 # Default mode is a CONTROLLED DENSITY SERIES: per enabled type, the style is fixed
 # once and only the bar count varies across density_steps; each density is rendered
 # both with and without value labels (a 50/50 matched pair).
 #
-# Run:  .venv/bin/python scripts/synthetic_bars.py --config scripts/synthetic_bars.toml --overlay --sqlite
+# Run:  synthetic-bars --config config/synthetic_bars.toml --overlay --sqlite
 
 # Which catalog types to generate (by alias). Run `--preview` to see a small
 # sample of every type, then list the ones you want here. Each gets its own

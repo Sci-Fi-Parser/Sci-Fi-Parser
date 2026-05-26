@@ -1,7 +1,7 @@
 """Generator configuration: the chart-type catalog and tunable knobs.
 
 Every :class:`GenConfig` field is overridable from a TOML file via :func:`load_config`
-(see ``scripts/synthetic_bars.toml``).
+(see ``config/synthetic_bars.toml``).
 """
 
 from __future__ import annotations
