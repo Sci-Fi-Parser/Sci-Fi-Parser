@@ -33,7 +33,6 @@ import html
 import io
 import json
 import math
-import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -43,6 +42,7 @@ from statistics import mean
 import numpy as np
 from PIL import Image
 
+from sci_fi_parser.accuracy.vlm import OllamaVLM
 from sci_fi_parser.accuracy.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.schema import (
     ChartData, ChartType, Extractor, Point, Series,
@@ -63,10 +63,16 @@ def truth_to_map(series: list[dict]) -> dict[tuple[str, str], float]:
 # Test double + Ollama skeleton (the Extractor protocol lives in sci_fi_parser.schema)
 # --------------------------------------------------------------------------- #
 class NoisyOracle:
-    """TEST double: returns true values perturbed by noise + occasional miss/extra.
+    """Harness sanity-check — run this before any real model to confirm the pipeline works.
 
-    Lets us exercise the harness and report without a real model. Noise is scaled
-    by the value-axis span, matching the %-of-span error metric. Not a real model.
+    Returns true values perturbed by Gaussian noise plus occasional missed/extra bars.
+    If the oracle scores ~3% error (rel_noise default), the scoring, report, and JSONL
+    output are all wired up correctly. A score of 0% or wildly off means a harness bug,
+    not a model problem. Not a substitute for a real extractor.
+
+    Noise is scaled by the value-axis span so the oracle degrades consistently across
+    charts regardless of their units. value_range in labels.jsonl must reflect the actual
+    data range — if it doesn't, the oracle looks artificially perfect and the check is useless.
     """
 
     def __init__(self, truth_by_image: dict, rng: np.random.Generator,
@@ -98,46 +104,6 @@ class NoisyOracle:
         conf = float(np.clip(self._rng.normal(0.9, 0.05), 0, 1))
         return ChartData(chart_type=entry.get("chart_type"),
                          series=out_series, confidence=conf)
-
-
-class OllamaVLM:
-    """Local VLM via Ollama with schema-ENFORCED JSON output.
-
-    Ollama's ``format=`` accepts a JSON schema and guarantees the reply conforms
-    to it — standardization-at-source for the VLM path. Needs ``pip install
-    ollama`` and the model pulled (``ollama pull <model>``).
-
-    The model tag, prompt, and ollama options come from a :class:`VLMProfile`
-    so they're swappable from a TOML file without touching code. Env vars
-    ``BENCH_NUM_CTX`` / ``BENCH_NUM_GPU`` still win over the profile values
-    so ad-hoc experiments don't require editing the file.
-    """
-
-    def __init__(self, profile: VLMProfile | None = None,
-                 model_override: str | None = None):
-        profile = profile or VLMProfile()
-        self.name = model_override or profile.model
-        self._model = self.name
-        self._prompt = profile.prompt
-        self._options: dict = {
-            "num_ctx": int(os.environ.get("BENCH_NUM_CTX", str(profile.num_ctx))),
-        }
-        env_gpu = os.environ.get("BENCH_NUM_GPU")
-        if env_gpu is not None:
-            self._options["num_gpu"] = int(env_gpu)
-        elif profile.num_gpu is not None:
-            self._options["num_gpu"] = profile.num_gpu
-
-    def extract(self, image_path: Path) -> ChartData:
-        import ollama  # pylint: disable=import-outside-toplevel,import-error
-        resp = ollama.chat(
-            model=self._model,
-            messages=[{"role": "user", "content": self._prompt,
-                       "images": [str(image_path)]}],
-            format=ChartData.model_json_schema(),   # <- guarantees schema-valid JSON
-            options=self._options,
-        )
-        return parse_chartdata(resp["message"]["content"])
 
 
 # --------------------------------------------------------------------------- #
