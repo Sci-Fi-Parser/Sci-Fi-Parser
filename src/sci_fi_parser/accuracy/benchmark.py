@@ -640,21 +640,40 @@ def _parse_args() -> argparse.Namespace:
     return ap.parse_args()
 
 
-def main() -> None:
-    args = _parse_args()
-    profile = _resolve_profile(args.vlm_config)
-    truth = load_truth(args.data)
-    images = sorted(truth)[: args.limit] if args.limit else sorted(truth)
-    rng = np.random.default_rng(args.seed)
-    extractor = build_extractor(args.extractor, truth, rng, profile=profile)
-    img_dir = args.data / "images"
+def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle",
+                  profile: VLMProfile | None = None,
+                  seed: int = 0, limit: int | None = None,
+                  print_summary: bool = True) -> dict:
+    """End-to-end run: load truth, score, write report.html + results.json.
+
+    Returns the aggregate dict. Public entry point so other tools (e.g. the
+    cross-model comparison runner) can drive it without going through argparse.
+    """
+    truth = load_truth(data)
+    images = sorted(truth)[:limit] if limit else sorted(truth)
+    rng = np.random.default_rng(seed)
+    extractor = build_extractor(extractor_name, truth, rng, profile=profile)
+    img_dir = data / "images"
 
     results = _run_extractor(extractor, truth, images, img_dir)
     agg = aggregate(results)
-    args.out.mkdir(parents=True, exist_ok=True)
-    _write_results_json(args.out, extractor, agg, results)
-    write_html(args.out / "report.html", extractor.name, agg, results, img_dir)
-    _print_summary(extractor, agg, results, args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    _write_results_json(out, extractor, agg, results)
+    write_html(out / "report.html", extractor.name, agg, results, img_dir)
+    if print_summary:
+        _print_summary(extractor, agg, results, out)
+    return agg
+
+
+def main() -> None:
+    args = _parse_args()
+    profile = _resolve_profile(args.vlm_config)
+    run_benchmark(
+        data=args.data, out=args.out,
+        extractor_name=args.extractor,
+        profile=profile,
+        seed=args.seed, limit=args.limit,
+    )
 
 
 if __name__ == "__main__":

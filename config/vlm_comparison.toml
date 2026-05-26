@@ -1,0 +1,47 @@
+# Cross-model VLM comparison.
+#
+# Each [[model]] entry produces its own benchmark report and contributes one
+# row to the leaderboard. `[defaults]` values apply to every model unless the
+# entry overrides them.
+#
+# Run with:  benchmark-compare --config config/vlm_comparison.toml
+# (CLI flags override the [run] table below; relative paths resolve from cwd.)
+#
+# Missing models trigger an interactive prompt unless --pull is set. Use
+# --pull circular to pull/run/remove one at a time when disk is tight.
+
+# Inherit the canonical prompt + tunables from the single-model profile.
+# Merge order: dataclass defaults -> this `extends` file -> [defaults] below
+# -> per-[[model]] overrides. Set fields in [defaults] only to *differ* from
+# vlm.toml across the whole comparison.
+extends = "vlm.toml"
+
+[run]
+data = "train_data/synthetic"
+out  = "reports/comparison"
+seed = 0
+# pull = "circular"   # uncomment to skip the prompt
+# limit = 1           # smoke run
+
+# ---------- Models ----------
+
+[[model]]
+name = "qwen-7b-q4"
+model = "qwen2.5vl:7b"
+
+[[model]]
+name = "qwen-7b-q8"
+model = "qwen2.5vl:7b-q8_0"
+
+[[model]]
+name = "qwen-3b"
+model = "qwen2.5vl:3b"
+
+# Uncomment to test other families (pull first with `ollama pull <tag>`):
+# [[model]]
+# name = "llama-vision-11b"
+# model = "llama3.2-vision:11b"
+#
+# [[model]]
+# name = "minicpm-v"
+# model = "minicpm-v"
