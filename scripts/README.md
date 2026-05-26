@@ -24,10 +24,16 @@ font-shrunk) so they never overlap — like a real chart.
 .venv/bin/python scripts/synthetic_bars.py --config scripts/synthetic_bars.toml --overlay --sqlite
 ```
 
-- Enable types and set the ladder in `synthetic_bars.toml` (`[type_enabled]`,
-  `density_steps = [4,5,7,9,10,12,15,20,25,30]`).
-- Per enabled type: `per_type` series × (10 densities × off/on). Default (only
-  `bar_chart`, `per_type=1`) → **20 images**.
+- Pick types, density ladder, and resolutions in `synthetic_bars.toml`:
+  `output_types = ["simple", "2-line", …]`, `density_steps = [...]`,
+  `resolutions = [240, 480, 720]`. Run with `--preview` first to see a small
+  sample of every catalog type.
+- Catalog aliases: `simple multicolor grouped stacked horizontal line 2-line
+  3-line multiline`.
+- `resolutions` = output image heights in px (aspect preserved); each chart is
+  rendered at every resolution, value appended to the filename.
+- **Total images = types × per_type × densities × 2 (off/on) × resolutions.**
+  Default (`["simple"]`, `per_type=1`, one resolution) → **20 images**.
 - `meta.pair_id` links each off/on twin; `meta.series_id` groups a density ramp;
   `meta.density` is the bar count — use these to plot accuracy-vs-density.
 
@@ -35,15 +41,17 @@ Useful flags:
 
 | Flag | Effect |
 |------|--------|
+| `--preview` | render one small sample of every catalog type into `preview/` |
 | `--random N` | random mode instead: N fully-random charts (variety/volume) |
 | `--augment` | add JPEG/noise/blur realism (labels stay exact) |
 | `--overlay` | write `_debug/overlay_*.png` to eyeball label accuracy |
 | `--sqlite` | write `dataset.sqlite3` mirroring the real schema + geometry/meta |
+| `--refresh` | delete prior `images/`, `_debug/`, `labels.jsonl`, `dataset.sqlite3` in `--out` first |
 | `--config FILE` | override knobs from TOML (see `synthetic_bars.toml`) |
 | `--seed N` | reproducibility |
 
 **Outputs** in `--out`:
-- `images/<type>_s<k>_d<NN>_{off,on}.png` (series) or `random_NNNNN.png`.
+- `images/<type>_s<k>_d<NN>_{off,on}_<res>.png` (series) or `random_NNNNN_<res>.png`.
 - `labels.jsonl` — per chart: `label1` (type), `label2` (axes + per-series points +
   `value_range`), `geometry` (bboxes + value-axis ticks, or `null`), `meta`.
 - `_debug/` overlays (with `--overlay`), `dataset.sqlite3` (with `--sqlite`).
@@ -94,6 +102,18 @@ extractor** (it reads text, not data points) — pair it with CV.
 
 ---
 
+## Where the code lives
+
+These two `scripts/` entries are thin shims; the real code is the importable
+package `sci_fi_parser.accuracy`:
+
+- `scripts/synthetic_bars.py` → `src/sci_fi_parser/accuracy/synthetic/`
+- `scripts/benchmark.py`      → `src/sci_fi_parser/accuracy/benchmark.py`
+
+The pipeline imports the package directly; the shims just keep the documented
+CLI paths working.
+
 ## Dependencies
-`matplotlib` (generator) and `pydantic` (benchmark schema). `pydantic` comes in
-via `docling`; `matplotlib` should be added to the dev dependency group.
+Runtime deps (`matplotlib`, `numpy`, `pillow`, `pydantic`) are pinned in
+`pyproject.toml`. `opencv-python` (overlays) and `ollama` (VLM extractor) are
+optional extras — install with `pip install -e ".[cv,ollama]"` if you need them.
