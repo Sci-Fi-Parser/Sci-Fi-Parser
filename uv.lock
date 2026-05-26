@@ -2241,6 +2241,7 @@ dependencies = [
     { name = "docling" },
     { name = "matplotlib" },
     { name = "numpy" },
+    { name = "ollama" },
     { name = "pillow" },
     { name = "pydantic" },
 ]
@@ -2248,9 +2249,6 @@ dependencies = [
 [package.optional-dependencies]
 cv = [
     { name = "opencv-python" },
-]
-ollama = [
-    { name = "ollama" },
 ]
 
 [package.dev-dependencies]
@@ -2264,12 +2262,12 @@ requires-dist = [
     { name = "docling", specifier = ">=2.90" },
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "ollama", marker = "extra == 'ollama'", specifier = ">=0.3" },
+    { name = "ollama", specifier = ">=0.3" },
     { name = "opencv-python", marker = "extra == 'cv'", specifier = ">=4.10" },
     { name = "pillow", specifier = ">=10.0" },
     { name = "pydantic", specifier = ">=2.0" },
 ]
-provides-extras = ["cv", "ollama"]
+provides-extras = ["cv"]
 
 [package.metadata.requires-dev]
 dev = [

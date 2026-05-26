@@ -1,10 +1,10 @@
 """Command-line entry point for the synthetic generator.
 
-Run via the thin wrapper (keeps the documented path working)::
+Run via the installed entry point (created by ``uv sync``)::
 
-    python scripts/synthetic_bars.py --config scripts/synthetic_bars.toml --overlay
-    python scripts/synthetic_bars.py --preview --out train_data/synthetic
-    python scripts/synthetic_bars.py --random 200 --out /tmp/synth
+    synthetic-bars --config config/synthetic_bars.toml --overlay
+    synthetic-bars --preview --out train_data/synthetic
+    synthetic-bars --random 200 --out /tmp/synth
 
 or as a module::
 

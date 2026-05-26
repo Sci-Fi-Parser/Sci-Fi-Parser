@@ -89,6 +89,31 @@ def test_benchmark_module_imports():
     assert callable(benchmark.aggregate)
 
 
+def test_vlm_profile_load(tmp_path):
+    """The VLM profile is loaded from a TOML file; unknown keys are rejected."""
+    from sci_fi_parser.accuracy.vlm_config import VLMProfile, load_profile
+
+    p = tmp_path / "vlm.toml"
+    p.write_text(
+        'model = "test-model:1b"\n'
+        'prompt = "hello"\n'
+        'num_ctx = 1024\n',
+        encoding="utf-8",
+    )
+    profile = load_profile(p)
+    assert profile.model == "test-model:1b"
+    assert profile.prompt == "hello"
+    assert profile.num_ctx == 1024
+    assert profile.num_gpu is None       # dataclass default
+    assert isinstance(VLMProfile().model, str)  # built-in default is non-empty
+
+    # Typos must raise — silent fallthrough would be a debugging nightmare.
+    bad = tmp_path / "bad.toml"
+    bad.write_text('modle = "oops"\n', encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_profile(bad)
+
+
 def test_accuracy_init_does_not_pull_matplotlib():
     # The package __init__ deliberately doesn't import `synthetic`, so a caller
     # that only needs `benchmark` shouldn't pay the matplotlib import cost.
