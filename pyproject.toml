@@ -3,11 +3,21 @@ name = "sci-fi-parser"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-  "docling>=2.90"
+  "docling>=2.90",
+  "pydantic>=2.0",
 ]
 description = "A package to to parse data from graphs in documents."
 readme = "README.md"
 license = "MIT"
+
+[project.optional-dependencies]
+hf_transformers = [
+  "transformers>=4.45",
+  "torch>=2.4",
+  "accelerate>=0.34",
+  "pillow>=10.0",
+  "outlines>=1.0",
+]
 
 [build-system]
 requires = ["hatchling >= 1.26"]
