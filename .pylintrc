@@ -24,7 +24,9 @@ disable=raw-checker-failed,
         unused-import
 
 [TYPECHECK]
-# opencv-python's C extension members are invisible to static analysis.
+# opencv-python is an optional extra (not installed in the default env).
+# Tell pylint to neither try to import it nor flag its C-extension members.
+ignored-modules=cv2
 generated-members=cv2.*
 
 [FORMAT]
