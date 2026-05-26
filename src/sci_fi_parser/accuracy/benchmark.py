@@ -36,57 +36,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import mean
-from typing import Protocol
 
 import numpy as np
 from PIL import Image
-from pydantic import BaseModel
 
-
-# --------------------------------------------------------------------------- #
-# Canonical schema -- the standardization target every extractor must speak
-# --------------------------------------------------------------------------- #
-class Point(BaseModel):
-    x: str | float          # category label (bars) or numeric x
-    y: float
-
-
-class Series(BaseModel):
-    name: str = "series"
-    points: list[Point]
-
-
-class ChartData(BaseModel):
-    """The one format. VLMs are constrained to emit it; OCR/CV are mapped into it."""
-
-    series: list[Series]
-    confidence: float | None = None
-
-    def series_map(self) -> dict[tuple[str, str], float]:
-        """Flatten to {(series_name, category): value} for matching."""
-        out: dict[tuple[str, str], float] = {}
-        for s in self.series:
-            for p in s.points:
-                out[(s.name, str(p.x))] = float(p.y)
-        return out
-
-
-def parse_chartdata(raw: str | dict) -> ChartData:
-    """Validate (and lightly repair) extractor output into ChartData.
-
-    Real VLM output is messy -- code fences, prose, trailing commas. This is the
-    repair half of the standardization layer; constrained decoding is the other.
-    """
-    if isinstance(raw, str):
-        text = raw.strip()
-        if "```" in text:                       # strip ```json ... ``` fences
-            text = text.split("```")[1]
-            text = text[4:] if text.lstrip().lower().startswith("json") else text
-        start, end = text.find("{"), text.rfind("}")
-        if start != -1 and end != -1:
-            text = text[start : end + 1]
-        raw = json.loads(text)
-    return ChartData.model_validate(raw)
+from sci_fi_parser.schema import ChartData, Extractor, Point, Series, parse_chartdata
 
 
 def truth_to_map(series: list[dict]) -> dict[tuple[str, str], float]:
@@ -99,15 +53,8 @@ def truth_to_map(series: list[dict]) -> dict[tuple[str, str], float]:
 
 
 # --------------------------------------------------------------------------- #
-# Extractor interface (runtime-agnostic) + a test double + an Ollama skeleton
+# Test double + Ollama skeleton (the Extractor protocol lives in sci_fi_parser.schema)
 # --------------------------------------------------------------------------- #
-class Extractor(Protocol):
-    name: str
-
-    def extract(self, image_path: Path) -> ChartData:
-        ...
-
-
 class NoisyOracle:
     """TEST double: returns true values perturbed by noise + occasional miss/extra.
 
@@ -153,9 +100,23 @@ class OllamaVLM:
     ollama`` and the model pulled (``ollama pull <model>``).
     """
 
-    PROMPT = ("Extract the data from this chart (bar or line). Return ONLY JSON: "
-              "every series with its name and a list of "
-              "{\"x\": category, \"y\": value} points.")
+    PROMPT = (
+        "Extract the data from this chart.\n"
+        "Rules:\n"
+        "- Use the x-axis category labels EXACTLY as printed on the chart. "
+        "Do not invent dates, years, or names.\n"
+        "- Series naming: if the chart has a legend, use legend labels. "
+        "If there is NO legend (single-series chart), use the y-axis title "
+        "as the series name. Never leave the name blank.\n"
+        "- Read each y-value from the chart's y-axis scale and the bar height "
+        "or marker position. If numeric value labels are printed on the bars, "
+        "prefer those.\n"
+        "- Watch the y-axis units carefully: a tick labelled '200K' means "
+        "200,000, '1.5M' means 1,500,000, '2.3B' means 2,300,000,000. "
+        "Return plain numbers (no suffixes) and do not add or drop zeros.\n"
+        "- Do not output series, categories, or values that do not appear on "
+        "the chart."
+    )
 
     def __init__(self, model: str = "qwen2.5vl:7b"):
         self.name = model
@@ -203,12 +164,31 @@ class ChartResult:
         return max(self.errors_pct) if self.errors_pct else float("nan")
 
 
+def _align_series_names(tmap: dict[tuple[str, str], float],
+                        pmap: dict[tuple[str, str], float]
+                        ) -> dict[tuple[str, str], float]:
+    """Rekey `pmap` to use truth series names when the alignment is unambiguous.
+
+    Reason: single-series charts often have no legend, so the VLM can't read off
+    a series name and falls back to a default. Demanding an exact series-name
+    match in that case throws away all the (correct) per-category values.
+    Rule: if BOTH sides have exactly one series, treat them as the same series.
+    Multi-series alignment stays strict — order matters when series are distinct.
+    """
+    truth_names = {s for s, _ in tmap}
+    pred_names = {s for s, _ in pmap}
+    if len(truth_names) == 1 and len(pred_names) == 1 and truth_names != pred_names:
+        (truth_name,) = truth_names
+        return {(truth_name, cat): v for (_, cat), v in pmap.items()}
+    return pmap
+
+
 def score_chart(image: str, entry: dict, pred: ChartData) -> ChartResult:
     """Match predicted to true bars by (series, category); error = % of span."""
     lo, hi = entry["value_range"]
     span = abs(hi - lo) or 1.0
     tmap = truth_to_map(entry["series"])
-    pmap = pred.series_map()
+    pmap = _align_series_names(tmap, pred.series_map())
 
     errors, matched = [], 0
     for key, tv in tmap.items():

@@ -11,6 +11,42 @@ import subprocess
 import sys
 
 
+def test_schema_module_imports():
+    from sci_fi_parser.schema import (
+        ChartData, Extractor, Point, Series, parse_chartdata,
+    )
+
+    # Round-trip: dict -> ChartData -> series_map.
+    cd = ChartData(series=[Series(name="s", points=[Point(x="a", y=1.0)])])
+    assert cd.series_map() == {("s", "a"): 1.0}
+
+    # parse_chartdata strips code fences from messy VLM-style output.
+    parsed = parse_chartdata('```json\n{"series": []}\n```')
+    assert parsed.series == []
+
+    # Extractor is runtime-checkable.
+    class Dummy:
+        name = "d"
+        def extract(self, image_path):  # noqa: ARG002
+            return ChartData(series=[])
+    assert isinstance(Dummy(), Extractor)
+
+
+def test_schema_is_light():
+    # The schema module must not pull in matplotlib / opencv / ollama; consumers
+    # (cv extractor, main pipeline) should be able to import it cheaply.
+    import subprocess as sp
+    proc = sp.run(
+        [sys.executable, "-c",
+         "import sci_fi_parser.schema, sys; "
+         "heavy = {'matplotlib', 'cv2', 'ollama'}; "
+         "leaked = heavy & set(sys.modules); "
+         "sys.exit(0 if not leaked else 1)"],
+        check=False,
+    )
+    assert proc.returncode == 0, "sci_fi_parser.schema leaked a heavy import"
+
+
 def test_synthetic_package_imports():
     from sci_fi_parser.accuracy.synthetic import cli, config, generate, output
 
