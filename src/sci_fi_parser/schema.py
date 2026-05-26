@@ -1,12 +1,3 @@
-"""Extraction contract — the shape every extractor returns.
-
-Shared by every extractor (VLM today, CV+OCR later) and consumed by the
-writer / analytics layer downstream. Kept deliberately small: only what the
-pipeline needs to flatten a chart into JSONL rows (one `charts.jsonl` record
-+ N `datapoints.jsonl` records). No confidence field — VLM self-reported
-confidence is not calibrated.
-"""
-
 from __future__ import annotations
 
 import json
