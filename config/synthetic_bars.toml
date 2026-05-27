@@ -6,7 +6,34 @@
 # once and only the bar count varies across density_steps; each density is rendered
 # both with and without value labels (a 50/50 matched pair).
 #
-# Run:  synthetic-bars --config config/synthetic_bars.toml --overlay --sqlite
+# Run:  synthetic-bars --config config/synthetic_bars.toml --out train_data/synthetic
+#
+# CLI flags for `synthetic-bars`:
+#   --config <path>   THIS file (overrides GenConfig defaults). Without it,
+#                     the hard-coded defaults in config.py are used.
+#   --out <dir>       where to write images/ + labels.jsonl. Default: a
+#                     temp dir under CWD; set this explicitly for any real run.
+#   --seed <int>      RNG seed for reproducibility. The same seed + same
+#                     config = bit-identical dataset. RNG draw order is
+#                     LOAD-BEARING -- the dataset's sha256 is the fingerprint
+#                     of the generator. Don't reorder rng.* calls without
+#                     re-recording the checksum.
+#   --refresh         delete prior outputs in --out before generating. Use
+#                     this when changing density_steps / output_types to
+#                     avoid stale files from a previous config polluting
+#                     the new dataset.
+#   --random N        random mode: emit N fully-random charts instead of
+#                     the controlled density series. Useful for diversity /
+#                     stress-testing; not for reproducible measurement.
+#   --preview         emit ONE sample per catalog type into <out>/preview
+#                     and exit. Run first to see what each alias renders to
+#                     before listing in `output_types` below.
+#   --augment         add JPEG/noise/blur realism. Off by default; turn on
+#                     when you want the dataset to look like a real PDF/scan.
+#   --overlay         also write _debug overlays (ground-truth boxes drawn
+#                     over each chart). Cheap visual sanity check.
+#   --sqlite          also write dataset.sqlite3 alongside labels.jsonl, for
+#                     ad-hoc SQL queries over the labels.
 
 # Which catalog types to generate (by alias). Run `--preview` to see a small
 # sample of every type, then list the ones you want here. Each gets its own

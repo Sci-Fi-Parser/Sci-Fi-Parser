@@ -399,14 +399,28 @@ def _secs(v: float | None) -> str:
     return f"{v:.1f} s"
 
 
+def _int_or_dash(v) -> str:
+    """Integer count, or '—' for None / NaN (e.g. older results.json)."""
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return "—"
+    return str(int(v))
+
+
+# Column order leads with value-side metrics (the user's stage-of-project
+# priority: did the heights come out right?) followed by the label-side
+# diagnostic (`Misalign`, `Bar Δ`) and identity-side context (`Recall`,
+# `Type acc`). Old rows whose results.json predates the value_* fields will
+# render as "—" for those columns -- _pct/_pct100/_val/_int_or_dash all
+# tolerate None / NaN.
 _LEADER_COLS = [
     ("Model", "name", _identity),
     ("Tag", "tag", html.escape),
-    ("Mean err", "mean_pct", _pct),
-    ("Median", "median_pct", _pct),
-    ("p95", "p95_pct", _pct),
+    ("Val mean", "value_mean_pct", _pct),
+    ("Val max", "value_max_pct", _pct),
+    ("Val median", "value_median_pct", _pct),
+    ("Misalign", "misalignment_pct", _pct100),
+    ("Bar Δ", "bar_count_err_total", _int_or_dash),
     ("Recall", "recall", _pct100),
-    ("Precision", "precision", _pct100),
     ("Type acc", "type_accuracy", _pct100),
     ("Mean conf", "mean_confidence", _val),
     ("Mean time", "mean_sec", _secs),

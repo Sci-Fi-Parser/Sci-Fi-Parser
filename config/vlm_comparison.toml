@@ -5,10 +5,30 @@
 # entry overrides them.
 #
 # Run with:  benchmark-compare --config config/vlm_comparison.toml
-# (CLI flags override the [run] table below; relative paths resolve from cwd.)
 #
-# Missing models trigger an interactive prompt unless --pull is set. Use
-# --pull circular to pull/run/remove one at a time when disk is tight.
+# CLI flags (any flag overrides the [run] field of the same name):
+#   --data <dir>        synthetic dataset (images/ + labels.jsonl); req if no [run].data
+#   --out <dir>         parent dir; each model gets a subdir + leaderboard.* lives here
+#   --seed <int>        scoring seed (default 0)
+#   --limit <int>       cap each model to the first N images (smoke runs)
+#   --pull {prefetch|circular|skip}
+#                       prefetch: pull all missing up front, keep
+#                       circular: pull -> run -> rm per model (peak disk small)
+#                       skip:     leave missing models as ERROR rows
+#                       If omitted and any model is missing, prompts interactively.
+#   --yes / -y          skip the "this will pull N model(s)" confirmation prompt.
+#                       Required for non-interactive / nohup runs. If you pass --yes
+#                       without --pull AND models are missing, the runner errors out
+#                       (deliberate footgun guard, no silent downloads).
+#   --dry-run           print the preflight (LOCAL/MISSING + sizes + free disk)
+#                       and exit -- no benchmark, no pulls.
+#   --resume            for each model, if reports/<name>/results.json already
+#                       exists, reuse it instead of re-running. Use after a crash
+#                       or to add a new model to a config without redoing the
+#                       others. Rows that resume print "↺ resumed from ...".
+#
+# The leaderboard.html / leaderboard.md regenerates after EVERY row, so even
+# a crash leaves a usable partial report (kill -TERM is safe).
 
 # Inherit the canonical prompt + tunables from the single-model profile.
 # Merge order: dataclass defaults -> this `extends` file -> [defaults] below
@@ -24,47 +44,25 @@ pull = "circular"   # pull/run/rm per row; peak disk stays small
 # limit = 1         # uncomment for a smoke run
 
 # ---------- Models ----------
-# Ten general-purpose VLMs covering a range of sizes and families. No model
-# is "bar-chart-specialized"; chart-reading varies as a side effect of how
-# each was trained. Order is rough size ascending so the cheap rows finish
-# first and you see signal early.
-
-[[model]]
-name = "moondream"
-model = "moondream"
-
-[[model]]
-name = "llava-phi3"
-model = "llava-phi3"
+# Top 3 from the 10-model sweep on the 40-image synthetic dataset, ranked by
+# value-accuracy (median per-bar error):
+#   qwen2.5vl:7b      (q4) median 0.24%
+#   qwen2.5vl:7b-q8_0 (q8) median 0.22%
+#   qwen2.5vl:3b           median 0.36%
+# All three are sub-1% median; the qwen-3b mean is dominated by an
+# occasional 10x-scale misread on the y-axis units, which we expect to fix
+# downstream in preprocessing. The other 7 models (moondream, llava-*,
+# llava-llama3, llava-phi3, minicpm-v, llama3.2-vision) had value medians
+# 30x-1000x worse and are not useful as baselines at this stage.
 
 [[model]]
 name = "qwen-3b"
 model = "qwen2.5vl:3b"
 
 [[model]]
-name = "llava-7b"
-model = "llava:7b"
-
-[[model]]
-name = "llava-llama3"
-model = "llava-llama3"
-
-[[model]]
-name = "minicpm-v"
-model = "minicpm-v"
-
-[[model]]
 name = "qwen-7b-q4"
 model = "qwen2.5vl:7b"
 
 [[model]]
-name = "llama-vision-11b"
-model = "llama3.2-vision:11b"
-
-[[model]]
 name = "qwen-7b-q8"
 model = "qwen2.5vl:7b-q8_0"
-
-[[model]]
-name = "llava-13b"
-model = "llava:13b"
