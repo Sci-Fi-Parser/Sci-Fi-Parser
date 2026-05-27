@@ -17,10 +17,10 @@ jobs:
           version: "latest"
 
       - name: Install dependencies
-      - run: uv sync --group dev
+        run: uv sync --group dev
 
       - name: Run unit tests
-      - run: uv run pytest
+        run: uv run pytest
 
       - name: Lint
         run: PYTHONPATH=src uv run pylint src
