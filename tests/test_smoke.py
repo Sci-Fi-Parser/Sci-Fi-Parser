@@ -213,6 +213,80 @@ def test_vlm_comparison_extends(tmp_path):
         load_comparison_config(missing)
 
 
+def test_score_chart_value_vs_identity():
+    """Positional vs identity scoring disentangles three failure modes.
+
+    Worked from the 4-bar Profit chart in the discussion:
+    truth = Q1'20:445.08, Q2'20:504.55, Q3'20:553.50, Q4'20:995.50.
+
+    - Case A: clean -> matched=4, both value_errors_pos and errors_pct small,
+      misaligned=0.
+    - Case B: heights perfectly read but x-labels shifted by one column;
+      this is the case identity-scoring conflates with bad value-reading.
+      value_errors_pos must stay small, misaligned must be > 0, and
+      identity matched < 4 (so the existing recall column still flags it).
+    - Case C: 10x scale (the qwen-3b bug). matched=4, misaligned=0, but
+      both errors_pct and value_errors_pos ~900%.
+    """
+    from sci_fi_parser.accuracy.benchmark import score_chart
+    from sci_fi_parser.schema import ChartData, Point, Series
+
+    truth_entry = {
+        "chart_type": "bar_chart",
+        "series": [{"name": "Profit",
+                    "points": [["Q1'20", 445.08], ["Q2'20", 504.55],
+                               ["Q3'20", 553.50], ["Q4'20", 995.50]]}],
+    }
+
+    def _chart(name_value_pairs):
+        return ChartData(
+            chart_type="bar_chart",
+            series=[Series(name="Profit",
+                           points=[Point(x=cat, y=val)
+                                   for cat, val in name_value_pairs])],
+            confidence=0.95,
+        )
+
+    # Case A: clean
+    pred_a = _chart([("Q1'20", 450), ("Q2'20", 500),
+                     ("Q3'20", 550), ("Q4'20", 1000)])
+    res_a = score_chart("img.png", truth_entry, pred_a)
+    assert res_a.matched == 4
+    assert res_a.misaligned == 0
+    assert res_a.bar_count_err == 0
+    assert max(res_a.errors_pct) < 5      # all under 5%
+    assert max(res_a.value_errors_pos) < 5
+
+    # Case B: heights right but labels shifted left by one column. The model
+    # claims Q4'19/Q1'20/Q2'20/Q3'20 with the heights actually belonging to
+    # Q1'20..Q4'20. Identity says only 3 match (the truth's Q4'20 vanishes,
+    # the model's Q4'19 is extra). Positional pairing aligns by index, so
+    # the values pair with their original truth values -- and all four
+    # paired positions have label disagreement.
+    pred_b = _chart([("Q4'19", 445.08), ("Q1'20", 504.55),
+                     ("Q2'20", 553.50), ("Q3'20", 995.50)])
+    res_b = score_chart("img.png", truth_entry, pred_b)
+    assert res_b.matched == 3          # Q1/Q2/Q3 match by name
+    assert res_b.misaligned == 4       # all four paired positions disagree
+    assert res_b.n_paired_pos == 4
+    assert res_b.bar_count_err == 0
+    # All four positionally-paired values are bit-perfect -> ~0% error.
+    assert max(res_b.value_errors_pos) < 1e-6
+    # The identity-conditional errors look bad (different values lined up
+    # to the same label) -- which is exactly the conflation we're fixing.
+    assert max(res_b.errors_pct) > 10
+
+    # Case C: identity right, values 10x too big.
+    pred_c = _chart([("Q1'20", 4500.0), ("Q2'20", 5050.0),
+                     ("Q3'20", 5530.0), ("Q4'20", 9950.0)])
+    res_c = score_chart("img.png", truth_entry, pred_c)
+    assert res_c.matched == 4
+    assert res_c.misaligned == 0
+    assert res_c.bar_count_err == 0
+    assert min(res_c.errors_pct) > 800       # ~900% across the board
+    assert min(res_c.value_errors_pos) > 800
+
+
 def test_vlm_comparison_resume_skip(tmp_path):
     """--resume reconstructs a row from an existing results.json instead of
     re-running. With resume off (or no prior file) the helper returns None."""

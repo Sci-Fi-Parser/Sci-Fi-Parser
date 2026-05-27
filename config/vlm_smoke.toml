@@ -5,6 +5,16 @@
 # + tunables from vlm.toml so smoke results predict comparison results.
 #
 # Run with:  benchmark-compare --config config/vlm_smoke.toml
+#
+# Same runner as vlm_comparison.toml -- see that file for the full CLI flag
+# reference (--data / --out / --pull / --yes / --dry-run / --resume / etc.).
+# The flags worth knowing for *this* file specifically:
+#   (no flags)          run all entries on 1 image each (limit=1 baked in).
+#   --dry-run           print preflight (LOCAL/MISSING + free disk) and exit.
+#   --limit 5           override `[run].limit` to run on more images while
+#                       keeping everything else from this config.
+#   --pull skip         (already the default here) leave missing models as
+#                       ERROR rows instead of attempting to pull.
 
 extends = "vlm.toml"
 
