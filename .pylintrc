@@ -23,6 +23,12 @@ disable=raw-checker-failed,
         too-many-positional-arguments,
         unused-import
 
+[TYPECHECK]
+# opencv-python is an optional extra (not installed in the default env).
+# Tell pylint to neither try to import it nor flag its C-extension members.
+ignored-modules=cv2
+generated-members=cv2.*
+
 [FORMAT]
 max-line-length=90
 indent-after-paren=4

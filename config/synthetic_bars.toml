@@ -1,0 +1,84 @@
+# Synthetic bar-chart generator -- configuration
+# ----------------------------------------------
+# Every key overrides the matching field in GenConfig
+# (src/sci_fi_parser/accuracy/synthetic/config.py).
+# Default mode is a CONTROLLED DENSITY SERIES: per enabled type, the style is fixed
+# once and only the bar count varies across density_steps; each density is rendered
+# both with and without value labels (a 50/50 matched pair).
+#
+# Run:  synthetic-bars --config config/synthetic_bars.toml --out train_data/synthetic
+#
+# CLI flags for `synthetic-bars`:
+#   --config <path>   THIS file (overrides GenConfig defaults). Without it,
+#                     the hard-coded defaults in config.py are used.
+#   --out <dir>       where to write images/ + labels.jsonl. Default: a
+#                     temp dir under CWD; set this explicitly for any real run.
+#   --seed <int>      RNG seed for reproducibility. The same seed + same
+#                     config = bit-identical dataset. RNG draw order is
+#                     LOAD-BEARING -- the dataset's sha256 is the fingerprint
+#                     of the generator. Don't reorder rng.* calls without
+#                     re-recording the checksum.
+#   --refresh         delete prior outputs in --out before generating. Use
+#                     this when changing density_steps / output_types to
+#                     avoid stale files from a previous config polluting
+#                     the new dataset.
+#   --random N        random mode: emit N fully-random charts instead of
+#                     the controlled density series. Useful for diversity /
+#                     stress-testing; not for reproducible measurement.
+#   --preview         emit ONE sample per catalog type into <out>/preview
+#                     and exit. Run first to see what each alias renders to
+#                     before listing in `output_types` below.
+#   --augment         add JPEG/noise/blur realism. Off by default; turn on
+#                     when you want the dataset to look like a real PDF/scan.
+#   --overlay         also write _debug overlays (ground-truth boxes drawn
+#                     over each chart). Cheap visual sanity check.
+#   --sqlite          also write dataset.sqlite3 alongside labels.jsonl, for
+#                     ad-hoc SQL queries over the labels.
+
+# Which catalog types to generate (by alias). Run `--preview` to see a small
+# sample of every type, then list the ones you want here. Each gets its own
+# fixed-style density series. Available aliases:
+#   simple  multicolor  grouped  stacked  horizontal
+#   line    2-line      3-line   multiline
+output_types = ["simple","multicolor"]
+
+# The density ladder (bars/points per step) -- tight at the low end where
+# degradation begins, widening toward the max. Each value -> one off + one on chart.
+density_steps = [4, 5, 7, 9, 10, 12, 15, 20, 25, 30]
+
+# Output image HEIGHTS in pixels (aspect ratio preserved). Each chart is rendered
+# at every resolution; the value is appended to the filename (e.g. ..._240).
+# Total images = types x per_type x densities x 2 (off/on) x resolutions.
+resolutions = [480]
+
+# Independent fixed-style series PER enabled type. 1 -> 20 images/type (10 x off/on);
+# bump for K colour/style variants.
+per_type = 1
+
+# (min, max) INCLUSIVE series for grouped/stacked charts.
+n_series = [2, 4]
+
+# Fraction (0..1) of charts that emit full geometry (bboxes + ticks); rest values only.
+geometry_full_prob = 0.5
+
+# Figure size (inches) + DPI -- sampled ONCE per series and held fixed.
+fig_w_in = [5.0, 9.0]
+fig_h_in = [3.5, 5.5]
+dpi_choices = [90, 100, 120, 150]
+
+# Bar width as a category-unit fraction (0..1), fixed per series -> bars thin as
+# density rises (the intended density effect).
+bar_width = [0.6, 0.85]
+
+# Probabilities decided once per series.
+allow_negative = 0.15
+grid_prob = 0.5
+title_prob = 0.7
+
+# Category-label fitting: constant rotation; tick font shrinks max->min with density
+# so labels always fit without overlapping (like a real chart).
+label_rotation = 90
+tick_fontsize = [6, 11]   # [min floor, max at low density]
+
+# --random mode only: probability a random chart prints value labels.
+value_labels_prob = 0.0

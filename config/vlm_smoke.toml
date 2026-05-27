@@ -1,0 +1,34 @@
+# Smoke / iteration config -- two already-pulled models, one image each.
+#
+# Use this to verify wiring changes (preflight, leaderboard, pull modes)
+# without burning gigabytes of disk or hours of inference. Inherits prompt
+# + tunables from vlm.toml so smoke results predict comparison results.
+#
+# Run with:  benchmark-compare --config config/vlm_smoke.toml
+#
+# Same runner as vlm_comparison.toml -- see that file for the full CLI flag
+# reference (--data / --out / --pull / --yes / --dry-run / --resume / etc.).
+# The flags worth knowing for *this* file specifically:
+#   (no flags)          run all entries on 1 image each (limit=1 baked in).
+#   --dry-run           print preflight (LOCAL/MISSING + free disk) and exit.
+#   --limit 5           override `[run].limit` to run on more images while
+#                       keeping everything else from this config.
+#   --pull skip         (already the default here) leave missing models as
+#                       ERROR rows instead of attempting to pull.
+
+extends = "vlm.toml"
+
+[run]
+data  = "train_data/synthetic"
+out   = "reports/smoke"
+limit = 1
+seed  = 0
+pull  = "skip"   # never touch the disk; missing models become ERROR rows.
+
+[[model]]
+name = "qwen-7b"
+model = "qwen2.5vl:7b"
+
+[[model]]
+name = "qwen-3b"
+model = "qwen2.5vl:3b"
