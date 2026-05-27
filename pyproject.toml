@@ -4,6 +4,8 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
   "docling>=2.90",
+  "paddleocr>=3.5.0",
+  "paddlepaddle==3.2.0",
   "numpy>=2.4.4",
   "opencv-python>=4.13.0.92",
 ]
