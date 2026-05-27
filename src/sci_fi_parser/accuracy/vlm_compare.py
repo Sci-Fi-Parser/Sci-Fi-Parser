@@ -194,7 +194,8 @@ def _ollama_request(method: str, path: str, body: dict | None = None,
     if stream:
         return resp
     try:
-        return json.loads(resp.read())
+        raw = resp.read()
+        return json.loads(raw) if raw else {}
     finally:
         resp.close()
 
@@ -549,10 +550,54 @@ def _maybe_drop(tag: str, mode: str, pulled_by_us: set[str],
         print(f"  WARNING: could not remove {tag}: {exc}", file=sys.stderr)
 
 
+def _maybe_resume_row(entry: CompareEntry, out: Path,
+                      resume: bool) -> dict | None:
+    """If a previous run already produced ``out/<name>/results.json``, rebuild
+    the leaderboard row from it instead of re-running. Returns ``None`` when
+    resume is off or there's no prior file (caller runs the benchmark).
+    """
+    if not resume:
+        return None
+    rj = out / entry.name / "results.json"
+    if not rj.exists():
+        return None
+    try:
+        data = json.loads(rj.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    agg = data.get("aggregate")
+    if not agg:
+        return None
+    print(f"  ↺ resumed from {rj}")
+    return _row_dict(entry.name, entry.profile.model, agg, None)
+
+
+def _process_entry(entry: CompareEntry, data: Path, out: Path,
+                   seed: int, limit: int | None, mode: str,
+                   local: set[str], pulled_by_us: set[str],
+                   resume: bool) -> dict:
+    """Build one leaderboard row: resume, skip, or actually run."""
+    resumed = _maybe_resume_row(entry, out, resume)
+    if resumed is not None:
+        return resumed
+    tag = entry.profile.model
+    if tag not in local and mode == "skip":
+        return _row_dict(entry.name, tag, None,
+                         f"model {tag!r} not pulled (mode=skip)")
+    if mode == "circular":
+        _ensure_pulled(tag, local, pulled_by_us)
+    agg, err = _safe_run(entry, data, out / entry.name, seed, limit)
+    return _row_dict(entry.name, tag, agg, err)
+
+
 def _run_entries(entries: list[CompareEntry], data: Path, out: Path,
                  seed: int, limit: int | None, mode: str,
-                 local: set[str]) -> list[dict]:
-    """Run each entry under the chosen pull mode, building leaderboard rows."""
+                 local: set[str], resume: bool = False) -> list[dict]:
+    """Run each entry under the chosen pull mode, building leaderboard rows.
+
+    The leaderboard is written after every row so a crash mid-loop still
+    leaves a usable partial report on disk.
+    """
     rows: list[dict] = []
     pulled_by_us: set[str] = set()
     if mode == "prefetch":
@@ -560,17 +605,13 @@ def _run_entries(entries: list[CompareEntry], data: Path, out: Path,
             _ensure_pulled(tag, local, pulled_by_us)
     for i, entry in enumerate(entries, 1):
         _print_progress(i, len(entries), entry)
-        tag = entry.profile.model
-        if tag not in local and mode == "skip":
-            rows.append(_row_dict(entry.name, tag, None,
-                                  f"model {tag!r} not pulled (mode=skip)"))
-            continue
-        if mode == "circular":
-            _ensure_pulled(tag, local, pulled_by_us)
-        agg, err = _safe_run(entry, data, out / entry.name, seed, limit)
-        rows.append(_row_dict(entry.name, tag, agg, err))
+        row = _process_entry(entry, data, out, seed, limit, mode,
+                             local, pulled_by_us, resume)
+        rows.append(row)
+        write_leaderboard(rows, out)
         still_needed = {e.profile.model for e in entries[i:]}
-        _maybe_drop(tag, mode, pulled_by_us, still_needed, local)
+        _maybe_drop(entry.profile.model, mode, pulled_by_us,
+                    still_needed, local)
     return rows
 
 
@@ -606,7 +647,7 @@ def run_comparison(config_path: Path,
                    data: Path | None = None, out: Path | None = None,
                    seed: int | None = None, limit: int | None = None,
                    pull: str | None = None, assume_yes: bool = False,
-                   dry_run: bool = False) -> None:
+                   dry_run: bool = False, resume: bool = False) -> None:
     run_cfg, entries = load_comparison_config(config_path)
     data, out, seed, limit, pull = _merge_run(
         run_cfg, data=data, out=out, seed=seed, limit=limit, pull=pull)
@@ -622,7 +663,8 @@ def run_comparison(config_path: Path,
     out.mkdir(parents=True, exist_ok=True)
     local = {s.tag for s in statuses if s.local}
     started = time.perf_counter()
-    rows = _run_entries(entries, data, out, seed, limit, mode, local)
+    rows = _run_entries(entries, data, out, seed, limit, mode, local,
+                        resume=resume)
     _finalize_and_report(rows, out, started)
 
 
@@ -654,11 +696,14 @@ def main() -> None:
                          "requires --pull when models are missing")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the preflight summary and exit")
+    ap.add_argument("--resume", action="store_true",
+                    help="skip any model whose <out>/<name>/results.json "
+                         "already exists; useful after a crash")
     args = ap.parse_args()
     run_comparison(args.config, args.data, args.out,
                    seed=args.seed, limit=args.limit,
                    pull=args.pull, assume_yes=args.assume_yes,
-                   dry_run=args.dry_run)
+                   dry_run=args.dry_run, resume=args.resume)
 
 
 if __name__ == "__main__":

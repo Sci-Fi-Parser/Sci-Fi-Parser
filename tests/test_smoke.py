@@ -213,6 +213,47 @@ def test_vlm_comparison_extends(tmp_path):
         load_comparison_config(missing)
 
 
+def test_vlm_comparison_resume_skip(tmp_path):
+    """--resume reconstructs a row from an existing results.json instead of
+    re-running. With resume off (or no prior file) the helper returns None."""
+    import json as _json
+    from sci_fi_parser.accuracy.vlm_compare import (
+        CompareEntry, _maybe_resume_row,
+    )
+    from sci_fi_parser.accuracy.vlm_config import VLMProfile
+
+    entry = CompareEntry(name="qwen-3b", profile=VLMProfile(model="qwen2.5vl:3b"))
+
+    # No prior file -> None.
+    assert _maybe_resume_row(entry, tmp_path, resume=True) is None
+
+    # Write a minimal results.json that mimics what run_benchmark emits.
+    row_dir = tmp_path / entry.name
+    row_dir.mkdir()
+    (row_dir / "results.json").write_text(
+        _json.dumps({
+            "extractor": entry.profile.model,
+            "aggregate": {
+                "n_charts": 40, "recall": 0.83, "precision": 0.87,
+                "mean_pct": 7.31, "type_accuracy": 1.0,
+            },
+        }),
+        encoding="utf-8",
+    )
+
+    # resume=False -> still None, even with the file present.
+    assert _maybe_resume_row(entry, tmp_path, resume=False) is None
+
+    # resume=True -> row dict carrying the aggregate, no error key.
+    row = _maybe_resume_row(entry, tmp_path, resume=True)
+    assert row is not None
+    assert row["name"] == "qwen-3b"
+    assert row["tag"] == "qwen2.5vl:3b"
+    assert row["recall"] == 0.83
+    assert row["mean_pct"] == 7.31
+    assert "error" not in row
+
+
 def test_vlm_comparison_run_table(tmp_path):
     """[run] table is parsed and validated; CLI-style values come back typed."""
     from pathlib import Path as _Path
