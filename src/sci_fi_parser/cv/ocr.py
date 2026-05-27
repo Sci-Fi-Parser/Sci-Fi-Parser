@@ -6,7 +6,7 @@ from paddleocr import PaddleOCR
 
 class Ocr:
     def __init__(self, input_path: str):
-        self.input_path = input_path.strip()
+        self.input_path = input_path
 
     def run_ocr(self) -> str:
         ocr = PaddleOCR(

@@ -2358,6 +2358,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "docling" },
+    { name = "opencv-python" },
     { name = "paddleocr" },
     { name = "paddlepaddle" },
 ]
@@ -2371,6 +2372,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "docling", specifier = ">=2.90" },
+    { name = "opencv-python", specifier = ">=4.13.0.92" },
     { name = "paddleocr", specifier = ">=3.5.0" },
     { name = "paddlepaddle", specifier = "==3.2.0" },
 ]
