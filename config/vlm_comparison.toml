@@ -20,28 +20,51 @@ extends = "vlm.toml"
 data = "train_data/synthetic"
 out  = "reports/comparison"
 seed = 0
-# pull = "circular"   # uncomment to skip the prompt
-# limit = 1           # smoke run
+pull = "circular"   # pull/run/rm per row; peak disk stays small
+# limit = 1         # uncomment for a smoke run
 
 # ---------- Models ----------
+# Ten general-purpose VLMs covering a range of sizes and families. No model
+# is "bar-chart-specialized"; chart-reading varies as a side effect of how
+# each was trained. Order is rough size ascending so the cheap rows finish
+# first and you see signal early.
+
+[[model]]
+name = "moondream"
+model = "moondream"
+
+[[model]]
+name = "llava-phi3"
+model = "llava-phi3"
+
+[[model]]
+name = "qwen-3b"
+model = "qwen2.5vl:3b"
+
+[[model]]
+name = "llava-7b"
+model = "llava:7b"
+
+[[model]]
+name = "llava-llama3"
+model = "llava-llama3"
+
+[[model]]
+name = "minicpm-v"
+model = "minicpm-v"
 
 [[model]]
 name = "qwen-7b-q4"
 model = "qwen2.5vl:7b"
 
 [[model]]
+name = "llama-vision-11b"
+model = "llama3.2-vision:11b"
+
+[[model]]
 name = "qwen-7b-q8"
 model = "qwen2.5vl:7b-q8_0"
 
 [[model]]
-name = "qwen-3b"
-model = "qwen2.5vl:3b"
-
-# Uncomment to test other families (pull first with `ollama pull <tag>`):
-# [[model]]
-# name = "llama-vision-11b"
-# model = "llama3.2-vision:11b"
-#
-# [[model]]
-# name = "minicpm-v"
-# model = "minicpm-v"
+name = "llava-13b"
+model = "llava:13b"
