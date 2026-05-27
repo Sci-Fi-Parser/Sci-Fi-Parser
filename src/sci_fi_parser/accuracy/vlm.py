@@ -43,11 +43,17 @@ class OllamaVLM:
         elif profile.num_gpu is not None:
             self._options["num_gpu"] = profile.num_gpu
 
-    def extract(self, image_path: Path) -> ChartData:
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
+        """Run the VLM on one image. ``prompt_suffix`` is appended to the base
+        prompt -- used by the pipeline to inject OCR text (or any other side
+        signal) as additional context. Empty by default for back-compat with
+        every existing caller (benchmark, comparison runner).
+        """
         import ollama  # pylint: disable=import-outside-toplevel
+        content = self._prompt + (f"\n\n{prompt_suffix}" if prompt_suffix else "")
         resp = ollama.chat(
             model=self._model,
-            messages=[{"role": "user", "content": self._prompt,
+            messages=[{"role": "user", "content": content,
                        "images": [str(image_path)]}],
             format=ChartData.model_json_schema(),
             options=self._options,
