@@ -8,7 +8,7 @@ class Ocr:
     def __init__(self, input_path: str):
         self.input_path = input_path.strip()
 
-    def run_ocr(self) -> dict:
+    def run_ocr(self) -> str:
         ocr = PaddleOCR(
             use_doc_orientation_classify=False, # Disables document orientation classification model via this parameter
             use_doc_unwarping=False, # Disables text image rectification model via this parameter
@@ -21,15 +21,15 @@ class Ocr:
         for res in result:
             # res.save_to_img("output")  
             # res.save_to_json("output")
+            extracted["input_path"] = res.get("input_path")
             extracted["labels"] = res.get("rec_texts")
             extracted["confidence"] = res.get("rec_scores")
 
-        return extracted
+        return json.dumps(extracted, indent=4)
 
 
 if __name__ == "__main__":
     input_path = input("Enter path for input: ")
     ocr = Ocr(input_path)
     result = ocr.run_ocr()
-    json_result = json.dumps(result, indent=4)
-    print(json_result)
+    print(result)
