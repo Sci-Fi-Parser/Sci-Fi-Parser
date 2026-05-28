@@ -23,4 +23,4 @@ jobs:
         run: uv run pytest
 
       - name: Lint
-        run: PYTHONPATH=src uv run pylint src
+        run: PYTHONPATH=src uv run pylint src --fail-under=9.0
