@@ -24,7 +24,7 @@ def main() -> None:
     start_ocr(TARGET_FOLDER, ocr_set)
     start_vlm(TARGET_FOLDER, ocr_set, vlm_set)
     data_offloader(vlm_set, OUTPUT_FOLDER)
-
+    
 
 if __name__ == "__main__":
     main()

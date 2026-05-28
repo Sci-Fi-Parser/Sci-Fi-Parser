@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from config import CvConfig
+from cv.config import CvConfig
 
 
 @dataclass(slots=True)

@@ -15,6 +15,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from cv.ocr import Ocr
+import cv.bars
+import cv2
+
 from sci_fi_parser.accuracy.vlm import OllamaVLM
 from sci_fi_parser.accuracy.vlm_config import load_profile
 
@@ -64,15 +68,16 @@ class VLMSet:
 # --------------------------------------------------------------------------- #
 # Pipeline stages
 # --------------------------------------------------------------------------- #
-def start_ocr(target: Path, ocr_set: OCRSet) -> None:
-    """SHADOW. Iterate every image in ``target`` and write its recognised
-    text into ``ocr_set`` under the image's filename. Real backend
-    (Tesseract / EasyOCR) plugs in here; until it does, empty strings are
-    inserted so :func:`start_vlm` can still look up every image.
-    """
-    for img in _images_in(target):
-        ocr_set.add(img.name, "")     # placeholder text
+def start_ocr(folder: str, ocr_set: dict):
+    path = Path(folder).glob("*.jpg")
+    ocr = Ocr()
+    for image in path:
+        image_array = cv2.imread(image)
+        bar_candidates = bars.detect_bars(image_array)
 
+        ocr.read_image(image_array)
+        ocr_res = ocr.run_ocr()
+        ocr_set.add(image , (bar_candidates, ocr_res))
 
 def _ocr_suffix(ocr_text: str) -> str:
     """Format OCR text as a prompt-context block (empty in -> empty out)."""
