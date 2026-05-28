@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from ocr import Ocr
+
 import bars
 
 import cv2
