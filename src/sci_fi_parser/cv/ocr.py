@@ -28,6 +28,7 @@ class Ocr:
             # res.save_to_json("output")
             extracted["labels"] = res.get("rec_texts")
             extracted["confidence"] = res.get("rec_scores")
+            extracted["bbox"] = res.get("rec_boxes")
 
         return extracted
 
