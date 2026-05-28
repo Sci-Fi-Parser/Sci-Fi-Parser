@@ -43,16 +43,25 @@
 output_types = ["simple","multicolor"]
 
 # The density ladder (bars/points per step) -- tight at the low end where
-# degradation begins, widening toward the max. Each value -> one off + one on chart.
+# degradation begins, widening toward the max. Each value -> one chart per
+# entry in `labels_modes`.
 density_steps = [4, 5, 7, 9, 10, 12, 15, 20, 25, 30]
+
+# Which value-label variants to emit at each density step. Default is the
+# matched off+on pair (the dataset's label-ablation experiment). Override
+# to ["off"] or ["on"] to disable one side; order is preserved in output.
+labels_modes = ["off", "on"]
+# labels_modes = ["off"]          # no value labels on any chart
+# labels_modes = ["on"]           # every chart shows printed values
 
 # Output image HEIGHTS in pixels (aspect ratio preserved). Each chart is rendered
 # at every resolution; the value is appended to the filename (e.g. ..._240).
-# Total images = types x per_type x densities x 2 (off/on) x resolutions.
+# Total images = types x per_type x densities x len(labels_modes) x resolutions.
 resolutions = [480]
 
-# Independent fixed-style series PER enabled type. 1 -> 20 images/type (10 x off/on);
-# bump for K colour/style variants.
+# Independent fixed-style series PER enabled type. With default labels_modes,
+# 1 -> 20 images/type (10 densities x 2 variants); halves to 10 if labels_modes
+# has one entry. Bump for K colour/style variants.
 per_type = 1
 
 # (min, max) INCLUSIVE series for grouped/stacked charts.

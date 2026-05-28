@@ -1,11 +1,21 @@
 # `sci_fi_parser.accuracy` — measurement layer
 
 Tools for generating chart datasets with **ground-truth labels by construction**
-and scoring any extractor against them. Two CLI commands and a pluggable
+and scoring any extractor against them. Three CLI commands
+(`synthetic-bars`, `benchmark`, `benchmark-compare`) and a pluggable
 `Extractor` protocol.
 
-The CLIs (`synthetic-bars`, `benchmark`) are installed by `uv sync` via
-`[project.scripts]` — no `python -m …` prefix needed.
+The CLIs (`synthetic-bars`, `benchmark`, `benchmark-compare`) are installed by
+`uv sync` via `[project.scripts]`, but only resolve on PATH inside the project
+venv. Pick one:
+
+```bash
+.venv/bin/benchmark --data train_data/synthetic        # explicit launcher
+source .venv/bin/activate && benchmark --data ...      # activate for the session
+uv run benchmark --data train_data/synthetic           # uv-native
+```
+
+A bare `benchmark` in a fresh shell will produce `command not found`.
 
 ## `synthetic-bars` — generate ground-truth chart datasets
 
@@ -53,11 +63,22 @@ benchmark --data train_data/synthetic --out reports/run1
 ```
 
 The default extractor is `noisy-oracle` (a test double that perturbs truth) so
-the harness runs without an ollama server. For a real model, install
-[ollama](https://ollama.com) locally, `ollama pull qwen2.5vl:7b`, then use
-`--extractor ollama` to pick up the model declared in
-[../../../config/vlm.toml](../../../config/vlm.toml) — or override per-run
-with `--extractor ollama:<tag>`.
+the harness runs without an ollama server. For a real model:
+
+```bash
+ollama pull qwen2.5vl:7b              # one-time, downloads weights
+ollama serve &                        # daemon must be running -- check with `pgrep ollama`
+benchmark --data ... --extractor ollama         # uses vlm.toml's model
+benchmark --data ... --extractor ollama:qwen2.5vl:7b-q8_0   # one-off override
+```
+
+GPU is used automatically when Ollama detects CUDA/Metal — no flag needed.
+`num_gpu` in [vlm.toml](../../../config/vlm.toml) (or `BENCH_NUM_GPU=N`) caps
+the number of *model layers* offloaded to GPU; lower it if VRAM is tight.
+
+If the daemon isn't running you'll see one
+`ConnectionError: Failed to connect to Ollama` per chart and the run will
+finish with 0% recall everywhere.
 
 **Metrics**
 - Error = `|predicted − true|` as **% of the true value**. Hover any card in
@@ -88,6 +109,28 @@ BENCH_NUM_GPU=18 benchmark --data ... --extractor ollama    # env override
 
 Resolution order: CLI flag > `config/vlm.toml` in cwd > built-in defaults.
 
+## `benchmark-compare` — run multiple VLMs and build a leaderboard
+
+Same scoring pipeline as `benchmark`, but runs once per model listed in a
+comparison TOML and emits a single `leaderboard.html` (+ `leaderboard.md`)
+linking out to each model's per-run report.
+
+```bash
+benchmark-compare --config config/vlm_comparison.toml --data train_data/synthetic
+benchmark-compare --config config/vlm_smoke.toml --dry-run        # just preflight
+```
+
+Before any model runs, a *preflight* lists each unique tag as LOCAL / MISSING
+plus free disk. If anything is missing it asks `--pull
+{prefetch,circular,skip}` (or prompts interactively):
+
+- `prefetch` — pull all missing models up front, keep them after.
+- `circular` — pull → run → `ollama rm`, one model at a time. Only removes
+  models *this run* pulled; preexisting locals are never touched.
+- `skip`     — leave missing models as ERROR rows.
+
+Use `--resume` after a crash to skip models that already have a `results.json`.
+
 ## Adding a new extractor
 
 Anything implementing the `Extractor` protocol from
@@ -115,9 +158,16 @@ CV+OCR pipelines are mapped into it.
 ```
 accuracy/
   __init__.py
-  benchmark.py     # benchmark CLI: runs an extractor, writes report
-  vlm_config.py    # VLMProfile + load_profile (TOML -> object)
-  synthetic/       # ground-truth chart generator
+  benchmark.py     # `benchmark` CLI: NoisyOracle + runner that glues scoring + report
+  scoring.py      # per-chart metrics + aggregation (no I/O, no presentation)
+  report.py       # HTML report rendering for a single benchmark run
+  assets/         # report.css + report.sort.js, loaded via importlib.resources
+  vlm.py          # OllamaVLM extractor (talks to the ollama daemon)
+  vlm_config.py   # VLMProfile + load_profile (TOML -> object)
+  vlm_compare.py  # `benchmark-compare` CLI: config + orchestration + interactive prompts
+  leaderboard.py  # markdown + HTML leaderboard rendering
+  ollama_api.py   # Ollama daemon HTTP client + preflight (no model logic)
+  synthetic/      # ground-truth chart generator
 ```
 
 Config files live at repo-root [config/](../../../config/), separate from the

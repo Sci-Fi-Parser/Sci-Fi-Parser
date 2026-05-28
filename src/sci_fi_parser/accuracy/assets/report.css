@@ -1,0 +1,18 @@
+ body{font:14px/1.5 system-ui,sans-serif;margin:24px;color:#1a1a1a}
+ h1{font-size:20px}
+ h2{margin-top:32px;border-bottom:1px solid #ddd;padding-bottom:4px}
+ .stats{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+ .stat{background:#f4f6f8;border-radius:10px;padding:12px 16px;
+       min-width:90px;text-align:center;cursor:help}
+ .stat .v{font-size:22px;font-weight:700} .stat .k{font-size:12px;color:#666}
+ .tables{display:flex;flex-wrap:wrap;gap:24px}
+ .grid{display:flex;flex-wrap:wrap;gap:14px}
+ .card{border:1px solid #e3e3e3;border-radius:10px;padding:10px;width:320px}
+ .card img{width:100%;border-radius:6px} .meta{font-size:12px;margin-top:6px}
+ table{border-collapse:collapse;width:100%;font-size:13px}
+ .kv td,.kv th{border-bottom:1px solid #eee;padding:2px 6px;text-align:right}
+ .kv td:first-child,.kv th:first-child{text-align:left}
+ table.full th,table.full td{border-bottom:1px solid #eee;
+                             padding:6px 8px;text-align:right}
+ table.full th:first-child,table.full td:first-child{text-align:left}
+ table.full th{cursor:pointer;background:#f4f6f8;position:sticky;top:0}

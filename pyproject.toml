@@ -26,6 +26,11 @@ synthetic-bars = "sci_fi_parser.accuracy.synthetic.cli:main"
 requires = ["hatchling >= 1.26"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+# Explicit so non-Python assets (e.g. accuracy/assets/*.css, *.js) are
+# guaranteed to ship even if hatchling's default file selection changes.
+packages = ["src/sci_fi_parser"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",

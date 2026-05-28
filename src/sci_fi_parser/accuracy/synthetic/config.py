@@ -46,10 +46,17 @@ class GenConfig:
     # fixed-style density series.
     output_types: tuple[str, ...] = ("simple",)
 
-    # The density ladder (bars/points per step). Each value -> one off + one on chart.
+    # The density ladder (bars/points per step). Each value -> one chart per
+    # entry in ``labels_modes`` (default: an off + on pair).
     density_steps: tuple[int, ...] = (4, 5, 7, 9, 10, 12, 15, 20, 25, 30)
 
-    # Independent fixed-style series PER selected type. 1 -> 20 images/type.
+    # Which value-label variants to emit at each density step. Default emits
+    # the matched off+on pair used for label-ablation experiments. Set to
+    # ("off",) or ("on",) to disable one side. Order is preserved in output.
+    labels_modes: tuple[str, ...] = ("off", "on")
+
+    # Independent fixed-style series PER selected type. 1 -> 20 images/type
+    # with default labels_modes; halves to 10 if labels_modes has one entry.
     per_type: int = 1
 
     # (min, max) INCLUSIVE series for "multi" presets (grouped/stacked/multiline).
@@ -86,9 +93,11 @@ class GenConfig:
 
 
 _TUPLE_FIELDS = frozenset({
-    "output_types", "density_steps", "n_series", "fig_w_in", "fig_h_in",
-    "dpi_choices", "bar_width", "tick_fontsize", "resolutions",
+    "output_types", "density_steps", "labels_modes", "n_series", "fig_w_in",
+    "fig_h_in", "dpi_choices", "bar_width", "tick_fontsize", "resolutions",
 })
+
+_LABELS_MODES = ("off", "on")
 
 
 def load_config(path: Path) -> GenConfig:
@@ -107,4 +116,10 @@ def load_config(path: Path) -> GenConfig:
     for alias in cfg.output_types:
         if alias not in CATALOG:
             raise SystemExit(f"unknown output type {alias!r}; valid: {sorted(CATALOG)}")
+    if not cfg.labels_modes:
+        raise SystemExit("labels_modes must list at least one of 'off', 'on'")
+    bad = [m for m in cfg.labels_modes if m not in _LABELS_MODES]
+    if bad:
+        raise SystemExit(
+            f"unknown labels_modes entries {bad}; valid: {list(_LABELS_MODES)}")
     return cfg

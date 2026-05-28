@@ -17,6 +17,7 @@ from pathlib import Path
 
 from sci_fi_parser.accuracy.vlm import OllamaVLM
 from sci_fi_parser.accuracy.vlm_config import load_profile
+#import writer
 
 _IMAGE_GLOBS = ("*.png", "*.jpg", "*.jpeg")
 

@@ -20,12 +20,13 @@ Sample = tuple[str, np.ndarray, dict]   # (filename, RGB image, label record)
 
 def _emit_density(cfg: GenConfig, style: Style, sid: str, d: int, cats: list[str],
                   svals: list[np.ndarray], geo: bool) -> Iterator[Sample]:
-    """One density step -> a labels-off/on chart at every resolution (uses no RNG)."""
+    """One density step -> one chart per ``cfg.labels_modes`` entry at every
+    resolution (uses no RNG)."""
     for res in cfg.resolutions:
-        for labels_on in (False, True):
-            onoff = "on" if labels_on else "off"
-            name = f"{sid}_d{d:02d}_{onoff}_{res}.png"
-            pair = f"{sid}_d{d:02d}_{res}"        # links the off/on twin at this res
+        for mode in cfg.labels_modes:
+            labels_on = mode == "on"
+            name = f"{sid}_d{d:02d}_{mode}_{res}.png"
+            pair = f"{sid}_d{d:02d}_{res}"        # shared by every labels variant at this res
             image, label = render_chart(
                 cfg, style, cats, svals, labels_on, geo,
                 {"series_id": sid, "pair_id": pair, "density_step": d}, resolution=res)
