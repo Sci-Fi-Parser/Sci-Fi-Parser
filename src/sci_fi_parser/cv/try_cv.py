@@ -1,8 +1,9 @@
 import cv2
 import numpy as np
-from lines import detect_line_segments 
+from lines import detect_line_segments
 from bars import detect_bars
 from pathlib import Path
+
 
 def draw_debug_overlay(
     image: np.ndarray,
@@ -44,7 +45,13 @@ def draw_debug_overlay(
         p1 = tuple(map(int, line.p1))
         p2 = tuple(map(int, line.p2))
 
-        color = (255, 0, 0) if line.orientation == "horizontal" else (0, 0, 255)
+        color = (
+            255,
+            0,
+            0) if line.orientation == "horizontal" else (
+            0,
+            0,
+            255)
 
         cv2.line(out, p1, p2, color, 2)
         cv2.circle(out, p1, 3, color, -1)
@@ -67,6 +74,7 @@ def draw_debug_overlay(
 
     return out
 
+
 if __name__ == "__main__":
     path = input("path: ")
     img = cv2.imread(path)
@@ -83,4 +91,3 @@ if __name__ == "__main__":
         raise RuntimeError(f"Failed to write debug image to {output_path}")
 
     print(f"Saved debug overlay to: {output_path}")
-

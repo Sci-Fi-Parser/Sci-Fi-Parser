@@ -6,6 +6,7 @@ import bars
 
 import cv2
 
+
 def start_ocr(folder: str, ocr_set: dict):
     path = Path(folder).glob("*.jpg")
     ocr = Ocr()
@@ -15,7 +16,7 @@ def start_ocr(folder: str, ocr_set: dict):
 
         ocr.read_image(image_array)
         ocr_res = ocr.run_ocr()
-        ocr_set.add(image , (bar_candidates, ocr_res))
+        ocr_set.add(image, (bar_candidates, ocr_res))
 
 
 if __name__ == "__main__":

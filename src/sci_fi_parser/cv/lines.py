@@ -1,9 +1,11 @@
-from config import CvConfig
-
-import cv2
-import numpy as np
-import math
 from dataclasses import dataclass
+
+import math
+import cv2
+
+import numpy as np
+
+from config import CvConfig
 
 
 @dataclass(slots=True)
@@ -14,13 +16,21 @@ class LineSegment:
     length: float
     angle_degrees: float
 
-def to_grayscale(image: np.ndarray) -> np.ndarray: # This should probably be done in the image preprocessing part
+
+# This should probably be done in the image preprocessing part
+def to_grayscale(image: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-def detect_line_segments(image: np.ndarray, config: CvConfig | None = None) -> list[LineSegment]:
+
+def detect_line_segments(image: np.ndarray,
+                         config: CvConfig | None = None) -> list[LineSegment]:
     config = config or CvConfig()
     gray = to_grayscale(image)
-    edges = cv2.Canny(gray, config.canny_threshold1, config.canny_threshold2, apertureSize=3)
+    edges = cv2.Canny(
+        gray,
+        config.canny_threshold1,
+        config.canny_threshold2,
+        apertureSize=3)
 
     image_height, image_width = gray.shape[:2]
     raw_lines = cv2.HoughLinesP(
@@ -51,6 +61,7 @@ def detect_line_segments(image: np.ndarray, config: CvConfig | None = None) -> l
 
     return line_segments
 
+
 def normalize_line_segment(
     x1: int,
     y1: int,
@@ -76,13 +87,17 @@ def normalize_line_segment(
         angle_degrees=angle,
     )
 
+
 def segment_length(x1: int, y1: int, x2: int, y2: int) -> float:
     return float(math.hypot(x2 - x1, y2 - y1))
+
 
 def segment_angle_degrees(x1: int, y1: int, x2: int, y2: int) -> float:
     return math.degrees(math.atan2(y2 - y1, x2 - x1))
 
-def classify_orientation(angle_degrees: float, tolerance_degrees: float) -> str | None:
+
+def classify_orientation(angle_degrees: float,
+                         tolerance_degrees: float) -> str | None:
     normalized = abs(angle_degrees)
     if normalized > 90:
         normalized = abs(normalized - 180)
@@ -91,4 +106,3 @@ def classify_orientation(angle_degrees: float, tolerance_degrees: float) -> str 
     if abs(normalized - 90) <= tolerance_degrees:
         return "vertical"
     return None
-
