@@ -1,11 +1,11 @@
 """VLM extractor — talks to a local ollama server with schema-enforced JSON.
 
 Kept in its own module so anyone who only needs the extractor (the pipeline,
-a one-off script) can ``from sci_fi_parser.accuracy.vlm import OllamaVLM``
+a one-off script) can ``from sci_fi_parser.vlm.vlm import OllamaVLM``
 without pulling in the rest of the benchmark machinery.
 
 Configuration (model tag, prompt, ollama options) comes from a
-:class:`~sci_fi_parser.accuracy.vlm_config.VLMProfile`. Env vars
+:class:`~sci_fi_parser.vlm.vlm_config.VLMProfile`. Env vars
 ``BENCH_NUM_CTX`` and ``BENCH_NUM_GPU`` override the profile values for
 ad-hoc experiments.
 """
@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from sci_fi_parser.accuracy.vlm_config import VLMProfile
+from sci_fi_parser.vlm.vlm_config import VLMProfile
 from sci_fi_parser.schema import ChartData, parse_chartdata
 
 

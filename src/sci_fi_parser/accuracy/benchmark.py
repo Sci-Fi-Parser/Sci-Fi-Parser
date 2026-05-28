@@ -42,8 +42,8 @@ from statistics import mean
 import numpy as np
 from PIL import Image
 
-from sci_fi_parser.accuracy.vlm import OllamaVLM
-from sci_fi_parser.accuracy.vlm_config import VLMProfile, load_profile
+from sci_fi_parser.vlm.vlm import OllamaVLM
+from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.schema import (
     ChartData, ChartType, Extractor, Point, Series, normalize_key,
 )

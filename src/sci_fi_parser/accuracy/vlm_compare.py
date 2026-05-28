@@ -61,7 +61,7 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 
 from sci_fi_parser.accuracy.benchmark import run_benchmark
-from sci_fi_parser.accuracy.vlm_config import VLMProfile, load_profile
+from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 
 
 @dataclass(slots=True)

@@ -71,8 +71,8 @@ Don't memorise this — use it as a map.
 
 | File | What's in it |
 |---|---|
-| `src/sci_fi_parser/accuracy/vlm.py` | `OllamaVLM` — the real VLM extractor. Sends an image to a local ollama server, gets JSON back, validates it as `ChartData`. |
-| `src/sci_fi_parser/accuracy/vlm_config.py` | `VLMProfile` (a small dataclass holding the model name, the prompt, etc.) and `load_profile` (reads a TOML file into one). |
+| `src/sci_fi_parser/vlm/vlm.py` | `OllamaVLM` — the real VLM extractor. Sends an image to a local ollama server, gets JSON back, validates it as `ChartData`. Lives in its own top-level `vlm/` package so non-benchmark callers (e.g. the runtime pipeline) can import it without pulling in measurement machinery. |
+| `src/sci_fi_parser/vlm/vlm_config.py` | `VLMProfile` (a small dataclass holding the model name, the prompt, etc.) and `load_profile` (reads a TOML file into one). |
 
 ### Scorer and runner
 

@@ -50,7 +50,7 @@ That's it. We have three built-in extractors:
 | Name | Where | What it does |
 |---|---|---|
 | `noisy-oracle` | `benchmark.py:NoisyOracle` | Reads the truth, adds Gaussian noise, sometimes drops a bar, sometimes adds a phantom bar. Pretends to be an imperfect extractor. **For sanity checks only.** |
-| `ollama` | `accuracy/vlm.py:OllamaVLM` | The real one. Sends the chart image to a local ollama server, asks the model to extract values, returns the result. |
+| `ollama` | `vlm/vlm.py:OllamaVLM` | The real one. Sends the chart image to a local ollama server, asks the model to extract values, returns the result. |
 | `ollama:<tag>` | same | Same as `ollama` but with the model tag overridden one-shot. |
 
 You can add your own — see [Extending.md](Extending.md).
@@ -292,4 +292,4 @@ true=0 and pred=0, error is 0%. If true=0 and pred≠0, error is 100%.
 - `src/sci_fi_parser/accuracy/benchmark.py` (the whole file)
 - `src/sci_fi_parser/schema.py` (`Extractor`, `normalize_key`,
   `parse_chartdata`)
-- `src/sci_fi_parser/accuracy/vlm.py` (`OllamaVLM`)
+- `src/sci_fi_parser/vlm/vlm.py` (`OllamaVLM`)

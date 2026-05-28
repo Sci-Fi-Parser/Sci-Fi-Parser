@@ -248,7 +248,7 @@ Mirror the shape of `OllamaVLM` in a new file:
 # src/sci_fi_parser/accuracy/anthropic_vlm.py
 import os
 from pathlib import Path
-from sci_fi_parser.accuracy.vlm_config import VLMProfile
+from sci_fi_parser.vlm.vlm_config import VLMProfile
 from sci_fi_parser.schema import ChartData, parse_chartdata
 
 
