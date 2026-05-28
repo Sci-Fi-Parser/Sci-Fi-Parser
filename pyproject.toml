@@ -3,9 +3,6 @@ name = "sci-fi-parser"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-  "paddleocr>=3.5.0",
-  "paddlepaddle==3.2.0",
-  "opencv-python>=4.13.0.92",
   "matplotlib>=3.9",
   "ollama>=0.3",
   "pillow>=10.0",
