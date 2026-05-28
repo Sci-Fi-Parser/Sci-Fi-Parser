@@ -1,13 +1,14 @@
 from pathlib import Path
 
-from ocr import Ocr
+from cv.ocr import Ocr
 
-import bars
+import cv.bars as bars
+from cv.debug_draw import draw_bar_ocr_matches
 
 import cv2
 
 
-def start_ocr(folder: str, ocr_set: dict):
+def start_ocr(folder: Path, ocr_set: dict) -> None:
     path = Path(folder).glob("*.jpg")
     ocr = Ocr()
     for image in path:
@@ -16,7 +17,42 @@ def start_ocr(folder: str, ocr_set: dict):
 
         ocr.read_image(image_array)
         ocr_res = ocr.run_ocr()
-        ocr_set.add(image, (bar_candidates, ocr_res))
+
+        matched = match_bars_and_ocr(bar_candidates, ocr_res)
+
+        # draw_bar_ocr_matches(
+        #     image_array,
+        #     matched,
+        #     ocr_res,
+        #     image.with_name(f"{image.stem}_debug{image.suffix}"),
+        # )
+
+        output_string = str(bar_candidates) + str(ocr_res) + str(matched)
+        # print("run")
+
+        ocr_set.add(image, output_string)
+
+def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
+    linked = []
+    for i in range(len(bars)):
+        left = bars[i].bbox.x
+        right = bars[i].bbox.right
+        # print(f"left: {left}, right: {right}")
+        matching_ocr = []
+        for j in range(len(ocr_json["bbox"])):
+            if ocr_json["confidence"][j] < 0.90:
+                # print("low conf")
+                continue
+            ocr_max_x, _, ocr_min_x, _ = ocr_json["bbox"][j]
+            # print(f"max: {ocr_max_x}, min: {ocr_min_x}")
+            if (ocr_min_x <= left and ocr_max_x >= right) or (
+                ocr_min_x >= left and ocr_max_x <= right
+            ):
+                matching_ocr.append(ocr_json["bbox"][j])
+        linked.append((bars[i], matching_ocr))
+
+    # print(f"linked: {linked}")
+    return linked
 
 
 if __name__ == "__main__":
@@ -24,3 +60,6 @@ if __name__ == "__main__":
     ocr_set = OCRSet()
     start_ocr(input_path, ocr_set)
     print(ocr_set)
+
+
+
