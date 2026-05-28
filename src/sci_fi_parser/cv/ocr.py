@@ -1,5 +1,3 @@
-import json
-
 from paddleocr import PaddleOCR
 
 # PNG/JPG --> labels, values, confidence score.
@@ -16,20 +14,19 @@ class Ocr:
             lang="en",
         )
 
-    def read_image(self, input_path) -> None:
+    def read_image(self, input_path) -> dict:
         self.input_path = input_path
 
-    def run_ocr(self) -> str:
+    def run_ocr(self) -> dict:
         result = self.ocr.predict(self.input_path)
         extracted = {}
         for res in result:
             # res.save_to_img("output")  
             # res.save_to_json("output")
-            extracted["input_path"] = res.get("input_path")
             extracted["labels"] = res.get("rec_texts")
             extracted["confidence"] = res.get("rec_scores")
 
-        return json.dumps(extracted, indent=4)
+        return extracted
 
 
 if __name__ == "__main__":
