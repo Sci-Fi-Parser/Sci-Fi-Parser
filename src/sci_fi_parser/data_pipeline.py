@@ -28,6 +28,9 @@ class OCRSet:
     def add(self, name: str, text: str) -> None:
         self._data[name] = text
 
+    def items(self):
+        return self._data.items()
+
     def get(self, name: str) -> str:
         return self._data.get(name, "")
 
@@ -46,6 +49,9 @@ class VLMSet:
 
     def items(self):
         return self._data.items()
+
+    def get(self, name: str) -> str:
+        return self._data.get(name, "")
 
     def __len__(self) -> int:
         return len(self._data)

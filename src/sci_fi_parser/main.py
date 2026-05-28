@@ -12,8 +12,7 @@ from sci_fi_parser.data_pipeline import OCRSet, VLMSet
 from sci_fi_parser.vlm.pipeline import start_vlm
 from sci_fi_parser.cv.pipeline import start_ocr
 
-# TARGET_FOLDER = Path("train_data/synthetic/images")
-TARGET_FOLDER = Path(__file__).resolve().parents[2] / "test_images"
+TARGET_FOLDER = Path("train_data/synthetic/images")
 
 OUTPUT_FOLDER = Path("output")
 
@@ -22,6 +21,7 @@ def main() -> None:
     vlm_set = VLMSet()
     start_ocr(TARGET_FOLDER, ocr_set)
     start_vlm(TARGET_FOLDER, ocr_set,vlm_set)
-
+   
+   
 if __name__ == "__main__":
     main()
