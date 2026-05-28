@@ -26,7 +26,7 @@ def main() -> None:
     vlm_set = VLMSet()
     start_ocr(TARGET_FOLDER, ocr_set) #input writer
     start_vlm(TARGET_FOLDER, ocr_set, vlm_set) #input writer
-    #writer_set(OCR_SET, VLM_SET) 
+    #writer_set(OCR_SET, VLM_SET)
     data_offloader(vlm_set, OUTPUT_FOLDER) #input writer
 
 

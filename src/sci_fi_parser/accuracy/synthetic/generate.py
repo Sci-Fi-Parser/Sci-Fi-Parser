@@ -26,7 +26,7 @@ def _emit_density(cfg: GenConfig, style: Style, sid: str, d: int, cats: list[str
         for mode in cfg.labels_modes:
             labels_on = mode == "on"
             name = f"{sid}_d{d:02d}_{mode}_{res}.png"
-            pair = f"{sid}_d{d:02d}_{res}"        # shared by every labels variant at this res
+            pair = f"{sid}_d{d:02d}_{res}"        # shared by every labels variant
             image, label = render_chart(
                 cfg, style, cats, svals, labels_on, geo,
                 {"series_id": sid, "pair_id": pair, "density_step": d}, resolution=res)
