@@ -1,52 +1,67 @@
-# VLM extractor profile.
+# Canonical VLM extractor profile.
 #
-# Edit this file to change which model the single-model `benchmark` script
-# uses by default. This file holds the *canonical* prompt + tunables; the
-# cross-model comparison configs (`vlm_comparison.toml`, `vlm_smoke.toml`)
-# inherit from here via `extends = "vlm.toml"`.
+# Consumed by:
+#   * the extraction pipeline       (sci_fi_parser.main -> vlm.pipeline)
+#   * the `benchmark` script         (--extractor ollama | api)
+#   * the `benchmark-compare` script, which inherits these values as its
+#     baseline via `extends = "vlm.toml"`; each [[model]] entry overrides `model`.
 #
-# Run with:  benchmark --data train_data/synthetic
+# Every field lists its [default] and accepted values. Fields left unset fall
+# back to the default; unknown keys are rejected at load time.
 #
-# CLI flags for the `benchmark` script:
-#   --data <dir>            REQUIRED: synthetic dataset (images/ + labels.jsonl)
-#   --out <dir>             where to write report.html + results.json
-#                           (default: reports/<extractor-name>)
-#   --extractor <name>      noisy-oracle | ollama | ollama:<tag> | api | api:<tag>
-#                           ollama          uses this file's `model` field
-#                           ollama:<tag>    overrides just the model tag
-#                                           (e.g. ollama:qwen2.5vl:7b-q8_0)
-#                           api             OpenAI-compatible chat completions;
-#                                           set `backend`/`base_url` below
-#                           api:<tag>       same, overriding the model tag
-#                           noisy-oracle    in-memory sanity check; no network
-#                           Default: noisy-oracle (so a fresh checkout runs).
-#   --vlm-config <path>     point at a different profile TOML
-#                           (default: config/vlm.toml if present)
-#   --seed <int>            RNG seed (default 0); only affects noisy-oracle
-#   --limit <int>           cap to the first N images (smoke-testing)
-#
-# Env-var escape hatches (one-off experiments without editing the file):
-#   BENCH_NUM_CTX=4096      overrides `num_ctx` for this run
-#   BENCH_NUM_GPU=18        overrides `num_gpu` for this run
+# How to run the benchmark, the CLI flags, and the CLI/env override order are
+# documented in src/sci_fi_parser/accuracy/README.md (or `benchmark --help`).
 
+# Backend that serves the model.
+#   [default: "ollama"]   options: "ollama" | "api"
+#   "ollama" -> local ollama server                (uses model, num_ctx, num_gpu)
+#   "api"    -> OpenAI-compatible chat completions  (uses base_url, api_key_env,
+#                                                    response_format)
+backend = "ollama"
+
+# Model tag (ollama) or model name (api).
+#   [default: "qwen2.5vl:7b"]
+# Other tags benchmarked on the synthetic set:
+#   "qwen2.5vl:7b-q8_0"   higher precision, ~80-100 s/chart on CPU
+#   "qwen2.5vl:7b-fp16"   full precision,   ~150-200 s/chart on CPU
+#   "qwen2.5vl:3b"        smaller / faster, weak on abbreviated y-axes
 model = "qwen2.5vl:7b"
-# model = "qwen2.5vl:7b-q8_0"   # higher precision, ~80-100 s/chart on CPU
-# model = "qwen2.5vl:7b-fp16"   # full precision, ~150-200 s/chart on CPU
-# model = "qwen2.5vl:3b"        # smaller / faster, weak on abbreviated y-axes
 
+# ---- ollama backend only ----
+#
+# Server host is NOT set here: ollama uses the OLLAMA_HOST env var, defaulting
+# to http://127.0.0.1:11434. (Only the `api` backend takes its URL from config,
+# via base_url below.)
+
+# Context window passed to ollama.
+#   [default: 2048]
 num_ctx = 2048
-# num_gpu = 18                  # partial GPU offload (ollama may still fall
-                                # back to CPU if the working set exceeds VRAM)
 
-# ---- OpenAI-compatible chat-completions backend (the `api` extractor) ----
-# Uncomment to point at any OpenAI-compatible server (OpenAI, vLLM, LM Studio,
-# llama.cpp). `num_ctx`/`num_gpu` above are ignored by this backend.
-# backend = "api"
-# base_url = "http://localhost:8080/v1"   # e.g. a local llama.cpp llama-server
-# api_key_env = "OPENAI_API_KEY"          # env var holding the key; dummy if unset
-# response_format = "json_schema"         # "json_schema" (grammar-constrained,
-                                           # best for llama.cpp) | "json_object"
+# GPU layers to offload. Leave unset for ollama's automatic placement
+# (it may still fall back to CPU if the working set exceeds VRAM).
+#   [default: unset]
+# num_gpu = 18
 
+# ---- api backend only (ignored when backend = "ollama") ----
+
+# Endpoint URL of the OpenAI-compatible server.
+#   [default: unset]   e.g. a local llama.cpp llama-server
+# base_url = "http://localhost:8000/v1"
+
+# Env var holding the API key; a dummy key is sent if it is unset (keyless
+# local servers work either way).
+#   [default: "OPENAI_API_KEY"]
+# api_key_env = "OPENAI_API_KEY"
+
+# JSON-constraint strategy.
+#   [default: "json_schema"]   options: "json_schema" | "json_object"
+#   "json_schema" -> send the ChartData schema (grammar-constrained; best for
+#                    llama.cpp / vLLM / OpenAI structured outputs)
+#   "json_object" -> ask only for valid JSON; relies on the prompt + repair
+# response_format = "json_schema"
+
+# Prompt prepended to every chart image. Field names must match the ChartData
+# schema: chart_type, series[].name, series[].points[].x / .y, confidence.
 prompt = """Extract the data from this chart.
 Rules:
 - chart_type: one of bar_chart, grouped_bar_chart, stacked_bar_chart, horizontal_bar_chart, line_chart.
