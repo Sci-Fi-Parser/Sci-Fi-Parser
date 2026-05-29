@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from cv.ocr import Ocr
+from sci_fi_parser.cv.ocr import Ocr
 
-import cv.bars as bars
-from cv.debug_draw import draw_bar_ocr_matches
+import sci_fi_parser.cv.bars as bars
+from sci_fi_parser.cv.debug_draw import draw_bar_ocr_matches
 
 import cv2
 

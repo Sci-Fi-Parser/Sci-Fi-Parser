@@ -45,8 +45,30 @@ from PIL import Image
 from sci_fi_parser.vlm.vlm import ChatCompletionsVLM, OllamaVLM
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.schema import (
-    ChartData, ChartType, Extractor, Point, Series, normalize_key,
+    ChartData, ChartType, Extractor, Point, Series,
 )
+
+
+def _cat_key(x: str | float) -> str:
+    """String key for category matching; integer-valued floats lose the .0."""
+    if isinstance(x, float) and x.is_integer():
+        return str(int(x))
+    return str(x)
+
+
+def normalize_key(series: str, category: str) -> tuple[str, str]:
+    """Whitespace- and case-insensitive form of a (series, category) match key."""
+    return (series.strip().casefold(), category.strip().casefold())
+
+
+def series_map(chart: ChartData) -> dict[tuple[str, str], float]:
+    """Flatten ChartData to ``{(series_name, category): value}`` for matching.
+
+    Normalises integer-valued category keys (``2018.0`` -> ``"2018"``) so a
+    VLM returning JSON numbers matches truth labels stored as strings.
+    """
+    return {(s.name, _cat_key(p.x)): float(p.y)
+            for s in chart.series for p in s.points}
 
 
 def truth_to_map(series: list[dict]) -> dict[tuple[str, str], float]:
@@ -97,7 +119,7 @@ class NoisyOracle:
             pts.append(Point(x="GHOST", y=round(self._rng.uniform(lo, hi), 3)))
         return Series(name=series["name"], points=pts)
 
-    def extract(self, image_path: Path) -> ChartData:
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
         entry = self._truth[image_path.name]
         lo, hi = entry["value_range"]
         span = abs(hi - lo) or 1.0
@@ -219,7 +241,7 @@ def score_chart(image: str, entry: dict, pred: ChartData) -> ChartResult:
     heights well but mis-transcribes the x-axis -- see ChartResult docs.
     """
     tmap = truth_to_map(entry["series"])
-    pmap = _align_series_names(tmap, pred.series_map())
+    pmap = _align_series_names(tmap, series_map(pred))
     pnorm = {normalize_key(s, c): k for k in pmap for s, c in [k]}
 
     errors, matched = [], 0

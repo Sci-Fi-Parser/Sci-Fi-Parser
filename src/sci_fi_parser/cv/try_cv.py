@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
-from lines import detect_line_segments
-from bars import detect_bars
+from sci_fi_parser.cv.lines import detect_line_segments
+from sci_fi_parser.cv.bars import detect_bars
 from pathlib import Path
 
 

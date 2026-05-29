@@ -20,10 +20,9 @@ Kept deliberately light: pydantic + stdlib only, no matplotlib/opencv/ollama.
 
 from __future__ import annotations
 
-import copy
 import json
 from pathlib import Path
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -35,18 +34,6 @@ ChartType = Literal[
     "horizontal_bar_chart",
     "line_chart",
 ]
-
-
-def _cat_key(x: str | float) -> str:
-    """String key for category matching; integer-valued floats lose the .0."""
-    if isinstance(x, float) and x.is_integer():
-        return str(int(x))
-    return str(x)
-
-
-def normalize_key(series: str, category: str) -> tuple[str, str]:
-    """Whitespace- and case-insensitive form of a (series, category) match key."""
-    return (series.strip().casefold(), category.strip().casefold())
 
 
 class Point(BaseModel):
@@ -77,38 +64,6 @@ class ChartData(BaseModel):
     series: list[Series]
     confidence: float | None
 
-    def series_map(self) -> dict[tuple[str, str], float]:
-        """Flatten to ``{(series_name, category): value}`` for matching.
-
-        Normalises integer-valued category keys (``2018.0`` -> ``"2018"``) so a
-        VLM returning JSON numbers matches truth labels stored as strings.
-        """
-        return {(s.name, _cat_key(p.x)): float(p.y)
-                for s in self.series for p in s.points}
-
-
-def chartdata_schema() -> dict[str, Any]:
-    """ChartData's JSON schema with all ``$ref``/``$defs`` inlined.
-
-    llama.cpp's schema-to-grammar converter does not resolve ``$ref``, so the
-    nested ``Series``/``Point`` definitions pydantic emits as references are
-    left ungrammared and the model invents field names. Inlining the refs makes
-    the whole structure constrainable.
-    """
-    schema = ChartData.model_json_schema()
-    defs = schema.get("$defs", {})
-
-    def inline(node: Any) -> Any:
-        if isinstance(node, dict):
-            if "$ref" in node:
-                return inline(copy.deepcopy(defs[node["$ref"].split("/")[-1]]))
-            return {k: inline(v) for k, v in node.items() if k != "$defs"}
-        if isinstance(node, list):
-            return [inline(item) for item in node]
-        return node
-
-    return inline(schema)
-
 
 def parse_chartdata(raw: str | dict) -> ChartData:
     """Validate (and lightly repair) extractor output into :class:`ChartData`.
@@ -138,5 +93,5 @@ class Extractor(Protocol):
 
     name: str
 
-    def extract(self, image_path: Path) -> ChartData:
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
         ...
