@@ -42,7 +42,7 @@ from statistics import mean
 import numpy as np
 from PIL import Image
 
-from sci_fi_parser.vlm.vlm import OllamaVLM
+from sci_fi_parser.vlm.vlm import ChatCompletionsVLM, OllamaVLM
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.schema import (
     ChartData, ChartType, Extractor, Point, Series, normalize_key,
@@ -599,8 +599,13 @@ def build_extractor(name: str, truth: dict, rng: np.random.Generator,
         return OllamaVLM(profile=profile)
     if name.startswith("ollama:"):
         return OllamaVLM(profile=profile, model_override=name.split(":", 1)[1])
+    if name == "api":
+        return ChatCompletionsVLM(profile=profile)
+    if name.startswith("api:"):
+        return ChatCompletionsVLM(profile=profile, model_override=name.split(":", 1)[1])
     raise SystemExit(
-        f"unknown extractor {name!r} (try: noisy-oracle, ollama, ollama:<model>)")
+        f"unknown extractor {name!r} (try: noisy-oracle, ollama, ollama:<model>, "
+        "api, api:<model>)")
 
 
 def _resolve_profile(config_arg: Path | None) -> VLMProfile:
@@ -685,8 +690,9 @@ def _parse_args() -> argparse.Namespace:
                     help="synthetic dataset dir (images/ + labels.jsonl)")
     ap.add_argument("--out", type=Path, default=Path("reports/latest"))
     ap.add_argument("--extractor", default="noisy-oracle",
-                    help="noisy-oracle | ollama | ollama:<model> "
-                         "(ollama uses the profile's model; ollama:<tag> overrides it)")
+                    help="noisy-oracle | ollama | ollama:<model> | api | api:<model> "
+                         "(ollama/api use the profile's model; :<tag> overrides it; "
+                         "api needs backend/base_url set in the profile)")
     ap.add_argument("--vlm-config", type=Path, default=None,
                     help="VLM profile TOML (default: config/vlm.toml if present)")
     ap.add_argument("--seed", type=int, default=0)

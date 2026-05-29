@@ -11,10 +11,13 @@
 #   --data <dir>            REQUIRED: synthetic dataset (images/ + labels.jsonl)
 #   --out <dir>             where to write report.html + results.json
 #                           (default: reports/<extractor-name>)
-#   --extractor <name>      noisy-oracle | ollama | ollama:<tag>
+#   --extractor <name>      noisy-oracle | ollama | ollama:<tag> | api | api:<tag>
 #                           ollama          uses this file's `model` field
 #                           ollama:<tag>    overrides just the model tag
 #                                           (e.g. ollama:qwen2.5vl:7b-q8_0)
+#                           api             OpenAI-compatible chat completions;
+#                                           set `backend`/`base_url` below
+#                           api:<tag>       same, overriding the model tag
 #                           noisy-oracle    in-memory sanity check; no network
 #                           Default: noisy-oracle (so a fresh checkout runs).
 #   --vlm-config <path>     point at a different profile TOML
@@ -34,6 +37,15 @@ model = "qwen2.5vl:7b"
 num_ctx = 2048
 # num_gpu = 18                  # partial GPU offload (ollama may still fall
                                 # back to CPU if the working set exceeds VRAM)
+
+# ---- OpenAI-compatible chat-completions backend (the `api` extractor) ----
+# Uncomment to point at any OpenAI-compatible server (OpenAI, vLLM, LM Studio,
+# llama.cpp). `num_ctx`/`num_gpu` above are ignored by this backend.
+# backend = "api"
+# base_url = "http://localhost:8080/v1"   # e.g. a local llama.cpp llama-server
+# api_key_env = "OPENAI_API_KEY"          # env var holding the key; dummy if unset
+# response_format = "json_schema"         # "json_schema" (grammar-constrained,
+                                           # best for llama.cpp) | "json_object"
 
 prompt = """Extract the data from this chart.
 Rules:
