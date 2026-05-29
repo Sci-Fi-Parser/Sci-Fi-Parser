@@ -2,7 +2,7 @@
 
 * :class:`OllamaVLM` talks to a local ollama server with schema-enforced JSON.
 * :class:`ChatCompletionsVLM` talks to any OpenAI-compatible chat-completions
-  endpoint (OpenAI, vLLM, LM Studio, llama.cpp) via the ``openai`` SDK.
+  endpoint (OpenAI, vLLM, LM Studio, llama.cpp) via a plain ``httpx`` POST.
 
 Kept in its own module so anyone who only needs an extractor (the pipeline,
 a one-off script) can ``from sci_fi_parser.vlm.vlm import build_vlm`` without
@@ -21,10 +21,13 @@ import os
 from pathlib import Path
 
 from sci_fi_parser.vlm.vlm_config import VLMProfile
-from sci_fi_parser.schema import ChartData, parse_chartdata
+from sci_fi_parser.schema import ChartData, chartdata_schema, parse_chartdata
 
 
 _MIME_BY_SUFFIX = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+
+# VLM inference can take minutes per chart on CPU; give the request plenty of room.
+_REQUEST_TIMEOUT = 600.0
 
 
 def _prompt_with_suffix(prompt: str, suffix: str) -> str:
@@ -71,7 +74,7 @@ class OllamaVLM:
             model=self._model,
             messages=[{"role": "user", "content": content,
                        "images": [str(image_path)]}],
-            format=ChartData.model_json_schema(),
+            format=chartdata_schema(),
             options=self._options,
         )
         return parse_chartdata(resp["message"]["content"])
@@ -104,7 +107,7 @@ class ChatCompletionsVLM:
         self.name = model_override or profile.model
         self._model = self.name
         self._prompt = profile.prompt
-        self._base_url = profile.base_url
+        self._base_url = profile.base_url.rstrip("/")
         self._api_key = os.environ.get(profile.api_key_env) or "sk-no-key"
         self._response_format = profile.response_format
 
@@ -114,7 +117,7 @@ class ChatCompletionsVLM:
         if self._response_format == "json_schema":
             return {"type": "json_schema",
                     "json_schema": {"name": "ChartData",
-                                    "schema": ChartData.model_json_schema()}}
+                                    "schema": chartdata_schema()}}
         raise ValueError(
             f"unknown response_format {self._response_format!r} "
             "(expected 'json_schema' or 'json_object')")
@@ -124,21 +127,28 @@ class ChatCompletionsVLM:
         prompt -- used by the pipeline to inject OCR text (or any other side
         signal) as additional context.
         """
-        from openai import OpenAI  # pylint: disable=import-outside-toplevel
-        client = OpenAI(base_url=self._base_url, api_key=self._api_key)
+        import httpx  # pylint: disable=import-outside-toplevel
         mime = _MIME_BY_SUFFIX.get(image_path.suffix.lower(), "image/png")
         data = base64.b64encode(image_path.read_bytes()).decode("ascii")
-        resp = client.chat.completions.create(
-            model=self._model,
-            messages=[{"role": "user", "content": [
+        payload = {
+            "model": self._model,
+            "messages": [{"role": "user", "content": [
                 {"type": "text",
                  "text": _prompt_with_suffix(self._prompt, prompt_suffix)},
                 {"type": "image_url",
                  "image_url": {"url": f"data:{mime};base64,{data}"}},
             ]}],
-            response_format=self._make_response_format(),
+            "response_format": self._make_response_format(),
+            "chat_template_kwargs": {"enable_thinking": False}
+        }
+        resp = httpx.post(
+            f"{self._base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json=payload,
+            timeout=_REQUEST_TIMEOUT,
         )
-        return parse_chartdata(resp.choices[0].message.content)
+        resp.raise_for_status()
+        return parse_chartdata(resp.json()["choices"][0]["message"]["content"])
 
 
 def build_vlm(profile: VLMProfile | None = None,

@@ -20,9 +20,10 @@ Kept deliberately light: pydantic + stdlib only, no matplotlib/opencv/ollama.
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
-from typing import Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -84,6 +85,29 @@ class ChartData(BaseModel):
         """
         return {(s.name, _cat_key(p.x)): float(p.y)
                 for s in self.series for p in s.points}
+
+
+def chartdata_schema() -> dict[str, Any]:
+    """ChartData's JSON schema with all ``$ref``/``$defs`` inlined.
+
+    llama.cpp's schema-to-grammar converter does not resolve ``$ref``, so the
+    nested ``Series``/``Point`` definitions pydantic emits as references are
+    left ungrammared and the model invents field names. Inlining the refs makes
+    the whole structure constrainable.
+    """
+    schema = ChartData.model_json_schema()
+    defs = schema.get("$defs", {})
+
+    def inline(node: Any) -> Any:
+        if isinstance(node, dict):
+            if "$ref" in node:
+                return inline(copy.deepcopy(defs[node["$ref"].split("/")[-1]]))
+            return {k: inline(v) for k, v in node.items() if k != "$defs"}
+        if isinstance(node, list):
+            return [inline(item) for item in node]
+        return node
+
+    return inline(schema)
 
 
 def parse_chartdata(raw: str | dict) -> ChartData:
