@@ -24,7 +24,7 @@ returned a tuple of arrays and another returned a dict of lists, the
 scorer would need a custom case for each. With one shape, the scorer
 only knows about `ChartData`.
 
-**Where:** `schema.py` (definition); `accuracy/vlm.py:OllamaVLM`,
+**Where:** `schema.py` (definition); `vlm/vlm.py:OllamaVLM`,
 `accuracy/benchmark.py:NoisyOracle` (the existing implementations).
 
 **Trade-off:** New extractors might need to do translation work at their
@@ -117,16 +117,19 @@ them so.
 
 ## 6. VLM extractor is in its own file
 
-**Decided:** `OllamaVLM` was extracted from `benchmark.py` into
-`accuracy/vlm.py`.
+**Decided:** `OllamaVLM` was first extracted from `benchmark.py` into
+`accuracy/vlm.py`, then moved out of `accuracy/` entirely into a sibling
+top-level package `vlm/`.
 
 **Why:** If you only want the extractor (because you're writing
 production pipeline code that *uses* the VLM, not because you're
 benchmarking), you shouldn't have to import the benchmark machinery
-(HTML report, ranking, etc.). Now: `from sci_fi_parser.accuracy.vlm
-import OllamaVLM`.
+(HTML report, ranking, etc.) — and you shouldn't have to import from
+`accuracy` at all, since the VLM isn't part of the measurement layer.
+Now: `from sci_fi_parser.vlm.vlm import OllamaVLM`.
 
-**Where:** Commit `e742552`.
+**Where:** Commit `e742552` (extracted from benchmark.py), then moved
+out of `accuracy/` later to `src/sci_fi_parser/vlm/`.
 
 **Trade-off:** One more file. Negligible.
 
@@ -145,7 +148,7 @@ prompt" mishaps. TOML is just data — easy to edit, easy to swap,
 easy to share. The CLI override covers "try one model once"; env
 vars cover "let me bump context just this once".
 
-**Where:** `accuracy/vlm_config.py`, `accuracy/vlm.py`,
+**Where:** `vlm/vlm_config.py`, `vlm/vlm.py`,
 `accuracy/benchmark.py:_resolve_profile`. Config at `config/vlm.toml`.
 
 **Trade-off:** Four possible sources of truth sounds scary, but the

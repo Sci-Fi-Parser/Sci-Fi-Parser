@@ -91,7 +91,7 @@ def test_benchmark_module_imports():
 
 def test_vlm_profile_load(tmp_path):
     """The VLM profile is loaded from a TOML file; unknown keys are rejected."""
-    from sci_fi_parser.accuracy.vlm_config import VLMProfile, load_profile
+    from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 
     p = tmp_path / "vlm.toml"
     p.write_text(
@@ -294,7 +294,7 @@ def test_vlm_comparison_resume_skip(tmp_path):
     from sci_fi_parser.accuracy.vlm_compare import (
         CompareEntry, _maybe_resume_row,
     )
-    from sci_fi_parser.accuracy.vlm_config import VLMProfile
+    from sci_fi_parser.vlm.vlm_config import VLMProfile
 
     entry = CompareEntry(name="qwen-3b", profile=VLMProfile(model="qwen2.5vl:3b"))
 

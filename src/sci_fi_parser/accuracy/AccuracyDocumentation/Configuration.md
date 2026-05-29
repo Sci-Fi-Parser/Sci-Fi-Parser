@@ -199,6 +199,6 @@ BENCH_NUM_CTX=4096 benchmark --data ... --extractor ollama
 ## Sources
 
 - `src/sci_fi_parser/accuracy/synthetic/config.py`, `style.py`, `cli.py`
-- `src/sci_fi_parser/accuracy/vlm_config.py`, `vlm.py`
+- `src/sci_fi_parser/vlm/vlm_config.py`, `vlm.py`
 - `src/sci_fi_parser/accuracy/benchmark.py` (the `_resolve_profile` function)
 - `config/synthetic_bars.toml`, `config/vlm.toml`

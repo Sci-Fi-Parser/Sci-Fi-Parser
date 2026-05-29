@@ -7,9 +7,8 @@ from cv.debug_draw import draw_bar_ocr_matches
 
 import cv2
 
-
 def start_ocr(folder: Path, ocr_set: dict) -> None:
-    path = Path(folder).glob("*.jpg")
+    path = [p for paths in ("*.png", "*.jpg", "*.jpeg") for p in Path(folder).glob(paths)]    
     ocr = Ocr()
     for image in path:
         image_array = cv2.imread(image)
@@ -30,7 +29,7 @@ def start_ocr(folder: Path, ocr_set: dict) -> None:
         output_string = str(bar_candidates) + str(ocr_res) + str(matched)
         # print("run")
 
-        ocr_set.add(image, output_string)
+        ocr_set.add(image.name, output_string)
 
 def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
     linked = []

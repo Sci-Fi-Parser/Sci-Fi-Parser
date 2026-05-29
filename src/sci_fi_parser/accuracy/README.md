@@ -115,10 +115,15 @@ CV+OCR pipelines are mapped into it.
 ```
 accuracy/
   __init__.py
-  benchmark.py     # benchmark CLI: runs an extractor, writes report
-  vlm_config.py    # VLMProfile + load_profile (TOML -> object)
-  synthetic/       # ground-truth chart generator
+  benchmark.py      # `benchmark` CLI: runs an extractor, writes report
+  vlm_compare.py    # `benchmark-compare` CLI: runs N models, builds leaderboard
+  synthetic/        # ground-truth chart generator
 ```
+
+The VLM extractor itself (`OllamaVLM` + `VLMProfile` + `load_profile`) lives
+in the sibling package [../vlm/](../vlm/) — separated from this package so
+non-benchmark callers (e.g. the runtime pipeline) can import the model
+client without pulling in the measurement machinery.
 
 Config files live at repo-root [config/](../../../config/), separate from the
 package source so users edit data, not code.
