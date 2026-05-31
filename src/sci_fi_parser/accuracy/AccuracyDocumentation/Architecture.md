@@ -65,7 +65,7 @@ Don't memorise this — use it as a map.
 
 | File | What's in it |
 |---|---|
-| `src/sci_fi_parser/schema.py` | `ChartData` (the shared shape). `Point` and `Series` (its building blocks). `ChartType` (the allowed chart types). `Extractor` (the protocol every extractor obeys). `parse_chartdata` (handles messy VLM output). `normalize_key` (case-insensitive matching helper). |
+| `src/sci_fi_parser/schema.py` | `ChartData` (the shared shape). `Point` and `Series` (its building blocks). `ChartType` (the allowed chart types). `Extractor` (the protocol every extractor obeys). `parse_chartdata` (handles messy VLM output). |
 
 ### Extractors
 
@@ -78,7 +78,7 @@ Don't memorise this — use it as a map.
 
 | File | What's in it |
 |---|---|
-| `src/sci_fi_parser/accuracy/benchmark.py` | The whole `benchmark` CLI. Contains `NoisyOracle` (a fake extractor for sanity checks), `score_chart` (the scoring logic), `aggregate` (statistics across charts), `write_html` (the report), and `main` (the CLI entry). |
+| `src/sci_fi_parser/accuracy/benchmark.py` | The whole `benchmark` CLI. Contains `NoisyOracle` (a fake extractor for sanity checks), `normalize_key` (case-insensitive matching helper), `series_map` (flattens a `ChartData` into a `(series, category) -> value` map), `score_chart` (the scoring logic), `aggregate` (statistics across charts), `write_html` (the report), and `main` (the CLI entry). |
 
 ### Synthetic chart generator
 

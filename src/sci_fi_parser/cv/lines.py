@@ -5,7 +5,7 @@ import cv2
 
 import numpy as np
 
-from config import CvConfig
+from sci_fi_parser.cv.config import CvConfig
 
 
 @dataclass(slots=True)

@@ -59,3 +59,20 @@ Format:
   
 - Wire a fail-fast Ollama-daemon preflight into `accuracy/benchmark.py`,
   mirroring what `vlm_compare.py` already does via `inspect_preflight`.
+
+## 31-05-2026
+
+### Worked On
+
+- added a VLM class for OpenAI chat completions (compatible) API endpoints
+- moved misc stuff in the library code to `/accuracy` (maybe later implemented library side) 
+
+### Problems
+
+- specific request format was a bit hard to pin down, the ChatCompletionsVLM class is now based on llama.cpp's expected request format, which should work for similar servers
+
+### Next
+
+- ollama might work with ChatCompletionsVLM as is? So it might be unnecessary
+- batched extract?
+

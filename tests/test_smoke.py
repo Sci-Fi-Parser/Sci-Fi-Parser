@@ -14,14 +14,15 @@ import pytest
 
 
 def test_schema_module_imports():
+    from sci_fi_parser.accuracy.benchmark import normalize_key, series_map
     from sci_fi_parser.schema import (
-        ChartData, Extractor, Point, Series, normalize_key, parse_chartdata,
+        ChartData, Extractor, Point, Series, parse_chartdata,
     )
 
     # Round-trip: dict -> ChartData -> series_map.
     cd = ChartData(chart_type=None, confidence=None,
                    series=[Series(name="s", points=[Point(x="a", y=1.0)])])
-    assert cd.series_map() == {("s", "a"): 1.0}
+    assert series_map(cd) == {("s", "a"): 1.0}
 
     # parse_chartdata strips code fences from messy VLM-style output.
     parsed = parse_chartdata(

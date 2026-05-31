@@ -16,11 +16,13 @@ TARGET_FOLDER = Path("train_data/synthetic/images")
 
 OUTPUT_FOLDER = Path("output")
 
+VLM_CONFIG = Path("config/vlm.toml")
+
 def main() -> None:
     ocr_set = OCRSet()
     vlm_set = VLMSet()
     start_ocr(TARGET_FOLDER, ocr_set)
-    start_vlm(TARGET_FOLDER, ocr_set,vlm_set)
+    start_vlm(TARGET_FOLDER, ocr_set, vlm_set, VLM_CONFIG)
    
    
 if __name__ == "__main__":

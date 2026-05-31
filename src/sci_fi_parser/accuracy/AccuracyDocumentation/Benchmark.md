@@ -289,7 +289,7 @@ true=0 and pred=0, error is 0%. If true=0 and pred≠0, error is 100%.
 
 ## Sources
 
-- `src/sci_fi_parser/accuracy/benchmark.py` (the whole file)
-- `src/sci_fi_parser/schema.py` (`Extractor`, `normalize_key`,
-  `parse_chartdata`)
+- `src/sci_fi_parser/accuracy/benchmark.py` (the whole file, including
+  `normalize_key` and `series_map`)
+- `src/sci_fi_parser/schema.py` (`Extractor`, `parse_chartdata`)
 - `src/sci_fi_parser/vlm/vlm.py` (`OllamaVLM`)

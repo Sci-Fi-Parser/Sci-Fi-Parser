@@ -11,8 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from sci_fi_parser.data_pipeline import OCRSet, VLMSet
-from sci_fi_parser.vlm.vlm import OllamaVLM
-from sci_fi_parser.vlm.vlm_config import load_profile
+from sci_fi_parser.vlm.vlm import build_vlm
+from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 
 _IMAGE_GLOBS = ("*.png", "*.jpg", "*.jpeg")
 
@@ -33,12 +33,16 @@ def _ocr_suffix(ocr_text: str) -> str:
 
 
 def start_vlm(target: Path, ocr_set: OCRSet, vlm_set: VLMSet,
-              vlm_config: Path = Path("config/vlm.toml")) -> None:
+              profile: VLMProfile | Path) -> None:
     """For each image in ``target``, look up its OCR text in ``ocr_set``,
     append that to the VLM prompt, run the model, and store the resulting
     ChartData (as a JSON-ready dict) in ``vlm_set`` under the image name.
+
+    ``profile`` is either an in-memory :class:`VLMProfile` or a path to a
+    profile TOML to load.
     """
-    vlm = OllamaVLM(load_profile(vlm_config))
+    vlm = build_vlm(profile if isinstance(profile, VLMProfile)
+                    else load_profile(profile))
     for img in _images_in(target):
         suffix = _ocr_suffix(ocr_set.get(img.name))
         data = vlm.extract(img, prompt_suffix=suffix)

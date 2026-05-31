@@ -36,18 +36,6 @@ ChartType = Literal[
 ]
 
 
-def _cat_key(x: str | float) -> str:
-    """String key for category matching; integer-valued floats lose the .0."""
-    if isinstance(x, float) and x.is_integer():
-        return str(int(x))
-    return str(x)
-
-
-def normalize_key(series: str, category: str) -> tuple[str, str]:
-    """Whitespace- and case-insensitive form of a (series, category) match key."""
-    return (series.strip().casefold(), category.strip().casefold())
-
-
 class Point(BaseModel):
     """One data point: a category label (bars) or numeric x, plus the value."""
 
@@ -75,15 +63,6 @@ class ChartData(BaseModel):
     chart_type: ChartType | None
     series: list[Series]
     confidence: float | None
-
-    def series_map(self) -> dict[tuple[str, str], float]:
-        """Flatten to ``{(series_name, category): value}`` for matching.
-
-        Normalises integer-valued category keys (``2018.0`` -> ``"2018"``) so a
-        VLM returning JSON numbers matches truth labels stored as strings.
-        """
-        return {(s.name, _cat_key(p.x)): float(p.y)
-                for s in self.series for p in s.points}
 
 
 def parse_chartdata(raw: str | dict) -> ChartData:
@@ -114,5 +93,5 @@ class Extractor(Protocol):
 
     name: str
 
-    def extract(self, image_path: Path) -> ChartData:
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
         ...
