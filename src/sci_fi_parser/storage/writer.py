@@ -116,3 +116,20 @@ class DatasetWriter:
             )
         )
     
+    def save_raw_vlm_response(self, chart_id: str, data: str) -> str:
+        path = self.raw_responses_dir / f"{chart_id}.json"
+        with path.open("w", encoding="utf-8") as f:
+            json.dump({"raw_response": data}, f, ensure_ascii=False, indent=2)
+        return str(path.relative_to(self.output_dir))
+
+
+    def save_parsed_vlm(self, chart_id: str, data: dict) -> str:
+        path = self.parsed_vlm_dir / f"{chart_id}.json"
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return str(path.relative_to(self.output_dir))
+
+
+    def write_vlm_result(self, record: dict) -> None:
+        self.write_jsonl("vlm_results.jsonl", record)
+        

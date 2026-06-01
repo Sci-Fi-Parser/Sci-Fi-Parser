@@ -21,10 +21,14 @@ def _images_in(folder: Path) -> list[Path]:
     """Top-level PNG/JPG/JPEG in ``folder``, sorted by filename."""
     return sorted(p for pat in _IMAGE_GLOBS for p in folder.glob(pat))
 
-def _ocr_suffix(ocr_text: str) -> str:
-    """Format OCR text as a prompt-context block (empty in -> empty out)."""
-    if not ocr_text.strip():
+def _ocr_suffix(ocr_record: dict) -> str:
+    labels = ocr_record["ocr_result"]["labels"]
+
+    if not labels:
         return ""
+
+    ocr_text = "\n".join(labels)
+
     return (
         "Additional text recognised from the page by OCR (treat as a hint, "
         "not gospel -- prefer what you actually see on the chart):\n"
@@ -41,15 +45,19 @@ def start_vlm(target: Path, ocr_set: OCRSet, vlm_set: VLMSet, writer, run_id,
     vlm = OllamaVLM(load_profile(vlm_config))
     
     for image_name, ocr_record in ocr_set._data.items():
+        print("ocr_record")
+        print(ocr_record)
         
         chart_id = ocr_record["chart_id"]
 
-        image_path = folder / image_name
-        suffix = _ocr_suffix(ocr_set.get(image_name))
+        image_path = target / image_name
+        suffix = _ocr_suffix(ocr_record)
+        print("suffix:")
+        print(suffix)
+        
         data = vlm.extract(image_path, writer=writer, run_id=run_id, prompt_suffix=suffix)
 
         print("data")
         print(data)
 
-        
         vlm_set.add(image_name, data.model_dump())

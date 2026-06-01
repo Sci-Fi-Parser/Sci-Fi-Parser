@@ -92,5 +92,6 @@ class OllamaVLM:
         )
         
         raw_response = resp["message"]["content"]
-
+        print("RAW RESPONSE:")
+        print(raw_response)
         return parse_chartdata(raw_response)

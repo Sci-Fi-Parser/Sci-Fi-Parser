@@ -61,10 +61,22 @@ def start_ocr(folder: Path, ocr_set: dict, writer, run_id) -> None:
             "ocr_item_count": len(serialized_ocr["ocr_result"]["labels"]),
             "matched_count": len(serialized_ocr["matched"]),
         })
+        
+        ocr_record = {
+            "run_id": run_id,
+            "chart_id": chart_id,
+            "image_name": image_path.name,
+            "chart_crop_path": chart_crop_path,
+            "overlay_path": overlay_path,
+            "raw_ocr_path": raw_ocr_path,
+            "bar_count": len(serialized_ocr["bar_candidates"]),
+            "ocr_item_count": len(serialized_ocr["ocr_result"]["labels"]),
+            "matched_count": len(serialized_ocr["matched"]),
+            **serialized_ocr,
+        }
 
-        output_string = str(bar_candidates) + str(ocr_res) + str(matched)
-        ocr_set.add(image_path.name, output_string)
-
+        #output_string = str(bar_candidates) + str(ocr_res) + str(matched)
+        ocr_set.add(image_path.name, ocr_record)
 
 
 def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
@@ -86,7 +98,6 @@ def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
                 matching_ocr.append(ocr_json["bbox"][j])
         linked.append((bars[i], matching_ocr))
 
-    # print(f"linked: {linked}")
     return linked
 
 
