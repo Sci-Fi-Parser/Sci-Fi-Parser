@@ -87,9 +87,9 @@ def draw_bar_ocr_matches(
             cv2.LINE_AA,
         )
 
-    output_path = Path(output_path)
-    cv2.imwrite(str(output_path), canvas)
-    return output_path
+    #output_path = Path(output_path)
+    #cv2.imwrite(str(output_path), canvas)
+    return canvas
 
 
 def normalize_ocr_bbox(

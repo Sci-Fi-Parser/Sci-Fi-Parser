@@ -34,28 +34,63 @@ class OllamaVLM:
         self.name = model_override or profile.model
         self._model = self.name
         self._prompt = profile.prompt
+        #self._options: dict = {
+        #    "num_ctx": int(os.environ.get("BENCH_NUM_CTX", str(profile.num_ctx))),
+        #}
         self._options: dict = {
-            "num_ctx": int(os.environ.get("BENCH_NUM_CTX", str(profile.num_ctx))),
+            "num_ctx": 4096,
+            "num_predict": 512,
         }
+
         env_gpu = os.environ.get("BENCH_NUM_GPU")
         if env_gpu is not None:
             self._options["num_gpu"] = int(env_gpu)
         elif profile.num_gpu is not None:
             self._options["num_gpu"] = profile.num_gpu
 
-    def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
-        """Run the VLM on one image. ``prompt_suffix`` is appended to the base
-        prompt -- used by the pipeline to inject OCR text (or any other side
-        signal) as additional context. Empty by default for back-compat with
-        every existing caller (benchmark, comparison runner).
-        """
-        import ollama  # pylint: disable=import-outside-toplevel
+    #def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
+    #    """Run the VLM on one image. ``prompt_suffix`` is appended to the base
+    #    prompt -- used by the pipeline to inject OCR text (or any other side
+    #    signal) as additional context. Empty by default for back-compat with
+    #    every existing caller (benchmark, comparison runner).
+    #    """
+    #    import ollama  # pylint: disable=import-outside-toplevel
+    #    content = self._prompt + (f"\n\n{prompt_suffix}" if prompt_suffix else "")
+    #    resp = ollama.chat(
+    #        model=self._model,
+    #        messages=[{"role": "user", "content": content,
+    #                   "images": [str(image_path)]}],
+    #        format=ChartData.model_json_schema(),
+    #        options=self._options,
+    #    )
+    #    return parse_chartdata(resp["message"]["content"])
+    
+    def extract(self, image_path: Path, writer, run_id, prompt_suffix: str = "") -> ChartData:
+        import ollama
+
+        image_path = image_path.resolve()
         content = self._prompt + (f"\n\n{prompt_suffix}" if prompt_suffix else "")
+
+        print("Model:", self._model)
+        print("Image:", image_path)
+        print("Prompt length:", len(content))
+        print("Options:", self._options)
+
         resp = ollama.chat(
             model=self._model,
-            messages=[{"role": "user", "content": content,
-                       "images": [str(image_path)]}],
+            messages=[{
+                    "role": "user",
+                    "content": content,
+                    "images": [str(image_path.resolve())],
+            }],
+            
             format=ChartData.model_json_schema(),
+
+            #this caused an error when enabled.
             options=self._options,
+            keep_alive="30m"
         )
-        return parse_chartdata(resp["message"]["content"])
+        
+        raw_response = resp["message"]["content"]
+
+        return parse_chartdata(raw_response)

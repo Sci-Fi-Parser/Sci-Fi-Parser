@@ -48,8 +48,8 @@ DEFAULT_PROMPT = (
 @dataclass(slots=True)
 class VLMProfile:
     """Everything the OllamaVLM extractor needs. Edit the TOML, not the code."""
-
-    model: str = "qwen2.5vl:7b"
+    
+    model: str = "qwen2.5vl:3b"
     prompt: str = DEFAULT_PROMPT
     num_ctx: int = 2048
     num_gpu: int | None = None

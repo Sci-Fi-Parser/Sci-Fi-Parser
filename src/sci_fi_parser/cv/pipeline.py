@@ -5,13 +5,24 @@ from cv.ocr import Ocr
 import cv.bars as bars
 from cv.debug_draw import draw_bar_ocr_matches
 
+from sci_fi_parser.cv.serializers import (
+    serialize_bar_candidate,
+    serialize_ocr_result,
+    serialize_matched,
+)
+
 import cv2
 
-def start_ocr(folder: Path, ocr_set: dict) -> None:
-    path = [p for paths in ("*.png", "*.jpg", "*.jpeg") for p in Path(folder).glob(paths)]    
+def start_ocr(folder: Path, ocr_set: dict, writer, run_id) -> None:
+    paths_list = [p for paths in ("*.png", "*.jpg", "*.jpeg") for p in Path(folder).glob(paths)]    
+
     ocr = Ocr()
-    for image in path:
-        image_array = cv2.imread(image)
+
+    for image_path in paths_list:
+
+        chart_id = image_path.stem
+        
+        image_array = cv2.imread(image_path)
         bar_candidates = bars.detect_bars(image_array)
 
         ocr.read_image(image_array)
@@ -19,17 +30,42 @@ def start_ocr(folder: Path, ocr_set: dict) -> None:
 
         matched = match_bars_and_ocr(bar_candidates, ocr_res)
 
-        # draw_bar_ocr_matches(
-        #     image_array,
-        #     matched,
-        #     ocr_res,
-        #     image.with_name(f"{image.stem}_debug{image.suffix}"),
-        # )
+        overlay_image = draw_bar_ocr_matches(
+            image_array,
+            matched,
+            ocr_res,
+            image_path.with_name(f"{image_path.stem}_debug{image_path.suffix}"))
+
+        serialized_ocr = {
+            "bar_candidates": [
+                serialize_bar_candidate(candidate)
+                for candidate in bar_candidates
+            ],
+            "ocr_result": serialize_ocr_result(ocr_res),
+            "matched": serialize_matched(matched),
+        }
+
+        # SAVING DATA TO OUTPUT FOLDER WITH WRITER
+        raw_ocr_path = writer.save_raw_ocr(chart_id, serialized_ocr)
+        chart_crop_path = writer.save_chart_crop(image_array, chart_id)
+        overlay_path = writer.save_overlay(overlay_image, chart_id)
+
+        writer.write_ocr_result({
+            "run_id": run_id,
+            "chart_id": chart_id,
+            "image_name": image_path.name,
+            "chart_crop_path": chart_crop_path,
+            "overlay_path": overlay_path,
+            "raw_ocr_path": raw_ocr_path,
+            "bar_count": len(serialized_ocr["bar_candidates"]),
+            "ocr_item_count": len(serialized_ocr["ocr_result"]["labels"]),
+            "matched_count": len(serialized_ocr["matched"]),
+        })
 
         output_string = str(bar_candidates) + str(ocr_res) + str(matched)
-        # print("run")
+        ocr_set.add(image_path.name, output_string)
 
-        ocr_set.add(image.name, output_string)
+
 
 def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
     linked = []

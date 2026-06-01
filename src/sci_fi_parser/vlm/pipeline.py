@@ -32,14 +32,24 @@ def _ocr_suffix(ocr_text: str) -> str:
     )
 
 
-def start_vlm(target: Path, ocr_set: OCRSet, vlm_set: VLMSet,
+def start_vlm(target: Path, ocr_set: OCRSet, vlm_set: VLMSet, writer, run_id,
               vlm_config: Path = Path("config/vlm.toml")) -> None:
     """For each image in ``target``, look up its OCR text in ``ocr_set``,
     append that to the VLM prompt, run the model, and store the resulting
     ChartData (as a JSON-ready dict) in ``vlm_set`` under the image name.
     """
     vlm = OllamaVLM(load_profile(vlm_config))
-    for img in _images_in(target):
-        suffix = _ocr_suffix(ocr_set.get(img.name))
-        data = vlm.extract(img, prompt_suffix=suffix)
-        vlm_set.add(img.name, data.model_dump())
+    
+    for image_name, ocr_record in ocr_set._data.items():
+        
+        chart_id = ocr_record["chart_id"]
+
+        image_path = folder / image_name
+        suffix = _ocr_suffix(ocr_set.get(image_name))
+        data = vlm.extract(image_path, writer=writer, run_id=run_id, prompt_suffix=suffix)
+
+        print("data")
+        print(data)
+
+        
+        vlm_set.add(image_name, data.model_dump())

@@ -24,8 +24,7 @@ class Ocr:
         result = self.ocr.predict(self.input_path)
         extracted = {}
         for res in result:
-            # res.save_to_img("output")
-            # res.save_to_json("output")
+           
             extracted["labels"] = res.get("rec_texts")
             extracted["confidence"] = res.get("rec_scores")
             extracted["bbox"] = res.get("rec_boxes")
