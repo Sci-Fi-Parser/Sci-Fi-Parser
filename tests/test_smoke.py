@@ -229,7 +229,7 @@ def test_score_chart_value_vs_identity():
     - Case C: 10x scale (the qwen-3b bug). matched=4, misaligned=0, but
       both errors_pct and value_errors_pos ~900%.
     """
-    from sci_fi_parser.accuracy.benchmark import score_chart
+    from sci_fi_parser.accuracy.benchmark_pipeline import score_chart
     from sci_fi_parser.schema import ChartData, Point, Series
 
     truth_entry = {
