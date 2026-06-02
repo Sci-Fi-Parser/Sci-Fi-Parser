@@ -14,7 +14,7 @@ import pytest
 
 
 def test_schema_module_imports():
-    from sci_fi_parser.accuracy.benchmark import normalize_key, series_map
+    from sci_fi_parser.accuracy.benchmark_pipeline import normalize_key, series_map
     from sci_fi_parser.schema import (
         ChartData, Extractor, Point, Series, parse_chartdata,
     )
