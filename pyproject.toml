@@ -20,7 +20,7 @@ license = "MIT"
 cv = ["opencv-python>=4.10"]
 
 [project.scripts]
-benchmark = "sci_fi_parser.accuracy.benchmark:main"
+benchmark = "sci_fi_parser.accuracy.benchmark_pipeline:main"
 benchmark-compare = "sci_fi_parser.accuracy.vlm_compare:main"
 parse-chart = "sci_fi_parser.main:main"
 synthetic-bars = "sci_fi_parser.accuracy.synthetic.cli:main"

@@ -42,6 +42,9 @@ from statistics import mean
 import numpy as np
 from PIL import Image
 
+from sci_fi_parser.cv.pipeline import start_ocr
+from sci_fi_parser.data_pipeline import OCRSet
+from sci_fi_parser.vlm.pipeline import _ocr_suffix
 from sci_fi_parser.vlm.vlm import ChatCompletionsVLM, OllamaVLM
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.schema import (
@@ -613,6 +616,7 @@ def load_truth(data_dir: Path) -> dict:
     return truth
 
 
+
 def build_extractor(name: str, truth: dict, rng: np.random.Generator,
                     profile: VLMProfile | None = None) -> Extractor:
     if name == "noisy-oracle":
@@ -648,7 +652,10 @@ def _run_extractor(extractor: Extractor, truth: dict, images: list[str],
         entry = truth[name]
         t0 = time.perf_counter()
         try:
-            pred = extractor.extract(img_dir / name)
+            ocr_set = OCRSet()
+            start_ocr(img_dir, ocr_set)
+            suffix = _ocr_suffix(ocr_set.get(name))
+            pred = extractor.extract(img_dir / name, suffix)
         except Exception as exc:  # pylint: disable=broad-exception-caught
             print(f"  ! {name}: {type(exc).__name__}: {exc}")
             pred = ChartData(chart_type=None, series=[], confidence=None)
@@ -721,42 +728,3 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--limit", type=int, default=None, help="only first N charts")
     return ap.parse_args()
 
-
-def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle",
-                  profile: VLMProfile | None = None,
-                  seed: int = 0, limit: int | None = None,
-                  print_summary: bool = True) -> dict:
-    """End-to-end run: load truth, score, write report.html + results.json.
-
-    Returns the aggregate dict. Public entry point so other tools (e.g. the
-    cross-model comparison runner) can drive it without going through argparse.
-    """
-    truth = load_truth(data)
-    images = sorted(truth)[:limit] if limit else sorted(truth)
-    rng = np.random.default_rng(seed)
-    extractor = build_extractor(extractor_name, truth, rng, profile=profile)
-    img_dir = data / "images"
-
-    results = _run_extractor(extractor, truth, images, img_dir)
-    agg = aggregate(results)
-    out.mkdir(parents=True, exist_ok=True)
-    _write_results_json(out, extractor, agg, results)
-    write_html(out / "report.html", extractor.name, agg, results, img_dir)
-    if print_summary:
-        _print_summary(extractor, agg, results, out)
-    return agg
-
-
-def main() -> None:
-    args = _parse_args()
-    profile = _resolve_profile(args.vlm_config)
-    run_benchmark(
-        data=args.data, out=args.out,
-        extractor_name=args.extractor,
-        profile=profile,
-        seed=args.seed, limit=args.limit,
-    )
-
-
-if __name__ == "__main__":
-    main()

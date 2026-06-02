@@ -60,7 +60,7 @@ import urllib.request
 from dataclasses import dataclass, fields
 from pathlib import Path
 
-from sci_fi_parser.accuracy.benchmark import run_benchmark
+from sci_fi_parser.accuracy.benchmark_pipeline import run_benchmark
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 
 
