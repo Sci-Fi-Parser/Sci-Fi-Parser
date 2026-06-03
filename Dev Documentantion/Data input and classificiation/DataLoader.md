@@ -33,3 +33,17 @@ The vector graphs of the charts may come in pieces. Maybe they could be reconstr
 
 #### Next
 See if PyMuPDF could get fuller images. Otherwise need to checkout other tools.
+
+## 03-06-2026
+### Niko
+#### Worked On
+Getting better images with PyMuPDF.
+
+#### Learned
+Vector graphics (or drawings) can be clustered into a single image. In this it loses the exact points and returns just a Rect object. Some PDFs may have the graphs as either images or drawings so both should be extracted. Classification should weed out non-graphs.
+
+#### Problems
+
+
+#### Next
+PDF / folder input and figuring out how it will fit in the rest of the pipeline. Also need to figure out if "exact data" is applicable for data extraction.

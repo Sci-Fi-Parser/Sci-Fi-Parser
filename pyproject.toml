@@ -11,6 +11,7 @@ dependencies = [
   "paddleocr>=3.5.0",
   "paddlepaddle==3.2.0",
   "opencv-python>=4.13.0.92",
+  "pymupdf>=1.27.2.3",
 ]
 description = "A package to to parse data from graphs in documents."
 readme = "README.md"
