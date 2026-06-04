@@ -33,6 +33,7 @@ import html
 import io
 import json
 import math
+import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -106,6 +107,11 @@ class NoisyOracle:
         self._rel_noise = rel_noise
         self._miss_p = miss_p
         self._extra_p = extra_p
+        # Mock-data mode: BENCH_ORACLE_MOCK=1 makes the oracle ignore the small
+        # noise and instead fake wildly-varying predictions -- each chart gets its
+        # own random bias + spread (plus rare blow-out outliers), so the report
+        # shows many different error patterns to analyse (see _mock_series).
+        self._mock = bool(os.environ.get("BENCH_ORACLE_MOCK"))
 
     def _perturb(self, series: dict, lo: float, hi: float, span: float) -> Series:
         """One ground-truth series -> a noisy prediction (some points dropped/added)."""
@@ -119,8 +125,40 @@ class NoisyOracle:
             pts.append(Point(x="GHOST", y=round(self._rng.uniform(lo, hi), 3)))
         return Series(name=series["name"], points=pts)
 
+    def _mock_series(self, series: dict, bias: float, spread: float) -> Series:
+        """Fake a widely-varying prediction for one series: each bar's signed
+        deviation is drawn from N(bias, spread) %, with ~10% of bars getting an
+        extra blow-out outlier. pred = true * (1 + dev/100). Occasional dropped /
+        hallucinated bars are kept so recall/precision vary too.
+        """
+        vals = [float(v) for _, v in series["points"]]
+        scale = (sum(abs(v) for v in vals) / len(vals)) if vals else 1.0
+        pts = []
+        for cat, val in series["points"]:
+            if self._rng.random() < self._miss_p:
+                continue                              # dropped bar
+            dev = self._rng.normal(bias, spread)
+            if self._rng.random() < 0.10:             # rare blow-out outlier
+                dev += self._rng.normal(0, 250)
+            pts.append(Point(x=str(cat),
+                             y=round(float(val) * (1.0 + dev / 100.0), 3)))
+        if self._rng.random() < self._extra_p:        # hallucinated bar
+            pts.append(Point(x="GHOST",
+                             y=round(scale * self._rng.uniform(0.2, 1.5), 3)))
+        return Series(name=series["name"], points=pts)
+
     def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
         entry = self._truth[image_path.name]
+        if self._mock:
+            # Each chart gets its own personality: a random overall bias and a
+            # random spread, so different charts read tight / noisy / skewed.
+            bias = float(self._rng.uniform(-50, 50))
+            spread = float(self._rng.uniform(5, 80))
+            out_series = [self._mock_series(s, bias, spread)
+                          for s in entry["series"]]
+            conf = float(np.clip(self._rng.normal(0.7, 0.15), 0, 1))
+            return ChartData(chart_type=entry.get("chart_type"),
+                             series=out_series, confidence=conf)
         lo, hi = entry["value_range"]
         span = abs(hi - lo) or 1.0
         out_series = [self._perturb(s, lo, hi, span) for s in entry["series"]]
@@ -337,8 +375,17 @@ _CSS = """
  .stat .v{font-size:22px;font-weight:700} .stat .k{font-size:12px;color:#666}
  .tables{display:flex;flex-wrap:wrap;gap:24px}
  .grid{display:flex;flex-wrap:wrap;gap:14px}
- .card{border:1px solid #e3e3e3;border-radius:10px;padding:10px;width:320px}
+ .card{border:1px solid #e3e3e3;border-radius:10px;padding:10px;width:400px}
  .card img{width:100%;border-radius:6px} .meta{font-size:12px;margin-top:6px}
+ .cardtop{display:flex;gap:8px;align-items:stretch}
+ .imgwrap{position:relative;line-height:0;flex:1 1 62%}
+ .dist{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+ .distbox{flex:1 1 38%;position:relative;border:1px solid #eee;border-radius:6px;
+          background:#fafbfc;min-height:120px}
+ .edist{position:absolute;inset:0;width:100%;height:100%}
+ .elbl{position:absolute;top:2px;left:5px;font-size:10px;color:#94a3b8;z-index:1}
+ .devwrap{max-width:560px;margin:10px 0}
+ .devbell{width:100%;height:auto;border:1px solid #eee;border-radius:8px;background:#fff}
  table{border-collapse:collapse;width:100%;font-size:13px}
  .kv td,.kv th{border-bottom:1px solid #eee;padding:2px 6px;text-align:right}
  .kv td:first-child,.kv th:first-child{text-align:left}
@@ -362,7 +409,7 @@ document.querySelectorAll('#t th').forEach((h,i)=>h.onclick=()=>{
 """
 
 
-def _thumb_b64(path: Path, width: int = 260) -> str:
+def _thumb_b64(path: Path, width: int = 360) -> str:
     im = Image.open(path)
     im.thumbnail((width, width))
     buf = io.BytesIO()
@@ -372,6 +419,54 @@ def _thumb_b64(path: Path, width: int = 260) -> str:
 
 def _pct(x: float) -> str:
     return "-" if math.isnan(x) else f"{x:.2f}%"
+
+
+# Error value (% of true) that maps to a full-height peak in the overlay. The
+# y-scale is LINEAR and clamps here, so each bar shows at its true proportion and
+# a single huge outlier just pins at 100% instead of rescaling the rest.
+_ERROR_CAP_PCT = 100.0
+
+
+def _err_overlay_svg(r: ChartResult) -> str:
+    """Per-bar value-error line drawn *over the chart thumbnail*: one sharp vertex
+    per (series, category) in left-to-right truth order, so each peak rides above
+    its bar. y = error % (linear, 0.._ERROR_CAP_PCT, clamped; higher = worse) -- each bar shown at its true proportion, with anything at/above the cap pinned to the top. The line is
+    anchored to the 0%-error baseline at both ends, so it **starts at the same
+    height on every card**. Drawn in red; a bar the model didn't return is a gap.
+    Positioned in a rough plot region (insets matched to a typical matplotlib
+    layout) and stretched to the image box (``preserveAspectRatio="none"``).
+    """
+    cap = _ERROR_CAP_PCT
+    errs = []
+    for (s, c), tv in r.truth.items():
+        nk = normalize_key(s, c)
+        errs.append(next((_pct_of_true(pv, tv) for (ps, pc), pv in r.pred.items()
+                          if normalize_key(ps, pc) == nk), None))
+
+    # Rough plot area within the image (0..100 box): left inset for the y-axis
+    # labels, bottom inset for the x-axis labels, small top/right.
+    lx, rx, ty, by = 12.0, 97.0, 6.0, 88.0
+    n = len(errs)
+
+    def slot(i: int) -> float:
+        return (lx + rx) / 2 if n <= 1 else lx + (i + 0.5) / n * (rx - lx)
+
+    def py(e: float) -> float:                       # linear, 0 -> baseline
+        return by - min(e, cap) / cap * (by - ty)
+
+    pts = [(slot(i), py(e)) for i, e in enumerate(errs) if e is not None]
+    if not pts:
+        return '<svg class="dist" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>'
+    dots = "".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="1.4" fill="#dc2626"/>'
+                   for x, y in pts)
+    # Sharp polyline (straight segments), anchored to the baseline at both ends.
+    poly = [(pts[0][0], by)] + pts + [(pts[-1][0], by)]
+    d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in poly)
+    body = (f'<path d="{d} Z" fill="rgba(220,38,38,0.16)" stroke="none"/>'
+            f'<path d="{d}" fill="none" stroke="#dc2626" stroke-width="1.6" '
+            f'stroke-linejoin="round"/>{dots}')
+    return (f'<svg class="dist" viewBox="0 0 100 100" '
+            f'preserveAspectRatio="none">{body}</svg>')
 
 
 def _group_table(title: str, rows: list[tuple]) -> str:
@@ -422,7 +517,13 @@ def _detail_card(r: ChartResult, img_dir: Path) -> str:
     )
     return f"""
     <div class="card">
-      <img src="data:image/png;base64,{_thumb_b64(img_dir / r.image)}"/>
+      <div class="cardtop">
+        <div class="imgwrap">
+          <img src="data:image/png;base64,{_thumb_b64(img_dir / r.image)}"/>
+          {_err_overlay_svg(r)}
+        </div>
+        <div class="distbox"><span class="elbl">deviation</span>{_dev_bell_svg(_signed_devs(r), w=200, h=120, cls="edist", compact=True)}</div>
+      </div>
       <div class="meta">
         <b>{html.escape(r.image)}</b> · {preset}
         · d{r.meta.get('density', '?')} · labels={r.meta.get('labels_on')}
@@ -533,22 +634,114 @@ def _pane_heading(title: str, shown: int, total: int, desc: str) -> str:
             f"{title} <small>· {shown} of {total} charts</small></h2>")
 
 
+def _signed_devs(r: ChartResult) -> list[float]:
+    """Signed per-bar deviation ((pred-true)/|true| %) for one chart's matched
+    bars, clamped to [-100, +100]."""
+    devs: list[float] = []
+    for (s, c), tv in r.truth.items():
+        nk = normalize_key(s, c)
+        pv = next((v for (ps, pc), v in r.pred.items()
+                   if normalize_key(ps, pc) == nk), None)
+        if pv is None:
+            continue
+        if abs(tv) < 1e-12:
+            d = 0.0 if abs(pv) < 1e-12 else 100.0
+        else:
+            d = (pv - tv) / abs(tv) * 100.0
+        devs.append(max(-100.0, min(100.0, d)))
+    return devs
+
+
+def _dev_bell_svg(devs: list[float], *, w: float, h: float, cls: str,
+                  compact: bool) -> str:
+    """Distribution of signed deviation (-100..+100 %) as a faint histogram + a
+    fitted normal (Gaussian) curve -- the classic bell, centred near 0 for an
+    unbiased extractor with outliers in the tails. A dashed line marks 0; a
+    coloured dashed line marks the mean (bias). ``compact`` shrinks the
+    margins/ticks/fonts for the small per-card panel; the full version adds an
+    axis label and an n/mean/sd caption.
+    """
+    if compact:
+        left, right, top, bot, fs, nb, cw = 16.0, 5.0, 7.0, 15.0, 7.0, 12, 1.4
+        ticks = ((-100, "-100"), (0, "0"), (100, "+100"))
+    else:
+        left, right, top, bot, fs, nb, cw = 44.0, 16.0, 16.0, 40.0, 11.0, 20, 2.0
+        ticks = ((-100, "-100%"), (-50, "-50%"), (0, "0%"),
+                 (50, "+50%"), (100, "+100%"))
+    x0, x1, y0, yb = left, w - right, top, h - bot
+    pw, ph = x1 - x0, yb - y0
+
+    def px(d: float) -> float:                       # deviation % -> plot x
+        return x0 + (d + 100.0) / 200.0 * pw
+
+    centre = (f'<line x1="{px(0):.1f}" y1="{y0:.0f}" x2="{px(0):.1f}" y2="{yb:.0f}" '
+              f'stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 3"/>')
+    axes = (f'<line x1="{x0:.0f}" y1="{yb:.0f}" x2="{x1:.0f}" y2="{yb:.0f}" '
+            f'stroke="#94a3b8" stroke-width="1"/>'
+            f'<line x1="{x0:.0f}" y1="{y0:.0f}" x2="{x0:.0f}" y2="{yb:.0f}" '
+            f'stroke="#94a3b8" stroke-width="1"/>')
+    xticks = "".join(
+        f'<line x1="{px(d):.1f}" y1="{yb:.0f}" x2="{px(d):.1f}" y2="{yb + 3:.0f}" '
+        f'stroke="#94a3b8" stroke-width="1"/>'
+        f'<text x="{px(d):.1f}" y="{yb + fs + 3:.1f}" font-size="{fs:.0f}" '
+        f'fill="#64748b" text-anchor="middle">{lbl}</text>'
+        for d, lbl in ticks
+    )
+    extra = "" if compact else (
+        f'<text x="{(x0 + x1) / 2:.0f}" y="{h - 4:.0f}" font-size="11" '
+        f'fill="#64748b" text-anchor="middle">deviation (pred − true) / |true|</text>')
+
+    if not devs:
+        body = "" if compact else (
+            f'<text x="{(x0 + x1) / 2:.0f}" y="{(y0 + yb) / 2:.0f}" font-size="12" '
+            f'fill="#94a3b8" text-anchor="middle">no matched bars</text>')
+    else:
+        counts = [0] * nb
+        for d in devs:
+            counts[min(nb - 1, int((d + 100.0) / 200.0 * nb))] += 1
+        cmax = max(counts) or 1
+        bw = pw / nb
+        bars = "".join(
+            f'<rect x="{x0 + b * bw + 0.6:.1f}" y="{yb - cnt / cmax * ph:.1f}" '
+            f'width="{bw - 1.2:.1f}" height="{cnt / cmax * ph:.1f}" '
+            f'fill="hsla(231,60%,60%,0.18)"/>'
+            for b, cnt in enumerate(counts)
+        )
+        mu = mean(devs)
+        sd = float(np.std(devs))
+        sigma = max(sd, 4.0)
+        cpts = []
+        for i in range(121):
+            d = -100.0 + 200.0 * i / 120
+            g = math.exp(-((d - mu) ** 2) / (2 * sigma ** 2))   # peak 1 at the mean
+            cpts.append(f"{px(d):.1f},{yb - g * ph * 0.95:.1f}")
+        curve = (f'<path d="M{" L".join(cpts)}" fill="none" '
+                 f'stroke="hsl(231,70%,48%)" stroke-width="{cw}"/>')
+        mu_line = (f'<line x1="{px(mu):.1f}" y1="{y0:.0f}" x2="{px(mu):.1f}" y2="{yb:.0f}" '
+                   f'stroke="hsl(231,70%,48%)" stroke-width="1" stroke-dasharray="2 2"/>')
+        body = bars + mu_line + curve
+        if not compact:
+            body += (f'<text x="{x1:.0f}" y="{y0 + 12:.0f}" font-size="11" '
+                     f'fill="#64748b" text-anchor="end">'
+                     f'n={len(devs)} · mean {mu:+.1f}% · sd {sd:.1f}%</text>')
+
+    return (f'<svg class="{cls}" viewBox="0 0 {w:.0f} {h:.0f}" '
+            f'preserveAspectRatio="xMidYMid meet">{centre}{body}{axes}{xticks}{extra}</svg>')
+
+
 def write_html(path: Path, extractor: str, agg: dict, results: list[ChartResult],
-               img_dir: Path, n_show: int = 6) -> None:
+               img_dir: Path) -> None:
     by_score = sorted(results, key=lambda r: (_rank_score(r), r.image))
-    n = min(n_show, len(by_score))
-    best = by_score[:n]
-    # Avoid overlap on small runs: worst takes from the *other* end and skips
-    # anything already in best.
-    worst = [r for r in reversed(by_score) if r not in best][:n]
 
     summary = _summary_cards(agg)
     table_rows = "".join(_chart_row(r) for r in results)
     by_preset = _group_table("by preset", group_summary(results, "preset"))
     by_density = _group_table("by density", group_summary(results, "density"))
     by_labels = _group_table("by labels-on", group_summary(results, "labels_on"))
-    worst_html = "".join(_detail_card(r, img_dir) for r in worst)
-    best_html = "".join(_detail_card(r, img_dir) for r in best)
+    # Every chart as a card, ordered best -> worst (by_score is ascending rank).
+    cards_html = "".join(_detail_card(r, img_dir) for r in by_score)
+    dev_bell = _dev_bell_svg([d for r in results for d in _signed_devs(r)],
+                             w=520, h=220, cls="devbell", compact=False)
 
     path.write_text(f"""<!doctype html><meta charset="utf-8">
 <title>Extractor benchmark · {html.escape(extractor)}</title>
@@ -564,16 +757,14 @@ type prediction. Mean conf = average self-reported confidence (VLM).</p>
 <h2>Breakdowns</h2>
 <div class="tables">{by_preset}{by_density}{by_labels}</div>
 
-{_pane_heading("Worst", len(worst), len(results),
-    "Ranked by combined value error (mean + max, % of true value) "
-    "plus a small label-match penalty. "
-    "Charts that matched no bars (recall 0%) are listed first.")}
-<div class="grid">{worst_html}</div>
-{_pane_heading("Best", len(best), len(results),
-    "Same composite score as Worst, ascending. "
-    "Charts with the lowest combined value error and the cleanest "
-    "label match are ranked first.")}
-<div class="grid">{best_html}</div>
+<h2 title="Distribution of signed per-bar deviation (pred − true) / |true|, across every matched bar. Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates." style="cursor:help">Deviation distribution</h2>
+<div class="devwrap">{dev_bell}</div>
+
+{_pane_heading("Charts — best to worst", len(results), len(results),
+    "Every chart as a card, ordered from lowest combined value error (best) "
+    "to highest (worst). Score = mean + max per-bar error (% of true value) "
+    "plus a small label-match penalty; charts that matched no bars sort last.")}
+<div class="grid">{cards_html}</div>
 
 <h2>All charts <small>(click a header to sort)</small></h2>
 <table class="full" id="t"><thead><tr>
