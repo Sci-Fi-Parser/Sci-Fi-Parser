@@ -641,14 +641,16 @@ def _resolve_profile(config_arg: Path | None) -> VLMProfile:
 
 
 def _run_extractor(extractor: Extractor, truth: dict, images: list[str],
-                   img_dir: Path) -> list[ChartResult]:
+                   img_dir: Path,
+                   prompt_suffixes: dict[str, str] | None = None) -> list[ChartResult]:
     """Run the extractor over every image, timing each, scoring against truth."""
     results: list[ChartResult] = []
     for name in images:
         entry = truth[name]
         t0 = time.perf_counter()
         try:
-            pred = extractor.extract(img_dir / name)
+            suffix = "" if prompt_suffixes is None else prompt_suffixes.get(name, "")
+            pred = extractor.extract(img_dir / name, prompt_suffix=suffix)
         except Exception as exc:  # pylint: disable=broad-exception-caught
             print(f"  ! {name}: {type(exc).__name__}: {exc}")
             pred = ChartData(chart_type=None, series=[], confidence=None)
@@ -725,6 +727,7 @@ def _parse_args() -> argparse.Namespace:
 def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle",
                   profile: VLMProfile | None = None,
                   seed: int = 0, limit: int | None = None,
+                  prompt_suffixes: dict[str, str] | None = None,
                   print_summary: bool = True) -> dict:
     """End-to-end run: load truth, score, write report.html + results.json.
 
@@ -737,7 +740,7 @@ def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle"
     extractor = build_extractor(extractor_name, truth, rng, profile=profile)
     img_dir = data / "images"
 
-    results = _run_extractor(extractor, truth, images, img_dir)
+    results = _run_extractor(extractor, truth, images, img_dir, prompt_suffixes)
     agg = aggregate(results)
     out.mkdir(parents=True, exist_ok=True)
     _write_results_json(out, extractor, agg, results)
