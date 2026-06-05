@@ -375,16 +375,9 @@ _CSS = """
  .stat .v{font-size:22px;font-weight:700} .stat .k{font-size:12px;color:#666}
  .tables{display:flex;flex-wrap:wrap;gap:24px}
  .grid{display:flex;flex-wrap:wrap;gap:14px}
- .card{border:1px solid #e3e3e3;border-radius:10px;padding:10px;width:400px}
+ .card{border:1px solid #e3e3e3;border-radius:10px;padding:10px;width:340px}
  .card img{width:100%;border-radius:6px} .meta{font-size:12px;margin-top:6px}
- .cardtop{display:flex;gap:8px;align-items:stretch}
- .imgwrap{position:relative;line-height:0;flex:1 1 62%}
- .dist{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
- .distbox{flex:1 1 38%;position:relative;border:1px solid #eee;border-radius:6px;
-          background:#fafbfc;min-height:120px}
- .edist{position:absolute;inset:0;width:100%;height:100%}
- .elbl{position:absolute;top:2px;left:5px;font-size:10px;color:#94a3b8;z-index:1}
- .devwrap{max-width:560px;margin:10px 0}
+ .devwrap{max-width:880px;margin:10px 0}
  .devbell{width:100%;height:auto;border:1px solid #eee;border-radius:8px;background:#fff}
  table{border-collapse:collapse;width:100%;font-size:13px}
  .kv td,.kv th{border-bottom:1px solid #eee;padding:2px 6px;text-align:right}
@@ -419,54 +412,6 @@ def _thumb_b64(path: Path, width: int = 360) -> str:
 
 def _pct(x: float) -> str:
     return "-" if math.isnan(x) else f"{x:.2f}%"
-
-
-# Error value (% of true) that maps to a full-height peak in the overlay. The
-# y-scale is LINEAR and clamps here, so each bar shows at its true proportion and
-# a single huge outlier just pins at 100% instead of rescaling the rest.
-_ERROR_CAP_PCT = 100.0
-
-
-def _err_overlay_svg(r: ChartResult) -> str:
-    """Per-bar value-error line drawn *over the chart thumbnail*: one sharp vertex
-    per (series, category) in left-to-right truth order, so each peak rides above
-    its bar. y = error % (linear, 0.._ERROR_CAP_PCT, clamped; higher = worse) -- each bar shown at its true proportion, with anything at/above the cap pinned to the top. The line is
-    anchored to the 0%-error baseline at both ends, so it **starts at the same
-    height on every card**. Drawn in red; a bar the model didn't return is a gap.
-    Positioned in a rough plot region (insets matched to a typical matplotlib
-    layout) and stretched to the image box (``preserveAspectRatio="none"``).
-    """
-    cap = _ERROR_CAP_PCT
-    errs = []
-    for (s, c), tv in r.truth.items():
-        nk = normalize_key(s, c)
-        errs.append(next((_pct_of_true(pv, tv) for (ps, pc), pv in r.pred.items()
-                          if normalize_key(ps, pc) == nk), None))
-
-    # Rough plot area within the image (0..100 box): left inset for the y-axis
-    # labels, bottom inset for the x-axis labels, small top/right.
-    lx, rx, ty, by = 12.0, 97.0, 6.0, 88.0
-    n = len(errs)
-
-    def slot(i: int) -> float:
-        return (lx + rx) / 2 if n <= 1 else lx + (i + 0.5) / n * (rx - lx)
-
-    def py(e: float) -> float:                       # linear, 0 -> baseline
-        return by - min(e, cap) / cap * (by - ty)
-
-    pts = [(slot(i), py(e)) for i, e in enumerate(errs) if e is not None]
-    if not pts:
-        return '<svg class="dist" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>'
-    dots = "".join(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="1.4" fill="#dc2626"/>'
-                   for x, y in pts)
-    # Sharp polyline (straight segments), anchored to the baseline at both ends.
-    poly = [(pts[0][0], by)] + pts + [(pts[-1][0], by)]
-    d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in poly)
-    body = (f'<path d="{d} Z" fill="rgba(220,38,38,0.16)" stroke="none"/>'
-            f'<path d="{d}" fill="none" stroke="#dc2626" stroke-width="1.6" '
-            f'stroke-linejoin="round"/>{dots}')
-    return (f'<svg class="dist" viewBox="0 0 100 100" '
-            f'preserveAspectRatio="none">{body}</svg>')
 
 
 def _group_table(title: str, rows: list[tuple]) -> str:
@@ -517,13 +462,7 @@ def _detail_card(r: ChartResult, img_dir: Path) -> str:
     )
     return f"""
     <div class="card">
-      <div class="cardtop">
-        <div class="imgwrap">
-          <img src="data:image/png;base64,{_thumb_b64(img_dir / r.image)}"/>
-          {_err_overlay_svg(r)}
-        </div>
-        <div class="distbox"><span class="elbl">deviation</span>{_dev_bell_svg(_signed_devs(r), w=200, h=120, cls="edist", compact=True)}</div>
-      </div>
+      <img src="data:image/png;base64,{_thumb_b64(img_dir / r.image)}"/>
       <div class="meta">
         <b>{html.escape(r.image)}</b> · {preset}
         · d{r.meta.get('density', '?')} · labels={r.meta.get('labels_on')}
@@ -707,23 +646,41 @@ def _dev_bell_svg(devs: list[float], *, w: float, h: float, cls: str,
             f'fill="hsla(231,60%,60%,0.18)"/>'
             for b, cnt in enumerate(counts)
         )
-        mu = mean(devs)
-        sd = float(np.std(devs))
+        arr = np.asarray(devs, dtype=float)
+        # Laplace (double-exponential) MLE: location = median, scale b = mean
+        # absolute deviation from it. Robust (median / MAD) AND matches a sharp-
+        # peak / heavy-tail error distribution far better than a normal.
+        med = float(np.median(arr))
+        b = max(float(np.mean(np.abs(arr - med))), 3.0)
+        # Normal MLE: mean + std -- kept as the familiar reference curve.
+        mu = float(arr.mean())
+        sd = float(arr.std())
         sigma = max(sd, 4.0)
-        cpts = []
+        lap_pts, nrm_pts = [], []
         for i in range(121):
             d = -100.0 + 200.0 * i / 120
-            g = math.exp(-((d - mu) ** 2) / (2 * sigma ** 2))   # peak 1 at the mean
-            cpts.append(f"{px(d):.1f},{yb - g * ph * 0.95:.1f}")
-        curve = (f'<path d="M{" L".join(cpts)}" fill="none" '
-                 f'stroke="hsl(231,70%,48%)" stroke-width="{cw}"/>')
-        mu_line = (f'<line x1="{px(mu):.1f}" y1="{y0:.0f}" x2="{px(mu):.1f}" y2="{yb:.0f}" '
-                   f'stroke="hsl(231,70%,48%)" stroke-width="1" stroke-dasharray="2 2"/>')
-        body = bars + mu_line + curve
+            lap = math.exp(-abs(d - med) / b)                    # peak 1 at median
+            nrm = math.exp(-((d - mu) ** 2) / (2 * sigma ** 2))  # peak 1 at mean
+            lap_pts.append(f"{px(d):.1f},{yb - lap * ph * 0.95:.1f}")
+            nrm_pts.append(f"{px(d):.1f},{yb - nrm * ph * 0.95:.1f}")
+        # Normal underneath (secondary, dashed grey); Laplace on top (primary).
+        normal = (f'<path d="M{" L".join(nrm_pts)}" fill="none" stroke="#94a3b8" '
+                  f'stroke-width="{cw}" stroke-dasharray="5 3"/>')
+        laplace = (f'<path d="M{" L".join(lap_pts)}" fill="none" '
+                   f'stroke="hsl(231,75%,48%)" stroke-width="{cw + 0.6}"/>')
+        med_line = (f'<line x1="{px(med):.1f}" y1="{y0:.0f}" x2="{px(med):.1f}" '
+                    f'y2="{yb:.0f}" stroke="hsl(231,75%,48%)" stroke-width="1" '
+                    f'stroke-dasharray="2 2"/>')
+        body = bars + med_line + normal + laplace
         if not compact:
-            body += (f'<text x="{x1:.0f}" y="{y0 + 12:.0f}" font-size="11" '
-                     f'fill="#64748b" text-anchor="end">'
-                     f'n={len(devs)} · mean {mu:+.1f}% · sd {sd:.1f}%</text>')
+            body += (
+                f'<text x="{x0 + 4:.0f}" y="{y0 + 11:.0f}" font-size="11">'
+                f'<tspan fill="hsl(231,75%,48%)">— Laplace</tspan>'
+                f'<tspan fill="#94a3b8" dx="10">- - Normal</tspan></text>'
+                f'<text x="{x1:.0f}" y="{y0 + 11:.0f}" font-size="11" '
+                f'fill="#64748b" text-anchor="end">'
+                f'n={len(devs)} · median {med:+.1f}% (b {b:.1f}) · '
+                f'mean {mu:+.1f}% (sd {sd:.1f})</text>')
 
     return (f'<svg class="{cls}" viewBox="0 0 {w:.0f} {h:.0f}" '
             f'preserveAspectRatio="xMidYMid meet">{centre}{body}{axes}{xticks}{extra}</svg>')
