@@ -47,3 +47,17 @@ Vector graphics (or drawings) can be clustered into a single image. In this it l
 
 #### Next
 PDF / folder input and figuring out how it will fit in the rest of the pipeline. Also need to figure out if "exact data" is applicable for data extraction.
+
+## 05-06-2026
+### Niko
+#### Worked On
+Getting higher resolution images
+
+#### Learned
+The dpi can simply be changed on a pixmap and the downscaled to the desired size. PyMuPDF has methods to work with Pillow.
+
+#### Problems
+The CNN will need a consistent size in both directions.
+
+#### Next
+Probably check on rotating vertical images. Also need to check how it will fit into the whole pipeline.
