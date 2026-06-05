@@ -1,7 +1,10 @@
 import pymupdf
 
-from pymupdf import Document
+from pymupdf import Document, Pixmap
 from PIL import Image
+
+
+MAX_SIZE = 1000
 
 def extract_images(doc: Document):
     """Saves images in PDF files as PNG images.
@@ -16,8 +19,10 @@ def extract_images(doc: Document):
             if xref in xref_seen:
                 pass
             xref_seen.add(xref)
-            pix = pymupdf.Pixmap(doc, xref)
-            pix.save(f"pymupdf_outputs/{xref}.png")
+            for index, rect in enumerate(page.get_image_rects(xref)):
+                pix = page.get_pixmap(dpi=300, clip=rect)
+                img = resize(pix)
+                img.save(f"pymupdf_outputs/{xref}-{index}.png")
 
 def extract_drawings(doc: Document):
     """Saves vector graphics in PDF files as PNG images.
@@ -25,17 +30,18 @@ def extract_drawings(doc: Document):
     Args:
         doc (Document): Document object
     """
-    MAX_SIZE = 1000
     i = 0 # index naming is temporary
     for page in doc:
         for drawing in page.cluster_drawings(x_tolerance=75, y_tolerance=75):
             pix = page.get_pixmap(dpi=300, clip=drawing,)
-
-            mode = "RGBA" if pix.alpha else "RGB"
-            img = Image.frombytes(mode, (pix.width, pix.height), pix.samples)
-            img.thumbnail((MAX_SIZE, MAX_SIZE))
+            img = resize(pix)
             img.save(f"pymupdf_outputs/vector-{i}.png")
             i += 1
+
+def resize(pix: Pixmap) -> Image:
+    img = pix.pil_image()
+    img.thumbnail((MAX_SIZE, MAX_SIZE))
+    return img
 
 if __name__ == "__main__":
     pdf = input("Enter PDF: ")
