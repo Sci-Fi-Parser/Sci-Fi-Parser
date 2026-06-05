@@ -1,6 +1,7 @@
 import pymupdf
 
 from pymupdf import Document
+from PIL import Image
 
 def extract_images(doc: Document):
     """Saves images in PDF files as PNG images.
@@ -24,11 +25,16 @@ def extract_drawings(doc: Document):
     Args:
         doc (Document): Document object
     """
+    MAX_SIZE = 1000
     i = 0 # index naming is temporary
     for page in doc:
         for drawing in page.cluster_drawings(x_tolerance=75, y_tolerance=75):
-            pix = page.get_pixmap(clip=drawing)
-            pix.save(f"pymupdf_outputs/vector-{i}.png")
+            pix = page.get_pixmap(dpi=300, clip=drawing,)
+
+            mode = "RGBA" if pix.alpha else "RGB"
+            img = Image.frombytes(mode, (pix.width, pix.height), pix.samples)
+            img.thumbnail((MAX_SIZE, MAX_SIZE))
+            img.save(f"pymupdf_outputs/vector-{i}.png")
             i += 1
 
 if __name__ == "__main__":
