@@ -38,3 +38,24 @@ After doing looking at the dataset, it is immediately obvious that the image res
 ### Next
 
 Check the resolution distributions and start working on CNN training
+
+### Antti
+
+## 05-06-2026
+
+### Worked on
+CNN classifier for different graph types
+
+### Learned
+
+CNN training requires a specific file structure for organising the images. Found a library (split-folders) to order the images automatically into training/validation/testing sets randomly with specific proportions. A nice feature is that a seed value can be used when sampling the images, which should make the network training more reproducible with the same dataset. 
+
+Also studied some basic PyTorch functions to transform the input data. Instead of e.g. padding, the images can simply be just resized to a given resolution using various interpolation schemes. This could be used to also reduce the image size, which would also mean smaller networks. 
+
+### Problems
+
+With very little prior experience, choosing the correct data transformations and training options seems like a pretty daunting task. A lot of the tutorials use datasets that come with the library instead of using custom datasets.
+
+### Next
+
+Implement and train a simple CNN. At first, the plan is to only classify horizontal and vertical bar graphs.
