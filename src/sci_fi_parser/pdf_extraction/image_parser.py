@@ -39,6 +39,14 @@ def extract_drawings(doc: Document):
             i += 1
 
 def resize(pix: Pixmap) -> Image:
+    """Takes a pixmap object and resizes it so that the longer side is max 1000 px long.
+
+    Args:
+        pix (Pixmap): Pixmap object of an image from a PDF
+
+    Returns:
+        Image: Pillow Image object
+    """
     img = pix.pil_image()
     img.thumbnail((MAX_SIZE, MAX_SIZE))
     return img
