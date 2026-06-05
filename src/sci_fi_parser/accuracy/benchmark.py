@@ -28,9 +28,6 @@ also exposes ``main`` so ``python -m sci_fi_parser.accuracy.benchmark`` works.)
 from __future__ import annotations
 
 import argparse
-import base64
-import html
-import io
 import json
 import math
 import os
@@ -41,7 +38,6 @@ from pathlib import Path
 from statistics import mean
 
 import numpy as np
-from PIL import Image
 
 from sci_fi_parser.vlm.vlm import ChatCompletionsVLM, OllamaVLM
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
@@ -363,377 +359,12 @@ def group_summary(results: list[ChartResult], key: str) -> list[tuple]:
 
 
 # --------------------------------------------------------------------------- #
-# HTML report (dependency-free templating + base64 thumbnails)
+# Console-summary formatter (the HTML report rendering now lives in draw_lap.py)
 # --------------------------------------------------------------------------- #
-_CSS = """
- body{font:14px/1.5 system-ui,sans-serif;margin:24px;color:#1a1a1a}
- h1{font-size:20px}
- h2{margin-top:32px;border-bottom:1px solid #ddd;padding-bottom:4px}
- .stats{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
- .stat{background:#f4f6f8;border-radius:10px;padding:12px 16px;
-       min-width:90px;text-align:center;cursor:help}
- .stat .v{font-size:22px;font-weight:700} .stat .k{font-size:12px;color:#666}
- .tables{display:flex;flex-wrap:wrap;gap:24px}
- .grid{display:flex;flex-wrap:wrap;gap:14px}
- .card{border:1px solid #e3e3e3;border-radius:10px;padding:10px;width:340px}
- .card img{width:100%;border-radius:6px} .meta{font-size:12px;margin-top:6px}
- .devwrap{max-width:880px;margin:10px 0}
- .devbell{width:100%;height:auto;border:1px solid #eee;border-radius:8px;background:#fff}
- table{border-collapse:collapse;width:100%;font-size:13px}
- .kv td,.kv th{border-bottom:1px solid #eee;padding:2px 6px;text-align:right}
- .kv td:first-child,.kv th:first-child{text-align:left}
- table.full th,table.full td{border-bottom:1px solid #eee;
-                             padding:6px 8px;text-align:right}
- table.full th:first-child,table.full td:first-child{text-align:left}
- table.full th{cursor:pointer;background:#f4f6f8;position:sticky;top:0}
-"""
-
-# Click-to-sort for the all-charts table. Headers with data-num="1" sort
-# numerically (using each cell's data-v if present, else its text).
-_SORT_JS = r"""
-document.querySelectorAll('#t th').forEach((h,i)=>h.onclick=()=>{
- const tb=document.querySelector('#t tbody'),rows=[...tb.rows];
- const num=h.dataset.num==='1', dir=h.dataset.d=h.dataset.d==='1'?'':'1';
- rows.sort((a,b)=>{const x=a.cells[i],y=b.cells[i];
-   const va=num?+(x.dataset.v??x.textContent.replace(/[^0-9.\-]/g,'')||0):x.textContent;
-   const vb=num?+(y.dataset.v??y.textContent.replace(/[^0-9.\-]/g,'')||0):y.textContent;
-   return (va>vb?1:va<vb?-1:0)*(dir?-1:1);});
- rows.forEach(r=>tb.appendChild(r));});
-"""
-
-
-def _thumb_b64(path: Path, width: int = 360) -> str:
-    im = Image.open(path)
-    im.thumbnail((width, width))
-    buf = io.BytesIO()
-    im.save(buf, "PNG")
-    return base64.b64encode(buf.getvalue()).decode()
-
-
 def _pct(x: float) -> str:
     return "-" if math.isnan(x) else f"{x:.2f}%"
 
 
-def _group_table(title: str, rows: list[tuple]) -> str:
-    body = "".join(
-        f"<tr><td>{html.escape(str(k))}</td><td>{n}</td>"
-        f"<td>{_pct(err)}</td><td>{rec*100:.1f}%</td><td>{sec:.1f} s</td></tr>"
-        for k, n, err, rec, sec in rows
-    )
-    return (f"<table class='full' style='max-width:560px'><thead><tr><th>{title}</th>"
-            f"<th>charts</th><th>mean err</th><th>recall</th>"
-            f"<th>mean time</th></tr></thead>"
-            f"<tbody>{body}</tbody></table>")
-
-
-def _pred_cell(r: ChartResult, series: str, cat: str) -> str:
-    """Pred value with the % error vs truth (or — if no match)."""
-    norm = normalize_key(series, cat)
-    for (ps, pc), pv in r.pred.items():
-        if normalize_key(ps, pc) == norm:
-            err = _pct_of_true(pv, r.truth[(series, cat)])
-            return f"{pv:.2f} <span style='color:#888'>({err:.1f}%)</span>"
-    return "—"
-
-
-def _type_chip(r: ChartResult) -> str:
-    if r.type_true is None:
-        return ""
-    if r.type_pred is None:
-        return (f" · type={html.escape(r.type_true)} "
-                f"<span style='color:#a00'>(no pred)</span>")
-    ok = "✓" if r.type_matched else "✗"
-    colour = "#0a0" if r.type_matched else "#a00"
-    return (f" · type=<span style='color:{colour}'>{ok}</span> "
-            f"{html.escape(r.type_pred)} (true: {html.escape(r.type_true)})")
-
-
-def _conf_chip(r: ChartResult) -> str:
-    return f" · conf {r.confidence:.2f}" if r.confidence is not None else ""
-
-
-def _detail_card(r: ChartResult, img_dir: Path) -> str:
-    preset = html.escape(str(r.meta.get("preset", r.meta.get("type", ""))))
-    kv_head = "<tr><th>series</th><th>cat</th><th>true</th><th>pred (err)</th></tr>"
-    rows = "".join(
-        f"<tr><td>{html.escape(s)}</td><td>{html.escape(c)}</td><td>{tv:.2f}</td>"
-        f"<td>{_pred_cell(r, s, c)}</td></tr>"
-        for (s, c), tv in r.truth.items()
-    )
-    return f"""
-    <div class="card">
-      <img src="data:image/png;base64,{_thumb_b64(img_dir / r.image)}"/>
-      <div class="meta">
-        <b>{html.escape(r.image)}</b> · {preset}
-        · d{r.meta.get('density', '?')} · labels={r.meta.get('labels_on')}
-        {_type_chip(r)}{_conf_chip(r)}<br/>
-        mean {_pct(r.mean_pct)} · max {_pct(r.max_pct)} · {r.seconds:.1f} s
-        · missed {r.missed} · extra {r.extra}
-        <table class="kv">{kv_head}{rows}</table>
-      </div>
-    </div>"""
-
-
-def _summary_cards(agg: dict) -> str:
-    """Build the top-of-report stat strip. Each card has a hover description."""
-    type_acc = agg["type_accuracy"]
-    type_str = "-" if math.isnan(type_acc) else f"{type_acc*100:.0f}%"
-    conf = agg["mean_confidence"]
-    conf_str = "-" if math.isnan(conf) else f"{conf:.2f}"
-    cards: list[tuple[str, object, str]] = [
-        ("Charts", agg["n_charts"],
-         "Number of chart images scored in this run."),
-        ("Mean error", _pct(agg["mean_pct"]),
-         "Mean per-bar error across all matched bars. "
-         "Error = |predicted − true| as a percentage of the true value."),
-        ("Median", _pct(agg["median_pct"]),
-         "Median per-bar error. Less sensitive to outliers than the mean."),
-        ("p95", _pct(agg["p95_pct"]),
-         "95th-percentile per-bar error: 95% of matched bars are at or below this."),
-        ("Recall", f"{agg['recall']*100:.1f}%",
-         "Fraction of true bars the extractor returned and matched. "
-         "100% = no bars missed."),
-        ("Precision", f"{agg['precision']*100:.1f}%",
-         "Fraction of predicted bars that matched a true bar. "
-         "100% = no hallucinated extras."),
-        ("≤1%", f"{agg['within_1pct']*100:.0f}%",
-         "Share of matched bars whose error is within 1% of the true value."),
-        ("≤5%", f"{agg['within_5pct']*100:.0f}%",
-         "Share of matched bars whose error is within 5% of the true value."),
-        ("Type acc", type_str,
-         "Fraction of charts where the extractor's chart_type matches truth. "
-         "Only counts charts where both sides reported a type."),
-        ("Mean conf", conf_str,
-         "Average self-reported confidence (0–1). "
-         "Not necessarily calibrated against actual error."),
-        ("Missed", agg["missed_total"],
-         "Total true bars the extractor failed to return across all charts."),
-        ("Extra", agg["extra_total"],
-         "Total predicted bars with no matching true bar (hallucinations)."),
-        ("Mean time", f"{agg['mean_sec']:.1f} s",
-         "Average extractor wall-clock time per chart."),
-        ("p95 time", f"{agg['p95_sec']:.1f} s",
-         "95th-percentile per-chart time: 95% of charts finished within this."),
-        ("Total time", f"{agg['total_sec']:.1f} s",
-         "Total wall-clock time across all charts."),
-    ]
-    return "".join(
-        f'<div class="stat" title="{html.escape(desc)}">'
-        f'<div class="v">{v}</div><div class="k">{k}</div></div>'
-        for k, v, desc in cards)
-
-
-def _chart_row(r: ChartResult) -> str:
-    mean_v = 0 if math.isnan(r.mean_pct) else r.mean_pct
-    max_v = 0 if math.isnan(r.max_pct) else r.max_pct
-    if r.type_true is None:
-        type_cell = "—"
-    elif r.type_pred is None:
-        type_cell = "<span style='color:#a00'>—</span>"
-    else:
-        type_cell = ("✓" if r.type_matched
-                     else f"<span style='color:#a00'>{html.escape(r.type_pred)}</span>")
-    conf_v = "" if r.confidence is None else f"{r.confidence:.2f}"
-    conf_sort = r.confidence if r.confidence is not None else 0
-    return (
-        f"<tr><td>{html.escape(r.image)}</td>"
-        f"<td>{html.escape(str(r.meta.get('preset','')))}</td>"
-        f"<td>{type_cell}</td>"
-        f"<td>{r.meta.get('density','')}</td><td>{r.meta.get('labels_on')}</td>"
-        f"<td>{r.n_true}</td><td>{r.matched}</td><td>{r.missed}</td><td>{r.extra}</td>"
-        f'<td data-v="{mean_v}">{_pct(r.mean_pct)}</td>'
-        f'<td data-v="{max_v}">{_pct(r.max_pct)}</td>'
-        f'<td data-v="{conf_sort}">{conf_v}</td>'
-        f'<td data-v="{r.seconds}">{r.seconds:.1f} s</td></tr>')
-
-
-def _rank_score(r: ChartResult) -> float:
-    """Composite score for ranking charts; higher = worse.
-
-    Priority order (per researcher feedback):
-    1. Per-bar value accuracy: ``mean_pct + max_pct`` (% of true value).
-       Max is included so a single 50%-off bar doesn't get washed out by a
-       bunch of near-perfect ones.
-    2. Label match: small penalty scaled by the fraction of bars that
-       missed or were hallucinated.
-
-    Zero-match charts get ``+inf`` so a catastrophic failure (recall 0%)
-    bubbles to the top of Worst even though it has no value-error data.
-    """
-    if not r.errors_pct:
-        return float("inf")
-    value_error = r.mean_pct + r.max_pct
-    denom = r.n_true + r.extra or 1
-    label_loss = (r.missed + r.extra) / denom * 5.0
-    return value_error + label_loss
-
-
-def _pane_heading(title: str, shown: int, total: int, desc: str) -> str:
-    return (f"<h2 title=\"{html.escape(desc)}\" style=\"cursor:help\">"
-            f"{title} <small>· {shown} of {total} charts</small></h2>")
-
-
-def _signed_devs(r: ChartResult) -> list[float]:
-    """Signed per-bar deviation ((pred-true)/|true| %) for one chart's matched
-    bars, clamped to [-100, +100]."""
-    devs: list[float] = []
-    for (s, c), tv in r.truth.items():
-        nk = normalize_key(s, c)
-        pv = next((v for (ps, pc), v in r.pred.items()
-                   if normalize_key(ps, pc) == nk), None)
-        if pv is None:
-            continue
-        if abs(tv) < 1e-12:
-            d = 0.0 if abs(pv) < 1e-12 else 100.0
-        else:
-            d = (pv - tv) / abs(tv) * 100.0
-        devs.append(max(-100.0, min(100.0, d)))
-    return devs
-
-
-def _dev_bell_svg(devs: list[float], *, w: float, h: float, cls: str,
-                  compact: bool) -> str:
-    """Distribution of signed deviation (-100..+100 %) as a faint histogram + a
-    fitted normal (Gaussian) curve -- the classic bell, centred near 0 for an
-    unbiased extractor with outliers in the tails. A dashed line marks 0; a
-    coloured dashed line marks the mean (bias). ``compact`` shrinks the
-    margins/ticks/fonts for the small per-card panel; the full version adds an
-    axis label and an n/mean/sd caption.
-    """
-    if compact:
-        left, right, top, bot, fs, nb, cw = 16.0, 5.0, 7.0, 15.0, 7.0, 12, 1.4
-        ticks = ((-100, "-100"), (0, "0"), (100, "+100"))
-    else:
-        left, right, top, bot, fs, nb, cw = 44.0, 16.0, 16.0, 40.0, 11.0, 20, 2.0
-        ticks = ((-100, "-100%"), (-50, "-50%"), (0, "0%"),
-                 (50, "+50%"), (100, "+100%"))
-    x0, x1, y0, yb = left, w - right, top, h - bot
-    pw, ph = x1 - x0, yb - y0
-
-    def px(d: float) -> float:                       # deviation % -> plot x
-        return x0 + (d + 100.0) / 200.0 * pw
-
-    centre = (f'<line x1="{px(0):.1f}" y1="{y0:.0f}" x2="{px(0):.1f}" y2="{yb:.0f}" '
-              f'stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 3"/>')
-    axes = (f'<line x1="{x0:.0f}" y1="{yb:.0f}" x2="{x1:.0f}" y2="{yb:.0f}" '
-            f'stroke="#94a3b8" stroke-width="1"/>'
-            f'<line x1="{x0:.0f}" y1="{y0:.0f}" x2="{x0:.0f}" y2="{yb:.0f}" '
-            f'stroke="#94a3b8" stroke-width="1"/>')
-    xticks = "".join(
-        f'<line x1="{px(d):.1f}" y1="{yb:.0f}" x2="{px(d):.1f}" y2="{yb + 3:.0f}" '
-        f'stroke="#94a3b8" stroke-width="1"/>'
-        f'<text x="{px(d):.1f}" y="{yb + fs + 3:.1f}" font-size="{fs:.0f}" '
-        f'fill="#64748b" text-anchor="middle">{lbl}</text>'
-        for d, lbl in ticks
-    )
-    extra = "" if compact else (
-        f'<text x="{(x0 + x1) / 2:.0f}" y="{h - 4:.0f}" font-size="11" '
-        f'fill="#64748b" text-anchor="middle">deviation (pred − true) / |true|</text>')
-
-    if not devs:
-        body = "" if compact else (
-            f'<text x="{(x0 + x1) / 2:.0f}" y="{(y0 + yb) / 2:.0f}" font-size="12" '
-            f'fill="#94a3b8" text-anchor="middle">no matched bars</text>')
-    else:
-        counts = [0] * nb
-        for d in devs:
-            counts[min(nb - 1, int((d + 100.0) / 200.0 * nb))] += 1
-        cmax = max(counts) or 1
-        bw = pw / nb
-        bars = "".join(
-            f'<rect x="{x0 + b * bw + 0.6:.1f}" y="{yb - cnt / cmax * ph:.1f}" '
-            f'width="{bw - 1.2:.1f}" height="{cnt / cmax * ph:.1f}" '
-            f'fill="hsla(231,60%,60%,0.18)"/>'
-            for b, cnt in enumerate(counts)
-        )
-        arr = np.asarray(devs, dtype=float)
-        # Laplace (double-exponential) MLE: location = median, scale b = mean
-        # absolute deviation from it. Robust (median / MAD) AND matches a sharp-
-        # peak / heavy-tail error distribution far better than a normal.
-        med = float(np.median(arr))
-        b = max(float(np.mean(np.abs(arr - med))), 3.0)
-        # Normal MLE: mean + std -- kept as the familiar reference curve.
-        mu = float(arr.mean())
-        sd = float(arr.std())
-        sigma = max(sd, 4.0)
-        lap_pts, nrm_pts = [], []
-        for i in range(121):
-            d = -100.0 + 200.0 * i / 120
-            lap = math.exp(-abs(d - med) / b)                    # peak 1 at median
-            nrm = math.exp(-((d - mu) ** 2) / (2 * sigma ** 2))  # peak 1 at mean
-            lap_pts.append(f"{px(d):.1f},{yb - lap * ph * 0.95:.1f}")
-            nrm_pts.append(f"{px(d):.1f},{yb - nrm * ph * 0.95:.1f}")
-        # Normal underneath (secondary, dashed grey); Laplace on top (primary).
-        normal = (f'<path d="M{" L".join(nrm_pts)}" fill="none" stroke="#94a3b8" '
-                  f'stroke-width="{cw}" stroke-dasharray="5 3"/>')
-        laplace = (f'<path d="M{" L".join(lap_pts)}" fill="none" '
-                   f'stroke="hsl(231,75%,48%)" stroke-width="{cw + 0.6}"/>')
-        med_line = (f'<line x1="{px(med):.1f}" y1="{y0:.0f}" x2="{px(med):.1f}" '
-                    f'y2="{yb:.0f}" stroke="hsl(231,75%,48%)" stroke-width="1" '
-                    f'stroke-dasharray="2 2"/>')
-        body = bars + med_line + normal + laplace
-        if not compact:
-            body += (
-                f'<text x="{x0 + 4:.0f}" y="{y0 + 11:.0f}" font-size="11">'
-                f'<tspan fill="hsl(231,75%,48%)">— Laplace</tspan>'
-                f'<tspan fill="#94a3b8" dx="10">- - Normal</tspan></text>'
-                f'<text x="{x1:.0f}" y="{y0 + 11:.0f}" font-size="11" '
-                f'fill="#64748b" text-anchor="end">'
-                f'n={len(devs)} · median {med:+.1f}% (b {b:.1f}) · '
-                f'mean {mu:+.1f}% (sd {sd:.1f})</text>')
-
-    return (f'<svg class="{cls}" viewBox="0 0 {w:.0f} {h:.0f}" '
-            f'preserveAspectRatio="xMidYMid meet">{centre}{body}{axes}{xticks}{extra}</svg>')
-
-
-def write_html(path: Path, extractor: str, agg: dict, results: list[ChartResult],
-               img_dir: Path) -> None:
-    by_score = sorted(results, key=lambda r: (_rank_score(r), r.image))
-
-    summary = _summary_cards(agg)
-    table_rows = "".join(_chart_row(r) for r in results)
-    by_preset = _group_table("by preset", group_summary(results, "preset"))
-    by_density = _group_table("by density", group_summary(results, "density"))
-    by_labels = _group_table("by labels-on", group_summary(results, "labels_on"))
-    # Every chart as a card, ordered best -> worst (by_score is ascending rank).
-    cards_html = "".join(_detail_card(r, img_dir) for r in by_score)
-    dev_bell = _dev_bell_svg([d for r in results for d in _signed_devs(r)],
-                             w=520, h=220, cls="devbell", compact=False)
-
-    path.write_text(f"""<!doctype html><meta charset="utf-8">
-<title>Extractor benchmark · {html.escape(extractor)}</title>
-<style>{_CSS}</style>
-<h1>Extractor benchmark — <code>{html.escape(extractor)}</code></h1>
-<div class="stats">{summary}</div>
-<p>Error = |predicted − true| as a percentage of the <b>true value</b>
-(clamped to 100 % when the true value is zero, so "pred 400 vs true 300" is
-~33 %). Recall = bars found / true bars. Precision = correct
-(series,category) / predicted. Type acc = correct chart_type / charts with a
-type prediction. Mean conf = average self-reported confidence (VLM).</p>
-
-<h2>Breakdowns</h2>
-<div class="tables">{by_preset}{by_density}{by_labels}</div>
-
-<h2 title="Distribution of signed per-bar deviation (pred − true) / |true|, across every matched bar. Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates." style="cursor:help">Deviation distribution</h2>
-<div class="devwrap">{dev_bell}</div>
-
-{_pane_heading("Charts — best to worst", len(results), len(results),
-    "Every chart as a card, ordered from lowest combined value error (best) "
-    "to highest (worst). Score = mean + max per-bar error (% of true value) "
-    "plus a small label-match penalty; charts that matched no bars sort last.")}
-<div class="grid">{cards_html}</div>
-
-<h2>All charts <small>(click a header to sort)</small></h2>
-<table class="full" id="t"><thead><tr>
- <th>image</th><th>preset</th><th>type</th>
- <th data-num="1">d</th><th>labels</th>
- <th data-num="1">true</th><th data-num="1">matched</th>
- <th data-num="1">missed</th><th data-num="1">extra</th>
- <th data-num="1">mean err</th><th data-num="1">max err</th>
- <th data-num="1">conf</th><th data-num="1">time</th></tr></thead>
- <tbody>{table_rows}</tbody></table>
-<script>{_SORT_JS}</script>
-""", encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- #
@@ -872,6 +503,31 @@ def _parse_args() -> argparse.Namespace:
     return ap.parse_args()
 
 
+def _to_charts(results: list[ChartResult]) -> list[dict]:
+    """Flatten ChartResults into the plain dicts ``draw_lap.write_html`` consumes
+    (its data contract). Keeps the renderer fully decoupled from scoring."""
+    charts = []
+    for r in results:
+        meta = r.meta or {}
+        charts.append({
+            "image": r.image,
+            "preset": str(meta.get("preset", meta.get("type", ""))),
+            "density": meta.get("density", ""),
+            "labels_on": meta.get("labels_on"),
+            "type_true": r.type_true,
+            "type_pred": r.type_pred,
+            "type_matched": r.type_matched,
+            "n_true": r.n_true, "matched": r.matched,
+            "missed": r.missed, "extra": r.extra,
+            "mean_pct": r.mean_pct, "max_pct": r.max_pct,
+            "errors_pct": list(r.errors_pct),
+            "seconds": r.seconds, "confidence": r.confidence,
+            "truth": [[s, c, tv] for (s, c), tv in r.truth.items()],
+            "pred": [[s, c, pv] for (s, c), pv in r.pred.items()],
+        })
+    return charts
+
+
 def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle",
                   profile: VLMProfile | None = None,
                   seed: int = 0, limit: int | None = None,
@@ -892,7 +548,14 @@ def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle"
     agg = aggregate(results)
     out.mkdir(parents=True, exist_ok=True)
     _write_results_json(out, extractor, agg, results)
-    write_html(out / "report.html", extractor.name, agg, results, img_dir)
+    from sci_fi_parser.accuracy import draw_lap  # lazy: pulls matplotlib only here
+    breakdowns = [
+        {"title": "by preset", "rows": group_summary(results, "preset")},
+        {"title": "by density", "rows": group_summary(results, "density")},
+        {"title": "by labels-on", "rows": group_summary(results, "labels_on")},
+    ]
+    draw_lap.write_html(out / "report.html", extractor.name, agg,
+                        _to_charts(results), breakdowns, img_dir)
     if print_summary:
         _print_summary(extractor, agg, results, out)
     return agg
