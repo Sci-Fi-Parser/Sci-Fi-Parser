@@ -13,7 +13,7 @@ Data contract (``write_html``):
       {"image", "preset", "density", "labels_on",
        "type_true", "type_pred", "type_matched",
        "n_true", "matched", "missed", "extra",
-       "mean_pct", "max_pct", "errors_pct",
+       "mean_pct", "max_pct", "errors_pct", "span",
        "seconds", "confidence",
        "truth": [[series, cat, true_value], ...],   # ordered
        "pred":  [[series, cat, pred_value], ...]}
@@ -86,10 +86,8 @@ def _normalize_key(series: str, category: str) -> tuple[str, str]:
     return (str(series).strip().casefold(), str(category).strip().casefold())
 
 
-def _pct_of_true(pred: float, true: float) -> float:
-    if abs(true) < 1e-12:
-        return 0.0 if abs(pred) < 1e-12 else 100.0
-    return abs(pred - true) / abs(true) * 100.0
+def _pct_of_span(pred: float, true: float, span: float) -> float:
+    return abs(pred - true) / (span or 1.0) * 100.0
 
 
 def _pct(x: float) -> str:
@@ -114,18 +112,16 @@ def _pred_lookup(chart: dict) -> dict[tuple[str, str], float]:
 
 
 def _signed_devs(chart: dict) -> list[float]:
-    """Signed per-bar deviation ((pred-true)/|true| %) for a chart's matched
+    """Signed per-bar deviation ((pred-true)/axis_span %) for a chart's matched
     bars, clamped to [-100, +100]."""
     look = _pred_lookup(chart)
+    span = chart.get("span", 1.0) or 1.0
     devs: list[float] = []
     for s, c, tv in chart["truth"]:
         pv = look.get(_normalize_key(s, c))
         if pv is None:
             continue
-        if abs(tv) < 1e-12:
-            d = 0.0 if abs(pv) < 1e-12 else 100.0
-        else:
-            d = (pv - tv) / abs(tv) * 100.0
+        d = (pv - tv) / span * 100.0
         devs.append(max(-100.0, min(100.0, d)))
     return devs
 
@@ -185,7 +181,7 @@ def _dev_bell_png(devs: list[float]) -> str:
     ax.set_xlim(-100, 100)
     ax.set_xticks([-100, -50, 0, 50, 100])
     ax.set_xticklabels(["-100%", "-50%", "0%", "+50%", "+100%"])
-    ax.set_xlabel("deviation  (pred − true) / |true|", fontsize=9)
+    ax.set_xlabel("deviation  (pred − true) / axis range", fontsize=9)
     ax.set_ylabel("bars", fontsize=9)
     ax.tick_params(labelsize=8)
     ax.grid(axis="y", color="#eef2f7", lw=1)
@@ -216,11 +212,11 @@ def _group_table(title: str, rows: list[tuple]) -> str:
             f"<tbody>{body}</tbody></table>")
 
 
-def _pred_cell(look: dict, tval: float, series: str, cat: str) -> str:
+def _pred_cell(look: dict, tval: float, series: str, cat: str, span: float) -> str:
     pv = look.get(_normalize_key(series, cat))
     if pv is None:
         return "—"
-    err = _pct_of_true(pv, tval)
+    err = _pct_of_span(pv, tval, span)
     return f"{pv:.2f} <span style='color:#888'>({err:.1f}%)</span>"
 
 
@@ -245,10 +241,11 @@ def _conf_chip(chart: dict) -> str:
 def _detail_card(chart: dict, img_dir: Path) -> str:
     preset = html.escape(str(chart["preset"]))
     look = _pred_lookup(chart)
+    span = chart.get("span", 1.0)
     kv_head = "<tr><th>series</th><th>cat</th><th>true</th><th>pred (err)</th></tr>"
     rows = "".join(
         f"<tr><td>{html.escape(str(s))}</td><td>{html.escape(str(c))}</td>"
-        f"<td>{tv:.2f}</td><td>{_pred_cell(look, tv, s, c)}</td></tr>"
+        f"<td>{tv:.2f}</td><td>{_pred_cell(look, tv, s, c, span)}</td></tr>"
         for s, c, tv in chart["truth"]
     )
     thumb = _thumb_b64(img_dir / chart["image"])
@@ -281,7 +278,7 @@ def _summary_cards(agg: dict) -> str:
          "Number of chart images scored in this run."),
         ("Mean error", _pct(agg["mean_pct"]),
          "Mean per-bar error across all matched bars. "
-         "Error = |predicted − true| as a percentage of the true value."),
+         "Error = |predicted − true| as a percentage of the value-axis range."),
         ("Median", _pct(agg["median_pct"]),
          "Median per-bar error. Less sensitive to outliers than the mean."),
         ("p95", _pct(agg["p95_pct"]),
@@ -293,9 +290,9 @@ def _summary_cards(agg: dict) -> str:
          "Fraction of predicted bars that matched a true bar. "
          "100% = no hallucinated extras."),
         ("≤1%", f"{agg['within_1pct']*100:.0f}%",
-         "Share of matched bars whose error is within 1% of the true value."),
+         "Share of matched bars whose error is within 1% of the axis range."),
         ("≤5%", f"{agg['within_5pct']*100:.0f}%",
-         "Share of matched bars whose error is within 5% of the true value."),
+         "Share of matched bars whose error is within 5% of the axis range."),
         ("Type acc", type_str,
          "Fraction of charts where the extractor's chart_type matches truth. "
          "Only counts charts where both sides reported a type."),
@@ -371,21 +368,21 @@ def write_html(path: Path, extractor: str, agg: dict, charts: list[dict],
 <style>{_CSS}</style>
 <h1>Extractor benchmark — <code>{html.escape(extractor)}</code></h1>
 <div class="stats">{summary}</div>
-<p>Error = |predicted − true| as a percentage of the <b>true value</b>
-(clamped to 100 % when the true value is zero, so "pred 400 vs true 300" is
-~33 %). Recall = bars found / true bars. Precision = correct
+<p>Error = |predicted − true| as a percentage of the <b>value-axis range</b>
+(max − min), matching how a point is read off the axis regardless of its own
+magnitude. Recall = bars found / true bars. Precision = correct
 (series,category) / predicted. Type acc = correct chart_type / charts with a
 type prediction. Mean conf = average self-reported confidence (VLM).</p>
 
 <h2>Breakdowns</h2>
 <div class="tables">{breakdown_html}</div>
 
-<h2 title="Distribution of signed per-bar deviation (pred − true) / |true|, across every matched bar. Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates." style="cursor:help">Deviation distribution</h2>
+<h2 title="Distribution of signed per-bar deviation (pred − true) / axis range, across every matched bar. Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates." style="cursor:help">Deviation distribution</h2>
 <div class="devwrap">{dev_img}</div>
 
 {_pane_heading("Charts — best to worst", len(charts), len(charts),
     "Every chart as a card, ordered from lowest combined value error (best) "
-    "to highest (worst). Score = mean + max per-bar error (% of true value) "
+    "to highest (worst). Score = mean + max per-bar error (% of axis range) "
     "plus a small label-match penalty; charts that matched no bars sort last.")}
 <div class="grid">{cards_html}</div>
 

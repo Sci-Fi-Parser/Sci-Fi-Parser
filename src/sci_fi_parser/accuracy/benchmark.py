@@ -174,7 +174,7 @@ class ChartResult:
     matched: int
     missed: int                       # true bars the extractor did not return
     extra: int                        # predicted bars with no matching (series,cat)
-    errors_pct: list[float] = field(default_factory=list)  # per matched bar, % of |true|
+    errors_pct: list[float] = field(default_factory=list)  # per matched bar, % of axis span
     # Positional-matching diagnostics (pair true[i] with pred[i] by emission
     # order, regardless of label correctness). Lets us see value-reading skill
     # independently of label-reading skill -- a model that reads heights
@@ -186,6 +186,7 @@ class ChartResult:
     misaligned: int = 0                # paired positions whose labels disagree
     n_paired_pos: int = 0              # min(n_true, n_pred); paired-bar count
     bar_count_err: int = 0             # abs(n_pred - n_true): missed + extra
+    span: float = 1.0                  # value-axis range (max - min), error denominator
     truth: dict = field(default_factory=dict)
     pred: dict = field(default_factory=dict)
     meta: dict = field(default_factory=dict)
@@ -227,20 +228,22 @@ def _align_series_names(tmap: dict[tuple[str, str], float],
     return pmap
 
 
-def _pct_of_true(pred: float, true: float) -> float:
-    """|pred - true| as a percentage of |true|.
+def _pct_of_span(pred: float, true: float, span: float) -> float:
+    """|pred - true| as a percentage of the value-axis span (max - min).
 
-    What researchers expect: pred 400 vs true 300 -> 33%. Zero-truth case is
-    bounded (avoids division by zero exploding the aggregate): 0% if pred is
-    also 0, 100% otherwise.
+    Reading a point off a chart is a perceptual error that's roughly constant in
+    axis pixels, so it scales with the drawn axis range, not with the point's own
+    value. Normalising by span (rather than |true|) keeps small-valued bars from
+    showing huge errors for being small and removes the divide-by-zero near zero.
+    pred 190 vs true 200 on a 0-220 axis -> 4.55%. ``span`` is guaranteed nonzero
+    by the caller.
     """
-    if abs(true) < 1e-12:
-        return 0.0 if abs(pred) < 1e-12 else 100.0
-    return abs(pred - true) / abs(true) * 100.0
+    return abs(pred - true) / span * 100.0
 
 
 def _positional_score(tmap: dict[tuple[str, str], float],
-                      pmap: dict[tuple[str, str], float]
+                      pmap: dict[tuple[str, str], float],
+                      span: float
                       ) -> tuple[list[float], int, int]:
     """Pair true[i] with pred[i] by emission order (== visual order for VLMs
     reading left to right). Returns (value_errors_per_position, misaligned,
@@ -254,14 +257,14 @@ def _positional_score(tmap: dict[tuple[str, str], float],
     misaligned = 0
     for i in range(n_paired):
         (tk, tv), (pk, pv) = titems[i], pitems[i]
-        errors_pos.append(_pct_of_true(pv, tv))
+        errors_pos.append(_pct_of_span(pv, tv, span))
         if normalize_key(*tk) != normalize_key(*pk):
             misaligned += 1
     return errors_pos, misaligned, n_paired
 
 
 def score_chart(image: str, entry: dict, pred: ChartData) -> ChartResult:
-    """Match predicted to true bars; error = |pred-true| / |true| as a percentage.
+    """Match predicted to true bars; error = |pred-true| / axis_span as a percentage.
 
     Matching is whitespace- and case-insensitive on the (series, category) key,
     so 'Region A' / 'region a' / 'Region A ' all line up. For single-series
@@ -274,6 +277,8 @@ def score_chart(image: str, entry: dict, pred: ChartData) -> ChartResult:
     label-reading, was the value right." The two diverge when a model reads
     heights well but mis-transcribes the x-axis -- see ChartResult docs.
     """
+    lo, hi = entry["value_range"]
+    span = abs(hi - lo) or 1.0
     tmap = truth_to_map(entry["series"])
     pmap = _align_series_names(tmap, series_map(pred))
     pnorm = {normalize_key(s, c): k for k in pmap for s, c in [k]}
@@ -283,17 +288,18 @@ def score_chart(image: str, entry: dict, pred: ChartData) -> ChartResult:
         pkey = pnorm.get(normalize_key(*tkey))
         if pkey is not None:
             matched += 1
-            errors.append(_pct_of_true(pmap[pkey], tv))
+            errors.append(_pct_of_span(pmap[pkey], tv, span))
     matched_pkeys = {pnorm[normalize_key(*k)] for k in tmap
                      if normalize_key(*k) in pnorm}
     extra = sum(1 for k in pmap if k not in matched_pkeys)
-    errors_pos, misaligned, n_paired = _positional_score(tmap, pmap)
+    errors_pos, misaligned, n_paired = _positional_score(tmap, pmap, span)
     return ChartResult(image, len(tmap), len(pmap), matched, len(tmap) - matched,
                        extra, errors,
                        value_errors_pos=errors_pos,
                        misaligned=misaligned,
                        n_paired_pos=n_paired,
                        bar_count_err=abs(len(pmap) - len(tmap)),
+                       span=span,
                        truth=tmap, pred=pmap, meta=entry.get("meta", {}),
                        type_true=entry.get("chart_type"),
                        type_pred=pred.chart_type,
@@ -373,9 +379,10 @@ def _pct(x: float) -> str:
 def load_truth(data_dir: Path) -> dict:
     """image name -> {chart_type, series, value_range, meta} from labels.jsonl.
 
-    `value_range` is clipped to ``[max(0, lo), hi]``: matplotlib's y-axis lower
-    bound often pads below zero (e.g. -20 on a positive-only chart), which
-    inflates any span-relative metric. We carry the corrected version forward.
+    `value_range` is the drawn axis extent (matplotlib's padded limits) and is
+    carried through verbatim: it's the reference a reader judges point heights
+    against, so it's the correct denominator for span-relative error -- padding
+    and negative bounds included.
     """
     truth = {}
     with (data_dir / "labels.jsonl").open(encoding="utf-8") as fh:
@@ -386,7 +393,7 @@ def load_truth(data_dir: Path) -> dict:
             truth[rec["image"]] = {
                 "chart_type": rec.get("label1"),
                 "series": l2["series"],
-                "value_range": [max(0.0, float(lo)), float(hi)],
+                "value_range": [float(lo), float(hi)],
                 "meta": rec.get("meta", {}),
             }
     return truth
@@ -424,7 +431,8 @@ def _run_extractor(extractor: Extractor, truth: dict, images: list[str],
                    prompt_suffixes: dict[str, str] | None = None) -> list[ChartResult]:
     """Run the extractor over every image, timing each, scoring against truth."""
     results: list[ChartResult] = []
-    for name in images:
+    from tqdm import tqdm
+    for name in tqdm(images):
         entry = truth[name]
         t0 = time.perf_counter()
         try:
@@ -468,7 +476,7 @@ def _print_summary(extractor: Extractor, agg: dict, results: list[ChartResult],
     conf_str = "-" if math.isnan(conf) else f"{conf:.2f}"
     print(f"\n  extractor : {extractor.name}")
     print(f"  charts    : {agg['n_charts']}  ({agg['n_bars_true']} bars)")
-    print(f"  mean/med/p95 error : {errs}  (% of true value)")
+    print(f"  mean/med/p95 error : {errs}  (% of axis range)")
     print(f"  recall/precision   : "
           f"{agg['recall']*100:.1f}% / {agg['precision']*100:.1f}%")
     print(f"  within 1% / 5%     : "
@@ -520,7 +528,7 @@ def _to_charts(results: list[ChartResult]) -> list[dict]:
             "n_true": r.n_true, "matched": r.matched,
             "missed": r.missed, "extra": r.extra,
             "mean_pct": r.mean_pct, "max_pct": r.max_pct,
-            "errors_pct": list(r.errors_pct),
+            "errors_pct": list(r.errors_pct), "span": r.span,
             "seconds": r.seconds, "confidence": r.confidence,
             "truth": [[s, c, tv] for (s, c), tv in r.truth.items()],
             "pred": [[s, c, pv] for (s, c), pv in r.pred.items()],
