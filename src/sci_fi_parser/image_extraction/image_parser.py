@@ -16,6 +16,7 @@ class DocumentMetadata:
     page_count: int
     metadata: dict = field(default_factory=dict)
 
+
 def start_parser(doc: pymupdf.Document) -> dict[dict[UUID, dict[str, int]], dict[UUID, tuple[int, Image.Image]]]:
     """Parse a PyMuPDF Document to collect PDF-level metadata and extract images.
 
@@ -44,17 +45,18 @@ def start_parser(doc: pymupdf.Document) -> dict[dict[UUID, dict[str, int]], dict
 
     return result
 
+
 def extract_document_metadata(doc: pymupdf.Document) -> DocumentMetadata:
     """Extract basic document-level metadata from a PyMuPDF Document.
-    
+
     Generates a UUID for this document and collects the document's file name,
     page count, and the PDF Info/XMP metadata (if present).
 
     Note that this function does not modify `doc`.
-    
+
     Args:
         doc (pymupdf.Document): An open PyMuPDF Document to extract metadata from.
-    
+
     Returns:
         DocumentMetadata: Dataclass with fields:
         - uid (UUID): generated identifier for this document.
@@ -69,8 +71,9 @@ def extract_document_metadata(doc: pymupdf.Document) -> DocumentMetadata:
         metadata=doc.metadata or {},
     )
 
+
 def extract_images(doc: pymupdf.Document, image_data: dict) -> None:
-    """Extract embedded images from a document and store them in a provided mapping. 
+    """Extract embedded images from a document and store them in a provided mapping.
 
     Args:
         doc (pymupdf.Document): An open PyMuPDF `Document` object to extract images from.
@@ -92,8 +95,9 @@ def extract_images(doc: pymupdf.Document, image_data: dict) -> None:
 
                 image_data[img_uid] = (true_page_number, img)
 
+
 def extract_drawings(doc: pymupdf.Document, image_data: dict) -> None:
-    """Cluster and extract vector graphics from a document and store them in a provided mapping. 
+    """Cluster and extract vector graphics from a document and store them in a provided mapping.
 
     Args:
         doc (pymupdf.Document): An open PyMuPDF `Document` object to extract drawings from.
@@ -109,6 +113,7 @@ def extract_drawings(doc: pymupdf.Document, image_data: dict) -> None:
 
             image_data[img_uid] = (true_page_number, img)
 
+
 def _downsize(pix: pymupdf.Pixmap) -> Image:
     """Takes a pixmap object and downsizes it so that the longer side is equal to the
     length of MAX_SIZE. Preserves the aspect ratio of the image.
@@ -122,6 +127,7 @@ def _downsize(pix: pymupdf.Pixmap) -> Image:
     img = pix.pil_image()
     img.thumbnail((MAX_IMAGE_SIZE, MAX_IMAGE_SIZE))
     return img
+
 
 if __name__ == "__main__":
     from pprint import pprint
