@@ -24,7 +24,7 @@ def start_parser(doc: pymupdf.Document) -> dict[dict[UUID, dict[str, int]], dict
     extract_drawings, which populate the image_data mapping with UUID keys.
 
     Args:
-        doc (Document): An open PyMuPDF Document to parse.
+        doc (pymupdf.Document): An open PyMuPDF Document to parse.
 
     Returns:
         dict: A mapping with two keys:
@@ -45,6 +45,23 @@ def start_parser(doc: pymupdf.Document) -> dict[dict[UUID, dict[str, int]], dict
     return result
 
 def extract_document_metadata(doc: pymupdf.Document) -> DocumentMetadata:
+    """Extract basic document-level metadata from a PyMuPDF Document.
+    
+    Generates a UUID for this document and collects the document's file name,
+    page count, and the PDF Info/XMP metadata (if present).
+
+    Note that this function does not modify `doc`.
+    
+    Args:
+        doc (pymupdf.Document): An open PyMuPDF Document to extract metadata from.
+    
+    Returns:
+        DocumentMetadata: Dataclass with fields:
+        - uid (UUID): generated identifier for this document.
+        - file_name (str | None): value of doc.name (may be None or a path).
+        - page_count (int): total number of pages.
+        - metadata (dict): PDF Info/XMP metadata mapping (empty if unavailable).
+    """
     return DocumentMetadata(
         uid=uuid4(),
         file_name=doc.name,
@@ -53,10 +70,10 @@ def extract_document_metadata(doc: pymupdf.Document) -> DocumentMetadata:
     )
 
 def extract_images(doc: pymupdf.Document, image_data: dict) -> None:
-    """Extract embedder images from a document and store them in a provided mapping. 
+    """Extract embedded images from a document and store them in a provided mapping. 
 
     Args:
-        doc (Document): An open PyMuPDF `Document` object to extract images from.
+        doc (pymupdf.Document): An open PyMuPDF `Document` object to extract images from.
         image_data (dict[int, Image]): Mutable mapping populated in-place. Keys are UUIDs for extracted images. Values are (page_number, image) tuples where page_number is 1-based and image is a Pillow Image object.
     """
     xref_seen = set()
@@ -76,10 +93,10 @@ def extract_images(doc: pymupdf.Document, image_data: dict) -> None:
                 image_data[img_uid] = (true_page_number, img)
 
 def extract_drawings(doc: pymupdf.Document, image_data: dict) -> None:
-    """Extract embedder images from a document and store them in a provided mapping. 
+    """Cluster and extract vector graphics from a document and store them in a provided mapping. 
 
     Args:
-        doc (Document): An open PyMuPDF `Document` object to extract images from.
+        doc (pymupdf.Document): An open PyMuPDF `Document` object to extract drawings from.
         image_data (dict[int, Image]): Mutable mapping populated in-place. Keys are UUIDs for extracted images. Values are (page_number, image) tuples where page_number is 1-based and image is a Pillow Image object.
     """
     for page in doc:
@@ -97,7 +114,7 @@ def _downsize(pix: pymupdf.Pixmap) -> Image:
     length of MAX_SIZE. Preserves the aspect ratio of the image.
 
     Args:
-        pix (Pixmap): Pixmap object of an image/drawing from a document.
+        pix (pymupdf.Pixmap): Pixmap object of an image/drawing from a document.
 
     Returns:
         Image: Pillow Image object.
