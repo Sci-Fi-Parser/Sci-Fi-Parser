@@ -95,7 +95,7 @@ def extract_images(doc: pymupdf.Document, image_data: dict) -> None:
         for img in page.get_images():
             xref = img[0]
             if xref in xref_seen:
-                pass
+                continue
             xref_seen.add(xref)
             for rect in page.get_image_rects(xref):
                 pix = page.get_pixmap(dpi=300, clip=rect)
