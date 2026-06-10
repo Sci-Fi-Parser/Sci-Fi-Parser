@@ -17,7 +17,19 @@ class DocumentMetadata:
     metadata: dict = field(default_factory=dict)
 
 
-def start_parser(doc: pymupdf.Document) -> dict[dict[UUID, dict[str, int]], dict[UUID, tuple[int, Image.Image]]]:
+@dataclass
+class ExtractedImage:
+    page_number: int
+    image: Image.Image
+
+
+@dataclass
+class ParserResult:
+    pdf_data: DocumentMetadata
+    image_data: dict[UUID, ExtractedImage]
+
+
+def start_parser(doc: pymupdf.Document) -> ParserResult:
     """Parse a PyMuPDF Document to collect PDF-level metadata and extract images.
 
     Creates a mapping containing PDF metadata and extracted images (both embedded raster images
@@ -28,22 +40,20 @@ def start_parser(doc: pymupdf.Document) -> dict[dict[UUID, dict[str, int]], dict
         doc (pymupdf.Document): An open PyMuPDF Document to parse.
 
     Returns:
-        dict: A mapping with two keys:
-        - "pdf_data" (dict[UUID, dict[str, int]]): PDF-level metadata entries keyed by UUID.
-        Each value is a mapping such as {"page_count": int}.
-        - "image_data" (dict[UUID, tuple[int, PIL.Image.Image]]): Extracted images keyed by UUID.
-        Each value is a (page_number, image) tuple where page_number starts at 1.
+        ParserResult: A mapping with two keys:
+        - "pdf_data" (DocumentMetadata): PDF-level metadata entries keyed by UUID.
+        Each value is a mapping such as DocumentMetadata.page_count.
+        - "image_data" (dict[UUID, ExtractedImage]): Extracted images keyed by UUID.
+        Each value is an ExtractedImage with attributes .image and .page_number (1-based). For example image_data[uid].image
     """
-    result = {"pdf_data": {}, "image_data": {}}
-
-    image_data = result["image_data"]
-
-    result["pdf_data"] = extract_document_metadata(doc)
-
+    image_data: dict[UUID, ExtractedImage] = {}
     extract_images(doc, image_data)
     extract_drawings(doc, image_data)
-
-    return result
+ 
+    return ParserResult(
+        pdf_data=extract_document_metadata(doc),
+        image_data=image_data,
+    )
 
 
 def extract_document_metadata(doc: pymupdf.Document) -> DocumentMetadata:
@@ -77,7 +87,8 @@ def extract_images(doc: pymupdf.Document, image_data: dict) -> None:
 
     Args:
         doc (pymupdf.Document): An open PyMuPDF `Document` object to extract images from.
-        image_data (dict[int, Image]): Mutable mapping populated in-place. Keys are UUIDs for extracted images. Values are (page_number, image) tuples where page_number is 1-based and image is a Pillow Image object.
+        image_data (dict[UUID, Image]): Mutable mapping populated in-place. Keys are UUIDs for extracted images.
+        Values are `ExtractedImage` types where page_number is 1-based and image is a Pillow Image object.
     """
     xref_seen = set()
     for page in doc:
@@ -93,7 +104,7 @@ def extract_images(doc: pymupdf.Document, image_data: dict) -> None:
                 img_uid = uuid4()
                 true_page_number = page.number + 1
 
-                image_data[img_uid] = (true_page_number, img)
+                image_data[img_uid] = ExtractedImage(page_number=true_page_number, image=img)
 
 
 def extract_drawings(doc: pymupdf.Document, image_data: dict) -> None:
@@ -101,7 +112,8 @@ def extract_drawings(doc: pymupdf.Document, image_data: dict) -> None:
 
     Args:
         doc (pymupdf.Document): An open PyMuPDF `Document` object to extract drawings from.
-        image_data (dict[int, Image]): Mutable mapping populated in-place. Keys are UUIDs for extracted images. Values are (page_number, image) tuples where page_number is 1-based and image is a Pillow Image object.
+        image_data (dict[UUID, Image]): Mutable mapping populated in-place. Keys are UUIDs for extracted images.
+        Values are `ExtractedImage` types where page_number is 1-based and image is a Pillow Image object.
     """
     for page in doc:
         for drawing in page.cluster_drawings(x_tolerance=75, y_tolerance=75):
@@ -111,8 +123,7 @@ def extract_drawings(doc: pymupdf.Document, image_data: dict) -> None:
             img_uid = uuid4()
             true_page_number = page.number + 1
 
-            image_data[img_uid] = (true_page_number, img)
-
+            image_data[img_uid] = ExtractedImage(page_number=true_page_number, image=img)
 
 def _downsize(pix: pymupdf.Pixmap) -> Image:
     """Takes a pixmap object and downsizes it so that the longer side is equal to the
