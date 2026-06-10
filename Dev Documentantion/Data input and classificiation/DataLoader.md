@@ -61,3 +61,22 @@ The CNN will need a consistent size in both directions.
 
 #### Next
 Probably check on rotating vertical images. Also need to check how it will fit into the whole pipeline.
+
+
+## 09-06-2026 - 10-06-2026
+### Aapo
+#### Worked On
+Making the sub-pipeline around loading pdfs and the eventual output that can be used by other parts.
+Connected loading and storing to the parser made by Niko and did some tweaks and bug fixes.
+
+#### Learned
+Parsing 59 pdfs took: ~70s (writing images to disc), ~50s (no disk writes). This has high variability between individual pdfs.
+
+#### Problems
+Some edge cases seem to make parsing some pdfs (TGV 2018 Q4 Shareholder Letter) really slow or just broken.
+The TGV 2018 Q4 Shareholder Letter from the presentations folder took more than 30 min on its own before I cancelled it.
+
+Some parsed images are still somewhat malformed, very large or weird in other ways, got some height = 0 related errors etc.
+
+#### Next
+Discussion and work on how the writer can store the metadata returned, how this data is used in the classification
