@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sci_fi_parser.accuracy import benchmark
-from sci_fi_parser.data_pipeline import OCRSet
+from sci_fi_parser.data_pipeline import OCRSet, ImageSet, PdfSet
 from sci_fi_parser.vlm.pipeline import _ocr_suffix
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 
@@ -32,9 +32,13 @@ def load_inputs(data: Path, limit: int | None = None) -> PipelineInputs:
     return PipelineInputs(truth=truth, images=images, img_dir=data / "images")
 
 
-def bench_image_extraction(data: Path, limit: int | None = None) -> PipelineInputs:
+def bench_image_extraction(data: Path, limit: int | None = None) -> tuple(ImageSet(), PdfSet()):
     """Placeholder for a future real image-extraction benchmark stage."""
-    return None
+    from sci_fi_parser.image_extraction.pipeline import start_extraction
+    image_set = ImageSet()
+    pdf_set = PdfSet()
+    start_extraction(data, image_set, pdf_set, None)
+    return image_set, pdf_set
 
 
 def bench_classification(inputs: PipelineInputs) -> None:
