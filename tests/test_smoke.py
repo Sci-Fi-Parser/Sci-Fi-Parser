@@ -227,7 +227,8 @@ def test_score_chart_value_vs_identity():
       value_errors_pos must stay small, misaligned must be > 0, and
       identity matched < 4 (so the existing recall column still flags it).
     - Case C: 10x scale (the qwen-3b bug). matched=4, misaligned=0, but
-      both errors_pct and value_errors_pos ~900%.
+      both errors_pct and value_errors_pos are several times the axis span
+      (errors normalize to the value_range, not to |true|).
     """
     from sci_fi_parser.accuracy.benchmark import score_chart
     from sci_fi_parser.schema import ChartData, Point, Series
@@ -237,6 +238,8 @@ def test_score_chart_value_vs_identity():
         "series": [{"name": "Profit",
                     "points": [["Q1'20", 445.08], ["Q2'20", 504.55],
                                ["Q3'20", 553.50], ["Q4'20", 995.50]]}],
+        # Drawn value-axis extent; errors are scored as a % of this span.
+        "value_range": [0.0, 1050.0],
     }
 
     def _chart(name_value_pairs):
@@ -284,8 +287,9 @@ def test_score_chart_value_vs_identity():
     assert res_c.matched == 4
     assert res_c.misaligned == 0
     assert res_c.bar_count_err == 0
-    assert min(res_c.errors_pct) > 800       # ~900% across the board
-    assert min(res_c.value_errors_pos) > 800
+    # ~10x values against a 1050-wide span -> hundreds of % on every bar.
+    assert min(res_c.errors_pct) > 300
+    assert min(res_c.value_errors_pos) > 300
 
 
 def test_vlm_comparison_resume_skip(tmp_path):
