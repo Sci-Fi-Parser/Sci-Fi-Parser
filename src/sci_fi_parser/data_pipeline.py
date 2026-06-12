@@ -90,7 +90,7 @@ class ImageSet:
         record["metadata"]["extraction"].update(extraction_metadata or {})
         self._data[image_id] = record
 
-    def filter_by_type(self, chart_type: str, limit: int = 100) -> list(str):
+    def filter_by_type(self, chart_type: str, limit: int = 100) -> list[str]:
         """Return images classified as ``chart_type``, optionally capped by limit."""
         filtered = []
         if limit <= 0:
