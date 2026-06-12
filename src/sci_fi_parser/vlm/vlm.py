@@ -90,7 +90,7 @@ class OllamaVLM:
         self._options["seed"] = 1
         self._options["temperature"] = 0
 
-    def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
         """Run the VLM on one image. ``prompt_suffix`` is appended to the base
         prompt -- used by the pipeline to inject OCR text (or any other side
         signal) as additional context.
@@ -105,8 +105,9 @@ class OllamaVLM:
             options=self._options,
 
         )
-        return parse_chartdata(resp["message"]["content"])
-
+        raw_data = resp.model_dump()
+        parsed_chartdata = parse_chartdata(raw_data["message"]["content"]).model_dump()
+        return (parsed_chartdata, raw_data)
 
 class ChatCompletionsVLM:
     """VLM via any OpenAI-compatible chat-completions endpoint.
@@ -150,7 +151,7 @@ class ChatCompletionsVLM:
             f"unknown response_format {self._response_format!r} "
             "(expected 'json_schema' or 'json_object')")
 
-    def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
         """Run the VLM on one image. ``prompt_suffix`` is appended to the base
         prompt -- used by the pipeline to inject OCR text (or any other side
         signal) as additional context.
@@ -176,8 +177,10 @@ class ChatCompletionsVLM:
             timeout=_REQUEST_TIMEOUT,
         )
         resp.raise_for_status()
-        return parse_chartdata(resp.json()["choices"][0]["message"]["content"])
-
+        raw_data = resp.json()
+        parsed_chartdata = parse_chartdata(raw_data["choices"][0]["message"]["content"]).model_dump()
+        return (parsed_chartdata, raw_data)
+        
 
 def build_vlm(profile: VLMProfile | None = None,
               model_override: str | None = None):
