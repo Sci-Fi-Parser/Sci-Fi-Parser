@@ -20,12 +20,9 @@ def start_vlm(image_set: ImageSet,
     
     vlm = build_vlm(profile if isinstance(profile, VLMProfile)
                     else load_profile(profile))
-    for img_id, img_data in image_set.items():
-        ocr_result = img_data["ocrcv"]["result"]
-        if ocr_result:
-            suffix = ocr_result["text"]
-        else:
-            suffix = ""
-        img_path = img_data["output"]["path"]
-        data = vlm.extract(img_path, suffix)
-        image_set.add(img_id, data.model_dump())
+    for image_id, imgage_data in image_set.items():
+        ocr_result = image_set.get_ocrcv_result(image_id)
+        imgage_path = image_set.get_image_path(image_id)
+        parsed_data, raw_data = vlm.extract(imgage_path, ocr_result)
+        image_set.add_vlm_result(image_id, parsed_data)
+        image_set.add_vlm_result_raw(image_id, raw_data)
