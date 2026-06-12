@@ -57,6 +57,43 @@ class VLMSet:
         return len(self._data)
 
 
+class ImageSet:
+    """"""
+    def __init__(self) -> None:
+        """Key: image_id, dict: metadata etc..."""
+        self._data: dict[str, dict] = {}
+
+    def add(self, id: str, payload: dict) -> None:
+        self._data[id] = payload
+
+    def items(self):
+        return self._data.items()
+
+    def get(self, name: str) -> str:
+        return self._data.get(name, "")
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+
+class PdfSet:
+    """Key: pdf_id, dict: metadata"""
+    def __init__(self) -> None:
+        """Key: pdf_id, dict: metadata etc..."""
+        self._data: dict[str, dict] = {}
+
+    def add(self, id: str, payload: dict) -> None:
+        self._data[id] = payload
+
+    def items(self):
+        return self._data.items()
+
+    def get(self, name: str) -> str:
+        return self._data.get(name, "")
+
+    def __len__(self) -> int:
+        return len(self._data)
+
 # --------------------------------------------------------------------------- #
 # Pipeline stages
 # --------------------------------------------------------------------------- #
