@@ -33,6 +33,7 @@ ChartType = Literal[
     "stacked_bar_chart",
     "horizontal_bar_chart",
     "line_chart",
+    "none",
 ]
 
 

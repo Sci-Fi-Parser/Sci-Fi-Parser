@@ -13,14 +13,14 @@ from pathlib import Path
 from sci_fi_parser.data_pipeline import ImageSet
 from sci_fi_parser.vlm.vlm import build_vlm
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
-
+from tqdm import tqdm
 
 def start_vlm(image_set: ImageSet,
               profile: VLMProfile | Path) -> None:
     
     vlm = build_vlm(profile if isinstance(profile, VLMProfile)
                     else load_profile(profile))
-    for image_id, imgage_data in image_set.items():
+    for image_id, imgage_data in tqdm(image_set.items()):
         ocr_result = image_set.get_ocrcv_result(image_id)
         imgage_path = image_set.get_image_path(image_id)
         parsed_data, raw_data = vlm.extract(imgage_path, ocr_result)
