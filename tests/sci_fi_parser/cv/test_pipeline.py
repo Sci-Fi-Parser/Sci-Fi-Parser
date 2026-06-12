@@ -53,7 +53,7 @@ def test_extract_ocr_data_uses_detected_bars_and_ocr_output(monkeypatch, tmp_pat
             return ocr_output
 
     monkeypatch.setattr(pipeline.cv2, "imread", lambda path: image_array)
-    monkeypatch.setattr(pipeline.bars, "detect_bars", lambda image: [bar])
+    monkeypatch.setattr(pipeline, "detect_bars", lambda image: [bar])
     monkeypatch.setattr(pipeline, "Ocr", FakeOcr)
 
     results = pipeline.extract_ocr_data([("chart-1", image_path)])

@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import cv2
+
 from sci_fi_parser.cv.ocr import Ocr
 
-import sci_fi_parser.cv.bars as bars
+from sci_fi_parser.cv.bars import detect_bars
 from sci_fi_parser.cv.debug_draw import draw_bar_ocr_matches
 
 from sci_fi_parser.data_pipeline import ImageSet
-
-import cv2
 
 
 SUPPORTED_CHARTS = ["bar"]
@@ -30,7 +30,7 @@ def extract_ocr_data(paths: list[tuple[str, Path]]) -> list[OcrExtractionResult]
         image_path = image[1]
         image_array = cv2.imread(str(image_path))
 
-        bar_candidates = bars.detect_bars(image_array)
+        bar_candidates = detect_bars(image_array)
 
         ocr.read_image(image_array)
         ocr_result = ocr.run_ocr()
@@ -51,22 +51,22 @@ def extract_ocr_data(paths: list[tuple[str, Path]]) -> list[OcrExtractionResult]
 
 def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
     linked = []
-    for i in range(len(bars)):
-        left = bars[i].bbox.x
-        right = bars[i].bbox.right
+    for bar in bars:
+        left = bar.bbox.x
+        right = bar.bbox.right
         # print(f"left: {left}, right: {right}")
         matching_ocr = []
-        for j in range(len(ocr_json["bbox"])):
-            if ocr_json["confidence"][j] < 0.90:
+        for i, bbox in enumerate(ocr_json["bbox"]):
+            if ocr_json["confidence"][i] < 0.90:
                 #  print("low conf")
                 continue
-            ocr_max_x, _, ocr_min_x, _ = ocr_json["bbox"][j]
+            ocr_max_x, _, ocr_min_x, _ = bbox
             # print(f"max: {ocr_max_x}, min: {ocr_min_x}")
             if (ocr_min_x <= left and ocr_max_x >= right) or (
                 ocr_min_x >= left and ocr_max_x <= right
             ):
-                matching_ocr.append(ocr_json["bbox"][j])
-        linked.append((bars[i], matching_ocr))
+                matching_ocr.append(bbox)
+        linked.append((bar, matching_ocr))
 
     # print(f"linked: {linked}")
     return linked
@@ -87,7 +87,7 @@ def start_ocr(image_set: ImageSet, batch_size=100) -> None:
         # if not chart_ids:
         # continue
 
-        chart_ids: list[str] = [image_id for image_id in image_set]
+        chart_ids: list[str] = list(image_set)
 
         image_paths: list[tuple[str, Path]] = []
         for image_id in chart_ids:

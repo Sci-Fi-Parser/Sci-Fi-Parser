@@ -84,7 +84,7 @@ class ImageSet:
         return f"ImageSet({self._data!r})"
 
     def __str__(self) -> str:
-        return self.__repr__
+        return str(self.__repr__)
 
     def __iter__(self):
         return iter(self._data)
