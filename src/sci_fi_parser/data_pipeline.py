@@ -16,6 +16,9 @@ import json
 from pathlib import Path
 
 
+_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
+
+
 # --------------------------------------------------------------------------- #
 # Set classes -- name-keyed payload stores, one per pipeline stage
 # --------------------------------------------------------------------------- #
@@ -58,7 +61,8 @@ class VLMSet:
 
 
 class ImageSet:
-    """"""
+    """Canonical image records accumulated by pipeline stages."""
+
     def __init__(self) -> None:
         """Key: image_id, dict: metadata etc..."""
         self._data: dict[str, dict] = {}
@@ -69,12 +73,66 @@ class ImageSet:
     def items(self):
         return self._data.items()
 
-    def get(self, name: str) -> str:
-        return self._data.get(name, "")
+    def get(self, id: str) -> str:
+        return self._data.get(id, "")
 
     def __len__(self) -> int:
         return len(self._data)
 
+    def add_extracted_image(
+        self,
+        image_id: str,
+        image_path: Path,
+        extraction_metadata: dict | None = None,
+    ) -> None:
+        """Add an extracted image using the standard ImageSet record shape."""
+        record = self._empty_record(image_path)
+        record["metadata"]["extraction"].update(extraction_metadata or {})
+        self._data[image_id] = record
+
+    def filter_by_type(self, chart_type: str, limit: int = 100) -> list(str):
+        """Return images classified as ``chart_type``, optionally capped by limit."""
+        filtered = []
+        if limit <= 0:
+            return filtered
+        for image_id, payload in self.items():
+            result = payload.get("classification", {}).get("result", {})
+            if result.get("selected_type") != chart_type:
+                continue
+            filtered.append(image_id)
+            if len(filtered) >= limit:
+                break
+        return filtered
+
+    def get_image_path(self, image_id: str) -> Path:
+        """Get Path object for a image from its id"""
+        return self._data[image_id]["output"]["path"]
+
+    @staticmethod
+    def _empty_record(image_path: Path) -> dict:
+        return {
+            "metadata": {
+                "extraction": {},
+                "classification": {},
+                "ocrcv": {},
+                "vlm": {},
+            },
+            "output": {
+                "path": image_path
+            },
+            "classification": {
+                "result": {},
+                "raw": {},
+            },
+            "ocrcv": {
+                "result": {},
+                "raw": {},
+            },
+            "vlm": {
+                "result": {},
+                "raw": {},
+            },
+        }
 
 class PdfSet:
     """Key: pdf_id, dict: metadata"""
