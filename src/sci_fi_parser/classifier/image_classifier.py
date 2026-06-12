@@ -5,13 +5,9 @@ from pathlib import Path
 import torch
 
 class ImageClassifier:
-    def __init__(self, model: CNNClassifier, image_transform = None):
-        if image_transform is not None:
-            self.add_transform(image_transform)
-        self.model = model
-
-    def add_transform(self, image_transform):
+    def __init__(self, model: CNNClassifier, image_transform):
         self.transform = image_transform
+        self.model = model
 
     def classify_image(self, image):
         with torch.no_grad(): #with a trained network, gradient computation is not needed
