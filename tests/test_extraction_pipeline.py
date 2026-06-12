@@ -38,11 +38,9 @@ def test_start_extraction_writes_images_and_metadata(tmp_path, monkeypatch):
 
     saved_image = output_path / "image-1.png"
     assert saved_image.exists()
-    assert image_set.get("image-1") == {
-        "metadata": {
-            "pdf_id": "pdf-1",
-        },
-    }
+    image_record = image_set.get("image-1")
+    assert image_record["metadata"]["extraction"] == {"pdf_id": "pdf-1"}
+    assert image_record["output"]["path"] == saved_image
     assert pdf_set.get("pdf-1") == {"metadata": {"title": "source"}}
 
 

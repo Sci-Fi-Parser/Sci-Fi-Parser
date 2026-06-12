@@ -26,7 +26,7 @@ def main() -> None:
     vlm_set = VLMSet()
 
     start_extraction(PDF_INPUT_FOLDER, image_set, pdf_set, EXTRACTED_IMAGE_FOLDER)
-    start_ocr(TARGET_FOLDER, ocr_set)
+    start_ocr(image_set)
     start_vlm(TARGET_FOLDER, ocr_set, vlm_set, VLM_CONFIG)
 
 
