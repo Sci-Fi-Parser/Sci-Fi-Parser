@@ -22,6 +22,7 @@ _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
 # --------------------------------------------------------------------------- #
 # Set classes -- name-keyed payload stores, one per pipeline stage
 # --------------------------------------------------------------------------- #
+
 class OCRSet:
     """image filename -> OCR text. Populated by :func:`start_ocr`."""
 
@@ -79,6 +80,15 @@ class ImageSet:
     def __len__(self) -> int:
         return len(self._data)
 
+    def __repr__(self) -> str:
+        return f"ImageSet({self._data!r})"
+
+    def __str__(self) -> str:
+        return self.__repr__
+
+    def __iter__(self):
+        return iter(self._data)
+
     def add_extracted_image(
         self,
         image_id: str,
@@ -90,7 +100,7 @@ class ImageSet:
         record["metadata"]["extraction"].update(extraction_metadata or {})
         self._data[image_id] = record
 
-    def filter_by_type(self, chart_type: str, limit: int = 100) -> list(str):
+    def filter_by_type(self, chart_type: str, limit: int = 100) -> list[str]:
         """Return images classified as ``chart_type``, optionally capped by limit."""
         filtered = []
         if limit <= 0:
@@ -107,6 +117,22 @@ class ImageSet:
     def get_image_path(self, image_id: str) -> Path:
         """Get Path object for a image from its id"""
         return self._data[image_id]["output"]["path"]
+
+    def add_ocrcv_raw(self, image_id: str, result: dict) -> None:
+        """Add raw result data from OCR/CV pipeline."""
+        record = self._data[image_id]
+        record.setdefault("ocrcv", {})
+        record["ocrcv"]["raw"] = result
+
+    def add_ocrcv_result(self, image_id: str, result: str) -> None:
+        """Add contextual text from OCR/CV to be passed to VLM."""
+        record = self._data[image_id]
+        record.setdefault("ocrcv", {})
+        record["ocrcv"]["result"] = result
+
+    def get_ocrcv_result(self, image_id: str) -> str:
+        """Get OCR/CV result."""
+        return self._data[image_id]["ocrcv"]["result"]
 
     @staticmethod
     def _empty_record(image_path: Path) -> dict:
@@ -134,8 +160,10 @@ class ImageSet:
             },
         }
 
+
 class PdfSet:
     """Key: pdf_id, dict: metadata"""
+
     def __init__(self) -> None:
         """Key: pdf_id, dict: metadata etc..."""
         self._data: dict[str, dict] = {}
@@ -155,6 +183,7 @@ class PdfSet:
 # --------------------------------------------------------------------------- #
 # Pipeline stages
 # --------------------------------------------------------------------------- #
+
 
 def data_offloader(vlm_set: VLMSet, output: Path) -> None:
     """Write each entry of ``vlm_set`` as one JSON file under ``output``.

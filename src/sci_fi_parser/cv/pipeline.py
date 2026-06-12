@@ -6,7 +6,13 @@ from sci_fi_parser.cv.ocr import Ocr
 import sci_fi_parser.cv.bars as bars
 from sci_fi_parser.cv.debug_draw import draw_bar_ocr_matches
 
+from sci_fi_parser.data_pipeline import ImageSet
+
 import cv2
+
+
+SUPPORTED_CHARTS = ["bar"]
+
 
 @dataclass
 class OcrExtractionResult:
@@ -16,21 +22,12 @@ class OcrExtractionResult:
     matched: object
 
 
-def get_image_paths(folder: Path) -> list[Path]:
-    return [
-        p
-        for pattern in ("*.png", "*.jpg", "*.jpeg")
-        for p in folder.glob(pattern)
-    ]
-
-
-def extract_ocr_data(folder: Path) -> list[OcrExtractionResult]:
-    paths = get_image_paths(folder)
+def extract_ocr_data(paths: list[tuple[str, Path]]) -> list[OcrExtractionResult]:
     ocr = Ocr()
-
     results = []
 
-    for image_path in paths:
+    for image in paths:
+        image_path = image[1]
         image_array = cv2.imread(str(image_path))
 
         bar_candidates = bars.detect_bars(image_array)
@@ -52,17 +49,6 @@ def extract_ocr_data(folder: Path) -> list[OcrExtractionResult]:
     return results
 
 
-def format_ocr_output(result: OcrExtractionResult) -> str:
-    return f"{result.bar_candidates}{result.ocr_result}{result.matched}"
-
-
-def start_ocr(folder: Path, ocr_set) -> None:
-    results = extract_ocr_data(folder)
-
-    for result in results:
-        output_string = format_ocr_output(result)
-        ocr_set.add(result.image_name, output_string)
-
 def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
     linked = []
     for i in range(len(bars)):
@@ -72,7 +58,7 @@ def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
         matching_ocr = []
         for j in range(len(ocr_json["bbox"])):
             if ocr_json["confidence"][j] < 0.90:
-                # print("low conf")
+                #  print("low conf")
                 continue
             ocr_max_x, _, ocr_min_x, _ = ocr_json["bbox"][j]
             # print(f"max: {ocr_max_x}, min: {ocr_min_x}")
@@ -86,10 +72,28 @@ def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
     return linked
 
 
-if __name__ == "__main__":
-    input_path = input("Enter input path: ")
-    ocr_set = OCRSet()
-    start_ocr(input_path, ocr_set)
-    print(ocr_set)
+def format_ocr_output(result: OcrExtractionResult) -> str:
+    return f"{result.bar_candidates}{result.ocr_result}{result.matched}"
 
 
+def start_ocr(image_set: ImageSet, batch_size=100) -> None:
+    if batch_size <= 0:
+        print("[!] OCR/CV batch size is less than 0. Skipping.")
+        return
+
+    for chart_type in SUPPORTED_CHARTS:
+        # For now we assume all images are a single type.
+        # chart_ids = image_set.filter_by_type(chart_type, batch_size)
+        # if not chart_ids:
+        # continue
+
+        chart_ids: list[str] = [image_id for image_id in image_set]
+
+        image_paths: list[tuple[str, Path]] = []
+        for image_id in chart_ids:
+            image_paths.append((image_id, image_set.get_image_path(image_id)))
+
+        results = extract_ocr_data(image_paths)
+        for image_id, result in zip(chart_ids, results):
+            image_set.add_ocrcv_result(image_id, format_ocr_output(result))
+            image_set.add_ocrcv_raw(image_id, result)

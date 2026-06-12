@@ -48,10 +48,15 @@ def start_extraction(
         for image_id, image_payload in image_data.items():
             image, img_metadata = image_payload
             if image:
-                image_set.add(image_id, {"metadata": img_metadata})
+                image_path = None
                 if extracted_image_folder:
                     image_path = extracted_image_folder / f"{image_id}.png"
                     image.save(image_path)
+                image_set.add_extracted_image(
+                    image_id,
+                    image_path=image_path or Path(f"{image_id}.png"),
+                    extraction_metadata=img_metadata,
+                )
 
 
 def _find_pdfs(input_path: Path) -> list[Path]:
