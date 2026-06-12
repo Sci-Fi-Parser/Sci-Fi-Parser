@@ -160,10 +160,8 @@ class ImageSet:
             },
         }
 
-
 class PdfSet:
     """Key: pdf_id, dict: metadata"""
-
     def __init__(self) -> None:
         """Key: pdf_id, dict: metadata etc..."""
         self._data: dict[str, dict] = {}
