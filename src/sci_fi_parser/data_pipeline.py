@@ -112,22 +112,27 @@ class ImageSet:
 
     # OCR/CV
     def get_ocrcv_result(self, image_id: str) -> str:
-        return ""
+        """Get OCR/CV result."""
+        return self._data[image_id]["ocrcv"]["result"]
     
     # VLM
     def add_vlm_result(self, image_id: str, vlm_data: dict[str, Any]):
-        """Add the VLM result to the set"""
-        self._data[image_id]["vlm"]["result"] = vlm_data
+        """Add the VLM parsed data to the set"""
+        record = self._data[image_id]
+        record.setdefault("vlm", {})
+        record["vlm"]["result"] = vlm_data
 
     def add_vlm_result_raw(self, image_id: str, vlm_raw_data: dict[str, Any]):
-        """Add the VLM result to the set"""
-        self._data[image_id]["vlm"]["raw"] = vlm_raw_data
+        """Add the VLM raw data to the set"""
+        record = self._data[image_id]
+        record.setdefault("vlm", {})
+        record["vlm"]["raw"] = vlm_raw_data
 
     def get_vlm_result(self, image_id: str) -> dict[str, Any]:
         """Get VLM result for an from its id"""
         return self._data[image_id]["vlm"]["result"]
     
-    def get_vlm_result_raw(self, image_id: str) -> dict[str, Any]:
+    def get_vlm_raw(self, image_id: str) -> dict[str, Any]:
         """Get VLM result for an from its id"""
         return self._data[image_id]["vlm"]["raw"]
 
