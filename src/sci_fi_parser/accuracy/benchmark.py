@@ -11,7 +11,7 @@ One canonical schema, many extractors
 -------------------------------------
 Every extractor -- VLM, CV+OCR pipeline, chart-specialized model -- is adapted to
 a single :class:`ChartData` schema, so comparisons are apples-to-apples. Add an
-extractor by implementing ``Extractor.extract(image_path) -> ChartData``.
+extractor by implementing ``Extractor.extract(image_path) -> (chartdata_dict, raw)``.
 
 Note: pure OCR is *not* a standalone value extractor (it reads text, not data
 points) -- benchmark it as part of a CV+OCR pipeline.
@@ -42,7 +42,7 @@ import numpy as np
 from sci_fi_parser.vlm.vlm import ChatCompletionsVLM, OllamaVLM
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.schema import (
-    ChartData, ChartType, Extractor, Point, Series,
+    ChartData, ChartType, Extractor, Point, Series, parse_chartdata,
 )
 
 
@@ -143,7 +143,7 @@ class NoisyOracle:
                              y=round(scale * self._rng.uniform(0.2, 1.5), 3)))
         return Series(name=series["name"], points=pts)
 
-    def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
         entry = self._truth[image_path.name]
         if self._mock:
             # Each chart gets its own personality: a random overall bias and a
@@ -153,14 +153,16 @@ class NoisyOracle:
             out_series = [self._mock_series(s, bias, spread)
                           for s in entry["series"]]
             conf = float(np.clip(self._rng.normal(0.7, 0.15), 0, 1))
-            return ChartData(chart_type=entry.get("chart_type"),
-                             series=out_series, confidence=conf)
+            chart = ChartData(chart_type=entry.get("chart_type"),
+                              series=out_series, confidence=conf)
+            return chart.model_dump(), {}
         lo, hi = entry["value_range"]
         span = abs(hi - lo) or 1.0
         out_series = [self._perturb(s, lo, hi, span) for s in entry["series"]]
         conf = float(np.clip(self._rng.normal(0.9, 0.05), 0, 1))
-        return ChartData(chart_type=entry.get("chart_type"),
-                         series=out_series, confidence=conf)
+        chart = ChartData(chart_type=entry.get("chart_type"),
+                          series=out_series, confidence=conf)
+        return chart.model_dump(), {}
 
 
 # --------------------------------------------------------------------------- #
@@ -437,7 +439,8 @@ def _run_extractor(extractor: Extractor, truth: dict, images: list[str],
         t0 = time.perf_counter()
         try:
             suffix = "" if prompt_suffixes is None else prompt_suffixes.get(name, "")
-            pred = extractor.extract(img_dir / name, prompt_suffix=suffix)
+            parsed, _ = extractor.extract(img_dir / name, prompt_suffix=suffix)
+            pred = parse_chartdata(parsed)
         except Exception as exc:  # pylint: disable=broad-exception-caught
             print(f"  ! {name}: {type(exc).__name__}: {exc}")
             pred = ChartData(chart_type=None, series=[], confidence=None)
@@ -547,10 +550,15 @@ def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle"
     cross-model comparison runner) can drive it without going through argparse.
     """
     truth = load_truth(data)
-    images = sorted(truth)[:limit] if limit else sorted(truth)
+    img_dir = data / "images"
+    images = [n for n in sorted(truth) if (img_dir / n).exists()]
+    skipped = len(truth) - len(images)
+    if skipped:
+        print(f"  skipping {skipped} labelled image(s) missing from {img_dir}")
+    if limit:
+        images = images[:limit]
     rng = np.random.default_rng(seed)
     extractor = build_extractor(extractor_name, truth, rng, profile=profile)
-    img_dir = data / "images"
 
     results = _run_extractor(extractor, truth, images, img_dir, prompt_suffixes)
     agg = aggregate(results)
