@@ -14,7 +14,18 @@ class ImageClassifier:
         self.transform = image_transform
 
     def classify_image(self, image):
-        with Image.open(image) as im:
-            as_tensor = torch.unsqueeze(self.transform(im), 0) #A dummy batch dimension is added to the tensor
-            return self.model.forward(as_tensor)
+        with torch.no_grad(): #with a trained network, gradient computation is not needed
+            with Image.open(image) as im:
+                as_tensor = torch.unsqueeze(self.transform(im), 0) #A dummy batch dimension is added to the tensor
+                model_output = self.model.forward(as_tensor)
+                return torch.argmax(model_output), model_output
 
+        
+if __name__=="__main__":
+    input_size = 128
+    model = CNNClassifier(num_classes=6, channels_in=3, channels_out=[32, 64, 128], 
+                          conv_kernel_size=3, pool_size=2, linear_layer_neurons=256, input_image_size=input_size)
+    im_transform = transforms.Compose([transforms.Resize((input_size, input_size)), transforms.ToTensor()])
+    im_classifier = ImageClassifier(model=model, image_transform=im_transform)
+    my_image = Path("cnn_data_split/val/graphs_val/0a14bb795a27.jpg")
+    classification, full_output = im_classifier.classify_image(my_image)
