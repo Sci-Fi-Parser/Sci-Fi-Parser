@@ -16,4 +16,6 @@ def start_classification(
     classifier = image_classifier.ImageClassifier()
     image_paths = [(im_id, image_set.get_image(im_id)) for im_id in image_set]
     for im_id, im_path in image_paths:
-        classification, scores = classifier.classify_image()
+        if im_path.suffix().lower() in IMAGE_SUFFIXES:
+            classification, scores = classifier.classify_image(im_path)
+            image_set.add_classification(im_id, classification)

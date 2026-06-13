@@ -117,6 +117,10 @@ class ImageSet:
     def get_image_path(self, image_id: str) -> Path:
         """Get Path object for a image from its id"""
         return self._data[image_id]["output"]["path"]
+    
+    def add_classification(self, image_id: str, result):
+        #TODO
+        return
 
     def add_ocrcv_raw(self, image_id: str, result: dict) -> None:
         """Add raw result data from OCR/CV pipeline."""
@@ -133,6 +137,7 @@ class ImageSet:
     def get_ocrcv_result(self, image_id: str) -> str:
         """Get OCR/CV result."""
         return self._data[image_id]["ocrcv"]["result"]
+    
 
     @staticmethod
     def _empty_record(image_path: Path) -> dict:
