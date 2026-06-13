@@ -35,7 +35,7 @@ model = "qwen2.5vl:7b"
 
 # Context window passed to ollama.
 #   [default: 2048]
-num_ctx = 20000
+num_ctx = 6000
 
 # GPU layers to offload. Leave unset for ollama's automatic placement
 # (it may still fall back to CPU if the working set exceeds VRAM).

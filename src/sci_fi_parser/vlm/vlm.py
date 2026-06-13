@@ -87,6 +87,8 @@ class OllamaVLM:
             self._options["num_gpu"] = int(env_gpu)
         elif profile.num_gpu is not None:
             self._options["num_gpu"] = profile.num_gpu
+        self._options["seed"] = 1
+        self._options["temperature"] = 0
 
     def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
         """Run the VLM on one image. ``prompt_suffix`` is appended to the base
@@ -101,6 +103,7 @@ class OllamaVLM:
                        "images": [str(image_path)]}],
             format=chartdata_schema(),
             options=self._options,
+
         )
         return parse_chartdata(resp["message"]["content"])
 
