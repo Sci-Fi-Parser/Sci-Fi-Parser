@@ -15,9 +15,9 @@ class ImageClassifier:
         else:
             self.transform = image_transform
 
-    def classify_image(self, image):
+    def classify_image(self, image_path):
         with torch.no_grad(): #with a trained network, gradient computation is not needed
-            with Image.open(image) as im:
+            with Image.open(image_path) as im:
                 as_tensor = torch.unsqueeze(self.transform(im), 0) #A dummy batch dimension is added to the tensor
                 model_output = self.model.forward(as_tensor)
                 return torch.argmax(model_output), model_output
