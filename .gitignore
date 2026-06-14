@@ -1,5 +1,5 @@
 test_images/
-temp/
+cnn_data_split/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

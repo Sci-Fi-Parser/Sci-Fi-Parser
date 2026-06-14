@@ -119,6 +119,10 @@ class ImageSet:
     def get_image_path(self, image_id: str) -> Path:
         """Get Path object for an image from its id"""
         return self._data[image_id]["output"]["path"]
+    
+    def add_classification(self, image_id: str, result):
+        #TODO
+        return
 
     # OCR/CV
     def add_ocrcv_raw(self, image_id: str, result: dict) -> None:
@@ -136,6 +140,7 @@ class ImageSet:
     def get_ocrcv_result(self, image_id: str) -> str:
         """Get OCR/CV result."""
         return self._data[image_id]["ocrcv"]["result"]
+    
 
     # VLM
     def add_vlm_result(self, image_id: str, vlm_data: dict[str, Any]):
