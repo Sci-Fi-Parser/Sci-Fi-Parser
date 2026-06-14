@@ -2028,6 +2028,7 @@ dependencies = [
     { name = "pillow" },
     { name = "pydantic" },
     { name = "pymupdf" },
+    { name = "tqdm" },
 ]
 
 [package.optional-dependencies]
@@ -2054,6 +2055,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=10.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pymupdf", specifier = ">=1.27.2.3" },
+    { name = "tqdm", specifier = ">=4.67.3" },
 ]
 provides-extras = ["cv"]
 
