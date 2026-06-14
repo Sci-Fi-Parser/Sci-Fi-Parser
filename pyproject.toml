@@ -12,6 +12,8 @@ dependencies = [
   "paddlepaddle==3.2.0",
   "opencv-python>=4.13.0.92",
   "pymupdf>=1.27.2.3",
+  "torch>=2.12.0",
+  "torchvision>=0.27.0",
 ]
 description = "A package to to parse data from graphs in documents."
 readme = "README.md"
