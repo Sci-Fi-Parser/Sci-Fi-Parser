@@ -157,6 +157,10 @@ class ImageSet:
     def get_ocrcv_result(self, image_id: str) -> str:
         """Get OCR/CV result."""
         return self._data[image_id]["ocrcv"]["result"]
+
+    def get_ocrcv_raw(self, image_id: str) -> dict:
+        """Get raw OCR/CV result."""
+        return self._data[image_id]["ocrcv"]["raw"]
     
 
     # VLM
