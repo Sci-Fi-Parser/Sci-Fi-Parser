@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from sci_fi_parser.vlm.vlm_config import VLMProfile
-from sci_fi_parser.schema import ChartData, parse_chartdata
+from sci_fi_parser.vlm.vlm_schema import ChartData, parse_chartdata
 
 
 _MIME_BY_SUFFIX = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
@@ -122,7 +122,7 @@ class ChatCompletionsVLM:
       ``response_format`` -- servers like llama.cpp turn it into a decoding
       grammar, the same guarantee ollama's ``format=`` gives.
     * ``"json_object"`` only asks for valid JSON and leans on
-      :func:`~sci_fi_parser.schema.parse_chartdata` to repair the reply -- the
+      :func:`~sci_fi_parser.vlm.vlm_schema.parse_chartdata` to repair the reply -- the
       fallback for servers without json_schema support.
 
     The API key is read from the env var named by ``profile.api_key_env``

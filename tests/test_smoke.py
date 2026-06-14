@@ -15,7 +15,7 @@ import pytest
 
 def test_schema_module_imports():
     from sci_fi_parser.accuracy.benchmark import normalize_key, series_map
-    from sci_fi_parser.schema import (
+    from sci_fi_parser.vlm.vlm_schema import (
         ChartData, Extractor, Point, Series, parse_chartdata,
     )
 
@@ -43,7 +43,7 @@ def test_schema_module_imports():
 def test_chart_type_literal_constrained():
     """chart_type is a Literal — VLMs (via ollama format=) can't drift outside the set."""
     from pydantic import ValidationError
-    from sci_fi_parser.schema import ChartData
+    from sci_fi_parser.vlm.vlm_schema import ChartData
 
     # Valid value: round-trips fine.
     cd = ChartData(chart_type="bar_chart", series=[], confidence=None)
@@ -60,13 +60,13 @@ def test_schema_is_light():
     import subprocess as sp
     proc = sp.run(
         [sys.executable, "-c",
-         "import sci_fi_parser.schema, sys; "
+         "import sci_fi_parser.vlm.vlm_schema, sys; "
          "heavy = {'matplotlib', 'cv2', 'ollama'}; "
          "leaked = heavy & set(sys.modules); "
          "sys.exit(0 if not leaked else 1)"],
         check=False,
     )
-    assert proc.returncode == 0, "sci_fi_parser.schema leaked a heavy import"
+    assert proc.returncode == 0, "sci_fi_parser.vlm.vlm_schema leaked a heavy import"
 
 
 def test_synthetic_package_imports():
@@ -231,7 +231,7 @@ def test_score_chart_value_vs_identity():
       (errors normalize to the value_range, not to |true|).
     """
     from sci_fi_parser.accuracy.benchmark import score_chart
-    from sci_fi_parser.schema import ChartData, Point, Series
+    from sci_fi_parser.vlm.vlm_schema import ChartData, Point, Series
 
     truth_entry = {
         "chart_type": "bar_chart",

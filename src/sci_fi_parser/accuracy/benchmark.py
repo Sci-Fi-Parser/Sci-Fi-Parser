@@ -41,7 +41,7 @@ import numpy as np
 
 from sci_fi_parser.vlm.vlm import ChatCompletionsVLM, OllamaVLM
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
-from sci_fi_parser.schema import (
+from sci_fi_parser.vlm.vlm_schema import (
     ChartData, ChartType, Extractor, Point, Series, parse_chartdata,
 )
 
@@ -78,7 +78,7 @@ def truth_to_map(series: list[dict]) -> dict[tuple[str, str], float]:
 
 
 # --------------------------------------------------------------------------- #
-# Test double + Ollama skeleton (the Extractor protocol lives in sci_fi_parser.schema)
+# Test double + Ollama skeleton (the Extractor protocol lives in sci_fi_parser.vlm.vlm_schema)
 # --------------------------------------------------------------------------- #
 class NoisyOracle:
     """Harness sanity-check — run before any real model to confirm the pipeline works.
