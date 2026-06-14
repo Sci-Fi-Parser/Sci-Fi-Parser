@@ -120,9 +120,26 @@ class ImageSet:
         """Get Path object for an image from its id"""
         return self._data[image_id]["output"]["path"]
     
-    def add_classification(self, image_id: str, result):
-        #TODO
-        return
+    # Classification
+    def add_classification_result(self, image_id: str, result) -> None:
+        """Add the classification result to the set."""
+        record = self._data[image_id]
+        record.setdefault("classification", {})
+        record["classification"]["result"] = result
+
+    def add_classification_raw(self, image_id: str, raw) -> None:
+        """Add the raw classification scores to the set."""
+        record = self._data[image_id]
+        record.setdefault("classification", {})
+        record["classification"]["raw"] = raw
+
+    def get_classification_result(self, image_id: str):
+        """Get classification result for an image from its id."""
+        return self._data[image_id]["classification"]["result"]
+
+    def get_classification_raw(self, image_id: str):
+        """Get raw classification scores for an image from its id."""
+        return self._data[image_id]["classification"]["raw"]
 
     # OCR/CV
     def add_ocrcv_raw(self, image_id: str, result: dict) -> None:
