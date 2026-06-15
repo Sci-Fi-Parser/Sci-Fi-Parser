@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "Extract the data from this chart.\n"
     "Rules:\n"
     "- chart_type: one of bar_chart, grouped_bar_chart, stacked_bar_chart, "
-    "horizontal_bar_chart, line_chart.\n"
+    "horizontal_bar_chart, line_chart, none\n"
     "- Use the x-axis category labels EXACTLY as printed. Do not invent "
     "dates, years, or names.\n"
     "- Series naming: if there is a legend, use the legend labels. "
@@ -41,7 +41,7 @@ DEFAULT_PROMPT = (
     "that the extracted values are correct. Lower it for charts without "
     "printed value labels or with hard-to-read axes.\n"
     "- Do not output series, categories, or values that do not appear on "
-    "the chart."
+    "the chart. If the image is not a chart, output empty JSON."
 )
 
 

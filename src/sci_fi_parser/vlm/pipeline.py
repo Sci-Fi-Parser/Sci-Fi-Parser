@@ -10,40 +10,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sci_fi_parser.data_pipeline import OCRSet, VLMSet
+from sci_fi_parser.data_pipeline import ImageSet
 from sci_fi_parser.vlm.vlm import build_vlm
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
+from tqdm import tqdm
 
-_IMAGE_GLOBS = ("*.png", "*.jpg", "*.jpeg")
-
-
-def _images_in(folder: Path) -> list[Path]:
-    """Top-level PNG/JPG/JPEG in ``folder``, sorted by filename."""
-    return sorted(p for pat in _IMAGE_GLOBS for p in folder.glob(pat))
-
-def _ocr_suffix(ocr_text: str) -> str:
-    """Format OCR text as a prompt-context block (empty in -> empty out)."""
-    if not ocr_text.strip():
-        return ""
-    return (
-        "Additional text recognised from the page by OCR (treat as a hint, "
-        "not gospel -- prefer what you actually see on the chart):\n"
-        f"{ocr_text}"
-    )
-
-
-def start_vlm(target: Path, ocr_set: OCRSet, vlm_set: VLMSet,
+def start_vlm(image_set: ImageSet,
               profile: VLMProfile | Path) -> None:
-    """For each image in ``target``, look up its OCR text in ``ocr_set``,
-    append that to the VLM prompt, run the model, and store the resulting
-    ChartData (as a JSON-ready dict) in ``vlm_set`` under the image name.
-
-    ``profile`` is either an in-memory :class:`VLMProfile` or a path to a
-    profile TOML to load.
-    """
+    
     vlm = build_vlm(profile if isinstance(profile, VLMProfile)
                     else load_profile(profile))
-    for img in _images_in(target):
-        suffix = _ocr_suffix(ocr_set.get(img.name))
-        data = vlm.extract(img, prompt_suffix=suffix)
-        vlm_set.add(img.name, data.model_dump())
+    for image_id, imgage_data in tqdm(image_set.items()):
+        ocr_result = image_set.get_ocrcv_result(image_id)
+        imgage_path = image_set.get_image_path(image_id)
+        parsed_data, raw_data = vlm.extract(imgage_path, ocr_result)
+        image_set.add_vlm_result(image_id, parsed_data)
+        image_set.add_vlm_result_raw(image_id, raw_data)

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
@@ -114,14 +115,33 @@ class ImageSet:
                 break
         return filtered
 
+    # Image Path
     def get_image_path(self, image_id: str) -> Path:
-        """Get Path object for a image from its id"""
+        """Get Path object for an image from its id"""
         return self._data[image_id]["output"]["path"]
     
-    def add_classification(self, image_id: str, result):
-        #TODO
-        return
+    # Classification
+    def add_classification_result(self, image_id: str, result) -> None:
+        """Add the classification result to the set."""
+        record = self._data[image_id]
+        record.setdefault("classification", {})
+        record["classification"]["result"] = result
 
+    def add_classification_raw(self, image_id: str, raw) -> None:
+        """Add the raw classification scores to the set."""
+        record = self._data[image_id]
+        record.setdefault("classification", {})
+        record["classification"]["raw"] = raw
+
+    def get_classification_result(self, image_id: str):
+        """Get classification result for an image from its id."""
+        return self._data[image_id]["classification"]["result"]
+
+    def get_classification_raw(self, image_id: str):
+        """Get raw classification scores for an image from its id."""
+        return self._data[image_id]["classification"]["raw"]
+
+    # OCR/CV
     def add_ocrcv_raw(self, image_id: str, result: dict) -> None:
         """Add raw result data from OCR/CV pipeline."""
         record = self._data[image_id]
@@ -137,7 +157,32 @@ class ImageSet:
     def get_ocrcv_result(self, image_id: str) -> str:
         """Get OCR/CV result."""
         return self._data[image_id]["ocrcv"]["result"]
+
+    def get_ocrcv_raw(self, image_id: str) -> dict:
+        """Get raw OCR/CV result."""
+        return self._data[image_id]["ocrcv"]["raw"]
     
+
+    # VLM
+    def add_vlm_result(self, image_id: str, vlm_data: dict[str, Any]):
+        """Add the VLM parsed data to the set"""
+        record = self._data[image_id]
+        record.setdefault("vlm", {})
+        record["vlm"]["result"] = vlm_data
+
+    def add_vlm_result_raw(self, image_id: str, vlm_raw_data: dict[str, Any]):
+        """Add the VLM raw data to the set"""
+        record = self._data[image_id]
+        record.setdefault("vlm", {})
+        record["vlm"]["raw"] = vlm_raw_data
+
+    def get_vlm_result(self, image_id: str) -> dict[str, Any]:
+        """Get VLM result for an from its id"""
+        return self._data[image_id]["vlm"]["result"]
+    
+    def get_vlm_raw(self, image_id: str) -> dict[str, Any]:
+        """Get VLM result for an from its id"""
+        return self._data[image_id]["vlm"]["raw"]
 
     @staticmethod
     def _empty_record(image_path: Path) -> dict:

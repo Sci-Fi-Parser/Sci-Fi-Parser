@@ -33,6 +33,7 @@ ChartType = Literal[
     "stacked_bar_chart",
     "horizontal_bar_chart",
     "line_chart",
+    "none",
 ]
 
 
@@ -93,5 +94,5 @@ class Extractor(Protocol):
 
     name: str
 
-    def extract(self, image_path: Path, prompt_suffix: str = "") -> ChartData:
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
         ...

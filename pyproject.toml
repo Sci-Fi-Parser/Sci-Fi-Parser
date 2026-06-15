@@ -14,6 +14,7 @@ dependencies = [
   "pymupdf>=1.27.2.3",
   "torch>=2.12.0",
   "torchvision>=0.27.0",
+  "tqdm>=4.67.3",
 ]
 description = "A package to to parse data from graphs in documents."
 readme = "README.md"
