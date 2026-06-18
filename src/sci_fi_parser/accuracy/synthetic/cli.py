@@ -22,6 +22,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from sci_fi_parser.accuracy.truth import truth_to_json
+
 from .config import CATALOG, GenConfig, load_config
 from .generate import generate_preview, generate_random, generate_series
 from .output import SQLITE_DDL, augment, png_bytes, write_overlay
@@ -48,7 +50,7 @@ def _parse_args() -> argparse.Namespace:
 def _run_preview(cfg: GenConfig, out: Path) -> None:
     pdir = out / "preview"
     pdir.mkdir(parents=True, exist_ok=True)
-    for name, image, _ in generate_preview(cfg):
+    for name, image, _, _ in generate_preview(cfg):
         Image.fromarray(image).save(pdir / name)
     print(f"preview: {len(CATALOG)} type samples -> {pdir}")
     print("  types: " + ", ".join(CATALOG))
@@ -58,20 +60,21 @@ def _refresh(out: Path) -> None:
     for d in (out / "images", out / "_debug"):
         if d.exists():
             shutil.rmtree(d)
-    for f in (out / "labels.jsonl", out / "dataset.sqlite3"):
+    for f in (out / "truth.jsonl", out / "dataset.sqlite3"):
         f.unlink(missing_ok=True)
     print(f"refresh: cleared old output in {out}")
 
 
-def _insert_row(con: sqlite3.Connection, seed: int, name: str, label: dict,
+def _insert_row(con: sqlite3.Connection, seed: int, name: str, truth, metadata: dict,
                 image: np.ndarray) -> None:
+    truth_json = truth_to_json(truth, metadata)
     con.execute(
         "INSERT INTO dataset(source,source_ref,label1,label2,geometry,meta,"
         "img,mime_type,width,height) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        ("synthetic", f"seed{seed}/{name}", label["label1"],
-         json.dumps(label["label2"]),
-         json.dumps(label["geometry"]) if label["geometry"] else None,
-         json.dumps(label["meta"]), png_bytes(image), "image/png",
+        ("synthetic", f"seed{seed}/{name}", truth.chart_type,
+         json.dumps(truth_json),
+         json.dumps(truth.geometry) if truth.geometry else None,
+         json.dumps(metadata), png_bytes(image), "image/png",
          image.shape[1], image.shape[0]))
 
 
@@ -86,23 +89,22 @@ def _open_sqlite(out: Path, enable: bool) -> sqlite3.Connection | None:
 def _write_dataset(stream, args: argparse.Namespace, img_dir: Path, dbg_dir: Path,
                    con: sqlite3.Connection | None,
                    rng: np.random.Generator) -> tuple[dict, int]:
-    """Stream samples to images + labels.jsonl (+overlays/SQLite); return counts."""
+    """Stream samples to images + truth.jsonl (+overlays/SQLite); return counts."""
     counts: dict[str, int] = {}
     n_total = 0
-    with (args.out / "labels.jsonl").open("w", encoding="utf-8") as jsonl:
-        for name, image, label in stream:
+    with (args.out / "truth.jsonl").open("w", encoding="utf-8") as jsonl:
+        for name, image, truth, metadata in stream:
             if args.augment:
                 image = augment(image, rng)
             Image.fromarray(image).save(img_dir / name)
-            label["image"] = name
-            jsonl.write(json.dumps(label) + "\n")
-            preset = label["meta"]["preset"]
+            jsonl.write(json.dumps({"image": name, **truth_to_json(truth, metadata)}) + "\n")
+            preset = metadata["preset"]
             counts[preset] = counts.get(preset, 0) + 1
             n_total += 1
             if args.overlay:
-                write_overlay(dbg_dir / f"overlay_{name}", image, label)
+                write_overlay(dbg_dir / f"overlay_{name}", image, truth)
             if con is not None:
-                _insert_row(con, args.seed, name, label, image)
+                _insert_row(con, args.seed, name, truth, metadata, image)
     return counts, n_total
 
 
@@ -111,7 +113,7 @@ def _print_summary(args: argparse.Namespace, img_dir: Path, dbg_dir: Path,
     print(f"generated {n_total} charts -> {img_dir}")
     for preset, c in sorted(counts.items()):
         print(f"  {preset:12s} {c}")
-    print(f"labels -> {args.out / 'labels.jsonl'}")
+    print(f"truth  -> {args.out / 'truth.jsonl'}")
     if args.overlay:
         print(f"overlays -> {dbg_dir}")
     if args.sqlite:
@@ -119,7 +121,7 @@ def _print_summary(args: argparse.Namespace, img_dir: Path, dbg_dir: Path,
 
 
 def main() -> None:
-    """Generate a synthetic dataset (images + labels.jsonl, optional overlays/SQLite)."""
+    """Generate a synthetic dataset (images + truth.jsonl, optional overlays/SQLite)."""
     args = _parse_args()
     cfg = load_config(args.config) if args.config else GenConfig()
     if args.preview:

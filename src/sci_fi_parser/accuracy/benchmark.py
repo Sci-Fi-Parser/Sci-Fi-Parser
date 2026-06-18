@@ -27,11 +27,9 @@ also exposes ``main`` so ``python -m sci_fi_parser.accuracy.benchmark`` works.)
 
 from __future__ import annotations
 
-import argparse
 import json
 import math
 import os
-import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,10 +37,11 @@ from statistics import mean
 
 import numpy as np
 
+from sci_fi_parser.accuracy.truth import ChartTruth
 from sci_fi_parser.vlm.vlm import ChatCompletionsVLM, OllamaVLM
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.vlm.vlm_schema import (
-    ChartData, ChartType, Extractor, Point, Series, parse_chartdata,
+    ChartData, ChartType, Extractor, Point, Series,
 )
 
 
@@ -68,15 +67,6 @@ def series_map(chart: ChartData) -> dict[tuple[str, str], float]:
             for s in chart.series for p in s.points}
 
 
-def truth_to_map(series: list[dict]) -> dict[tuple[str, str], float]:
-    """Ground-truth label2 series -> {(series_name, category): value}."""
-    out: dict[tuple[str, str], float] = {}
-    for s in series:
-        for cat, val in s["points"]:
-            out[(s["name"], str(cat))] = float(val)
-    return out
-
-
 # --------------------------------------------------------------------------- #
 # Test double + Ollama skeleton (the Extractor protocol lives in sci_fi_parser.vlm.vlm_schema)
 # --------------------------------------------------------------------------- #
@@ -90,12 +80,12 @@ class NoisyOracle:
     real extractor.
 
     Noise is scaled by the value-axis span so the oracle degrades consistently
-    across charts regardless of their units. ``value_range`` in labels.jsonl
+    across charts regardless of their units. ``value_range`` in truth.jsonl
     must reflect the actual data range — if it doesn't, the oracle looks
     artificially perfect and the check is useless.
     """
 
-    def __init__(self, truth_by_image: dict, rng: np.random.Generator,
+    def __init__(self, truth_by_image: dict[str, ChartTruth], rng: np.random.Generator,
                  rel_noise: float = 0.03, miss_p: float = 0.05, extra_p: float = 0.06):
         self.name = "noisy-oracle"
         self._truth = truth_by_image
@@ -109,39 +99,41 @@ class NoisyOracle:
         # shows many different error patterns to analyse (see _mock_series).
         self._mock = bool(os.environ.get("BENCH_ORACLE_MOCK"))
 
-    def _perturb(self, series: dict, lo: float, hi: float, span: float) -> Series:
+    def _perturb(self, series: Series, lo: float, hi: float, span: float) -> Series:
         """One ground-truth series -> a noisy prediction (some points dropped/added)."""
         pts = []
-        for cat, val in series["points"]:
+        for point in series.points:
             if self._rng.random() < self._miss_p:
                 continue  # simulate a missed bar
-            noisy = float(val) + self._rng.normal(0, self._rel_noise * span)
-            pts.append(Point(x=str(cat), y=round(noisy, 3)))
+            noisy = float(point.y) + self._rng.normal(0, self._rel_noise * span)
+            pts.append(Point(x=str(point.x), y=round(noisy, 3)))
         if self._rng.random() < self._extra_p:  # simulate a hallucinated bar
             pts.append(Point(x="GHOST", y=round(self._rng.uniform(lo, hi), 3)))
-        return Series(name=series["name"], points=pts)
+        return Series(name=series.name, points=pts)
 
-    def _mock_series(self, series: dict, bias: float, spread: float) -> Series:
+    def _mock_series(self, series: Series, bias: float, spread: float) -> Series:
         """Fake a widely-varying prediction for one series: each bar's signed
         deviation is drawn from N(bias, spread) %, with ~10% of bars getting an
         extra blow-out outlier. pred = true * (1 + dev/100). Occasional dropped /
         hallucinated bars are kept so recall/precision vary too.
         """
-        vals = [float(v) for _, v in series["points"]]
+        vals = [float(p.y) for p in series.points]
         scale = (sum(abs(v) for v in vals) / len(vals)) if vals else 1.0
         pts = []
-        for cat, val in series["points"]:
+        for point in series.points:
             if self._rng.random() < self._miss_p:
                 continue                              # dropped bar
             dev = self._rng.normal(bias, spread)
             if self._rng.random() < 0.10:             # rare blow-out outlier
                 dev += self._rng.normal(0, 250)
-            pts.append(Point(x=str(cat),
-                             y=round(float(val) * (1.0 + dev / 100.0), 3)))
+            pts.append(Point(
+                x=str(point.x),
+                y=round(float(point.y) * (1.0 + dev / 100.0), 3),
+            ))
         if self._rng.random() < self._extra_p:        # hallucinated bar
             pts.append(Point(x="GHOST",
                              y=round(scale * self._rng.uniform(0.2, 1.5), 3)))
-        return Series(name=series["name"], points=pts)
+        return Series(name=series.name, points=pts)
 
     def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
         entry = self._truth[image_path.name]
@@ -150,17 +142,16 @@ class NoisyOracle:
             # random spread, so different charts read tight / noisy / skewed.
             bias = float(self._rng.uniform(-50, 50))
             spread = float(self._rng.uniform(5, 80))
-            out_series = [self._mock_series(s, bias, spread)
-                          for s in entry["series"]]
+            out_series = [self._mock_series(s, bias, spread) for s in entry.series]
             conf = float(np.clip(self._rng.normal(0.7, 0.15), 0, 1))
-            chart = ChartData(chart_type=entry.get("chart_type"),
+            chart = ChartData(chart_type=entry.chart_type,
                               series=out_series, confidence=conf)
             return chart.model_dump(), {}
-        lo, hi = entry["value_range"]
+        lo, hi = entry.value_range
         span = abs(hi - lo) or 1.0
-        out_series = [self._perturb(s, lo, hi, span) for s in entry["series"]]
+        out_series = [self._perturb(s, lo, hi, span) for s in entry.series]
         conf = float(np.clip(self._rng.normal(0.9, 0.05), 0, 1))
-        chart = ChartData(chart_type=entry.get("chart_type"),
+        chart = ChartData(chart_type=entry.chart_type,
                           series=out_series, confidence=conf)
         return chart.model_dump(), {}
 
@@ -265,49 +256,6 @@ def _positional_score(tmap: dict[tuple[str, str], float],
     return errors_pos, misaligned, n_paired
 
 
-def score_chart(image: str, entry: dict, pred: ChartData) -> ChartResult:
-    """Match predicted to true bars; error = |pred-true| / axis_span as a percentage.
-
-    Matching is whitespace- and case-insensitive on the (series, category) key,
-    so 'Region A' / 'region a' / 'Region A ' all line up. For single-series
-    charts where the VLM couldn't read off a series name we already rekey via
-    `_align_series_names`; this normalization layers on top.
-
-    A second, *positional* scoring also runs (pair-by-index) and feeds the
-    value_*/misaligned fields. Identity-based stats answer "given the model
-    found this bar, was the value right"; positional stats answer "ignoring
-    label-reading, was the value right." The two diverge when a model reads
-    heights well but mis-transcribes the x-axis -- see ChartResult docs.
-    """
-    lo, hi = entry["value_range"]
-    span = abs(hi - lo) or 1.0
-    tmap = truth_to_map(entry["series"])
-    pmap = _align_series_names(tmap, series_map(pred))
-    pnorm = {normalize_key(s, c): k for k in pmap for s, c in [k]}
-
-    errors, matched = [], 0
-    for tkey, tv in tmap.items():
-        pkey = pnorm.get(normalize_key(*tkey))
-        if pkey is not None:
-            matched += 1
-            errors.append(_pct_of_span(pmap[pkey], tv, span))
-    matched_pkeys = {pnorm[normalize_key(*k)] for k in tmap
-                     if normalize_key(*k) in pnorm}
-    extra = sum(1 for k in pmap if k not in matched_pkeys)
-    errors_pos, misaligned, n_paired = _positional_score(tmap, pmap, span)
-    return ChartResult(image, len(tmap), len(pmap), matched, len(tmap) - matched,
-                       extra, errors,
-                       value_errors_pos=errors_pos,
-                       misaligned=misaligned,
-                       n_paired_pos=n_paired,
-                       bar_count_err=abs(len(pmap) - len(tmap)),
-                       span=span,
-                       truth=tmap, pred=pmap, meta=entry.get("meta", {}),
-                       type_true=entry.get("chart_type"),
-                       type_pred=pred.chart_type,
-                       confidence=pred.confidence)
-
-
 def aggregate(results: list[ChartResult]) -> dict:
     all_err = np.array([e for r in results for e in r.errors_pct], dtype=float)
     all_val = np.array([e for r in results for e in r.value_errors_pos],
@@ -371,37 +319,7 @@ def group_summary(results: list[ChartResult], key: str) -> list[tuple]:
 # --------------------------------------------------------------------------- #
 def _pct(x: float) -> str:
     return "-" if math.isnan(x) else f"{x:.2f}%"
-
-
-
-
-# --------------------------------------------------------------------------- #
-# Runner
-# --------------------------------------------------------------------------- #
-def load_truth(data_dir: Path) -> dict:
-    """image name -> {chart_type, series, value_range, meta} from labels.jsonl.
-
-    `value_range` is the drawn axis extent (matplotlib's padded limits) and is
-    carried through verbatim: it's the reference a reader judges point heights
-    against, so it's the correct denominator for span-relative error -- padding
-    and negative bounds included.
-    """
-    truth = {}
-    with (data_dir / "labels.jsonl").open(encoding="utf-8") as fh:
-        for line in fh:
-            rec = json.loads(line)
-            l2 = rec["label2"]
-            lo, hi = l2["value_range"]
-            truth[rec["image"]] = {
-                "chart_type": rec.get("label1"),
-                "series": l2["series"],
-                "value_range": [float(lo), float(hi)],
-                "meta": rec.get("meta", {}),
-            }
-    return truth
-
-
-def build_extractor(name: str, truth: dict, rng: np.random.Generator,
+def build_extractor(name: str, truth: dict[str, ChartTruth], rng: np.random.Generator,
                     profile: VLMProfile | None = None) -> Extractor:
     if name == "noisy-oracle":
         return NoisyOracle(truth, rng)
@@ -426,28 +344,6 @@ def _resolve_profile(config_arg: Path | None) -> VLMProfile:
     if default_path.exists():
         return load_profile(default_path)
     return VLMProfile()
-
-
-def _run_extractor(extractor: Extractor, truth: dict, images: list[str],
-                   img_dir: Path,
-                   prompt_suffixes: dict[str, str] | None = None) -> list[ChartResult]:
-    """Run the extractor over every image, timing each, scoring against truth."""
-    results: list[ChartResult] = []
-    from tqdm import tqdm
-    for name in tqdm(images):
-        entry = truth[name]
-        t0 = time.perf_counter()
-        try:
-            suffix = "" if prompt_suffixes is None else prompt_suffixes.get(name, "")
-            parsed, _ = extractor.extract(img_dir / name, prompt_suffix=suffix)
-            pred = parse_chartdata(parsed)
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            print(f"  ! {name}: {type(exc).__name__}: {exc}")
-            pred = ChartData(chart_type=None, series=[], confidence=None)
-        r = score_chart(name, entry, pred)
-        r.seconds = time.perf_counter() - t0
-        results.append(r)
-    return results
 
 
 def _write_results_json(out: Path, extractor: Extractor, agg: dict,
@@ -497,95 +393,31 @@ def _print_summary(extractor: Extractor, agg: dict, results: list[ChartResult],
     print(f"  json   -> {out / 'results.json'}")
 
 
-def _parse_args() -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--data", type=Path, required=True,
-                    help="synthetic dataset dir (images/ + labels.jsonl)")
-    ap.add_argument("--out", type=Path, default=Path("reports/latest"))
-    ap.add_argument("--extractor", default="noisy-oracle",
-                    help="noisy-oracle | ollama | ollama:<model> | api | api:<model> "
-                         "(ollama/api use the profile's model; :<tag> overrides it; "
-                         "api needs backend/base_url set in the profile)")
-    ap.add_argument("--vlm-config", type=Path, default=None,
-                    help="VLM profile TOML (default: config/vlm.toml if present)")
-    ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--limit", type=int, default=None, help="only first N charts")
-    return ap.parse_args()
-
-
-def _to_charts(results: list[ChartResult]) -> list[dict]:
-    """Flatten ChartResults into the plain dicts ``draw_lap.write_html`` consumes
-    (its data contract). Keeps the renderer fully decoupled from scoring."""
-    charts = []
-    for r in results:
-        meta = r.meta or {}
-        charts.append({
-            "image": r.image,
-            "preset": str(meta.get("preset", meta.get("type", ""))),
-            "density": meta.get("density", ""),
-            "labels_on": meta.get("labels_on"),
-            "type_true": r.type_true,
-            "type_pred": r.type_pred,
-            "type_matched": r.type_matched,
-            "n_true": r.n_true, "matched": r.matched,
-            "missed": r.missed, "extra": r.extra,
-            "mean_pct": r.mean_pct, "max_pct": r.max_pct,
-            "errors_pct": list(r.errors_pct), "span": r.span,
-            "seconds": r.seconds, "confidence": r.confidence,
-            "truth": [[s, c, tv] for (s, c), tv in r.truth.items()],
-            "pred": [[s, c, pv] for (s, c), pv in r.pred.items()],
-        })
-    return charts
-
-
 def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle",
                   profile: VLMProfile | None = None,
                   seed: int = 0, limit: int | None = None,
                   prompt_suffixes: dict[str, str] | None = None,
                   print_summary: bool = True) -> dict:
-    """End-to-end run: load truth, score, write report.html + results.json.
+    """Compatibility wrapper for callers that still import ``run_benchmark``."""
+    if prompt_suffixes is not None:
+        raise ValueError("prompt_suffixes are only supported by bench_pipeline stages")
+    from sci_fi_parser.accuracy.bench_pipeline import run_pipeline
 
-    Returns the aggregate dict. Public entry point so other tools (e.g. the
-    cross-model comparison runner) can drive it without going through argparse.
-    """
-    truth = load_truth(data)
-    img_dir = data / "images"
-    images = [n for n in sorted(truth) if (img_dir / n).exists()]
-    skipped = len(truth) - len(images)
-    if skipped:
-        print(f"  skipping {skipped} labelled image(s) missing from {img_dir}")
-    if limit:
-        images = images[:limit]
-    rng = np.random.default_rng(seed)
-    extractor = build_extractor(extractor_name, truth, rng, profile=profile)
-
-    results = _run_extractor(extractor, truth, images, img_dir, prompt_suffixes)
-    agg = aggregate(results)
-    out.mkdir(parents=True, exist_ok=True)
-    _write_results_json(out, extractor, agg, results)
-    from sci_fi_parser.accuracy import draw_lap  # lazy: pulls matplotlib only here
-    breakdowns = [
-        {"title": "by preset", "rows": group_summary(results, "preset")},
-        {"title": "by density", "rows": group_summary(results, "density")},
-        {"title": "by labels-on", "rows": group_summary(results, "labels_on")},
-    ]
-    draw_lap.write_html(out / "report.html", extractor.name, agg,
-                        _to_charts(results), breakdowns, img_dir)
-    if print_summary:
-        _print_summary(extractor, agg, results, out)
-    return agg
+    return run_pipeline(
+        data=data,
+        out=out,
+        extractor_name=extractor_name,
+        profile=profile,
+        seed=seed,
+        limit=limit,
+        print_summary=print_summary,
+    )
 
 
 def main() -> None:
-    args = _parse_args()
-    profile = _resolve_profile(args.vlm_config)
-    run_benchmark(
-        data=args.data, out=args.out,
-        extractor_name=args.extractor,
-        profile=profile,
-        seed=args.seed, limit=args.limit,
-    )
+    from sci_fi_parser.accuracy.bench_pipeline import main as pipeline_main
+
+    pipeline_main()
 
 
 if __name__ == "__main__":

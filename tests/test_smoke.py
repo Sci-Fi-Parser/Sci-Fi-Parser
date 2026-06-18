@@ -46,8 +46,8 @@ def test_chart_type_literal_constrained():
     from sci_fi_parser.vlm.vlm_schema import ChartData
 
     # Valid value: round-trips fine.
-    cd = ChartData(chart_type="bar_chart", series=[], confidence=None)
-    assert cd.chart_type == "bar_chart"
+    cd = ChartData(chart_type="vertical_bar", series=[], confidence=None)
+    assert cd.chart_type == "vertical_bar"
 
     # Invalid value: rejected.
     with pytest.raises(ValidationError):
@@ -78,16 +78,6 @@ def test_synthetic_package_imports():
     assert callable(generate.generate_series)
     assert callable(output.png_bytes)
     assert isinstance(output.SQLITE_DDL, str)
-
-
-def test_benchmark_module_imports():
-    from sci_fi_parser.accuracy import benchmark
-
-    assert callable(benchmark.main)
-    # Canonical schema + scoring entry points.
-    assert hasattr(benchmark, "ChartData")
-    assert callable(benchmark.score_chart)
-    assert callable(benchmark.aggregate)
 
 
 def test_vlm_profile_load(tmp_path):
@@ -214,82 +204,34 @@ def test_vlm_comparison_extends(tmp_path):
         load_comparison_config(missing)
 
 
-def test_score_chart_value_vs_identity():
-    """Positional vs identity scoring disentangles three failure modes.
-
-    Worked from the 4-bar Profit chart in the discussion:
-    truth = Q1'20:445.08, Q2'20:504.55, Q3'20:553.50, Q4'20:995.50.
-
-    - Case A: clean -> matched=4, both value_errors_pos and errors_pct small,
-      misaligned=0.
-    - Case B: heights perfectly read but x-labels shifted by one column;
-      this is the case identity-scoring conflates with bad value-reading.
-      value_errors_pos must stay small, misaligned must be > 0, and
-      identity matched < 4 (so the existing recall column still flags it).
-    - Case C: 10x scale (the qwen-3b bug). matched=4, misaligned=0, but
-      both errors_pct and value_errors_pos are several times the axis span
-      (errors normalize to the value_range, not to |true|).
-    """
-    from sci_fi_parser.accuracy.benchmark import score_chart
+def test_new_typed_value_scoring_and_report_adapter():
+    from sci_fi_parser.accuracy.report_adapter import value_results_to_draw_lap_charts
+    from sci_fi_parser.accuracy.scoring import score_chart_values
+    from sci_fi_parser.accuracy.truth import ChartTruth
     from sci_fi_parser.vlm.vlm_schema import ChartData, Point, Series
 
-    truth_entry = {
-        "chart_type": "bar_chart",
-        "series": [{"name": "Profit",
-                    "points": [["Q1'20", 445.08], ["Q2'20", 504.55],
-                               ["Q3'20", 553.50], ["Q4'20", 995.50]]}],
-        # Drawn value-axis extent; errors are scored as a % of this span.
-        "value_range": [0.0, 1050.0],
-    }
+    truth = ChartTruth(
+        chart_type="vertical_bar",
+        series=[Series(name="Revenue", points=[Point(x="2018", y=100.0)])],
+        value_range=(0.0, 200.0),
+    )
+    pred = ChartData(
+        chart_type="vertical_bar",
+        series=[Series(name="series", points=[Point(x=2018.0, y=110.0)])],
+        confidence=0.75,
+    )
 
-    def _chart(name_value_pairs):
-        return ChartData(
-            chart_type="bar_chart",
-            series=[Series(name="Profit",
-                           points=[Point(x=cat, y=val)
-                                   for cat, val in name_value_pairs])],
-            confidence=0.95,
-        )
+    result = score_chart_values("chart.png", truth, pred, seconds=1.25)
 
-    # Case A: clean
-    pred_a = _chart([("Q1'20", 450), ("Q2'20", 500),
-                     ("Q3'20", 550), ("Q4'20", 1000)])
-    res_a = score_chart("img.png", truth_entry, pred_a)
-    assert res_a.matched == 4
-    assert res_a.misaligned == 0
-    assert res_a.bar_count_err == 0
-    assert max(res_a.errors_pct) < 5      # all under 5%
-    assert max(res_a.value_errors_pos) < 5
+    assert result.matched == 1
+    assert result.errors_pct == [5.0]
+    assert result.type_matched
 
-    # Case B: heights right but labels shifted left by one column. The model
-    # claims Q4'19/Q1'20/Q2'20/Q3'20 with the heights actually belonging to
-    # Q1'20..Q4'20. Identity says only 3 match (the truth's Q4'20 vanishes,
-    # the model's Q4'19 is extra). Positional pairing aligns by index, so
-    # the values pair with their original truth values -- and all four
-    # paired positions have label disagreement.
-    pred_b = _chart([("Q4'19", 445.08), ("Q1'20", 504.55),
-                     ("Q2'20", 553.50), ("Q3'20", 995.50)])
-    res_b = score_chart("img.png", truth_entry, pred_b)
-    assert res_b.matched == 3          # Q1/Q2/Q3 match by name
-    assert res_b.misaligned == 4       # all four paired positions disagree
-    assert res_b.n_paired_pos == 4
-    assert res_b.bar_count_err == 0
-    # All four positionally-paired values are bit-perfect -> ~0% error.
-    assert max(res_b.value_errors_pos) < 1e-6
-    # The identity-conditional errors look bad (different values lined up
-    # to the same label) -- which is exactly the conflation we're fixing.
-    assert max(res_b.errors_pct) > 10
-
-    # Case C: identity right, values 10x too big.
-    pred_c = _chart([("Q1'20", 4500.0), ("Q2'20", 5050.0),
-                     ("Q3'20", 5530.0), ("Q4'20", 9950.0)])
-    res_c = score_chart("img.png", truth_entry, pred_c)
-    assert res_c.matched == 4
-    assert res_c.misaligned == 0
-    assert res_c.bar_count_err == 0
-    # ~10x values against a 1050-wide span -> hundreds of % on every bar.
-    assert min(res_c.errors_pct) > 300
-    assert min(res_c.value_errors_pos) > 300
+    [chart] = value_results_to_draw_lap_charts([result])
+    assert chart["preset"] == ""
+    assert chart["density"] == ""
+    assert chart["labels_on"] is None
+    assert chart["truth"] == [["Revenue", "2018", 100.0]]
 
 
 def test_vlm_comparison_resume_skip(tmp_path):

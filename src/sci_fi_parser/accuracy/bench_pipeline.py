@@ -1,115 +1,189 @@
-"""Staged benchmark pipeline skeleton.
+"""MVP staged benchmark pipeline.
 
-This module keeps the pipeline shape explicit while delegating the final scoring
-stage to :mod:`sci_fi_parser.accuracy.benchmark`. The early stages mirror the
-real pipeline shape and are mostly pass-throughs until their implementations are
-ready to benchmark.
+This module only orchestrates stages. Scoring, aggregation, extractor building,
+and report formatting are reused from the legacy benchmark where possible.
 """
 
 from __future__ import annotations
 
 import argparse
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+
 from sci_fi_parser.accuracy import benchmark
-from sci_fi_parser.data_pipeline import OCRSet, ImageSet, PdfSet
-from sci_fi_parser.vlm.pipeline import _ocr_suffix
-from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
+from sci_fi_parser.accuracy.report_adapter import (
+    value_results_to_breakdowns,
+    value_results_to_draw_lap_charts,
+)
+from sci_fi_parser.accuracy.scoring import (
+    aggregate_value_results,
+    score_vlm_outputs,
+)
+from sci_fi_parser.accuracy.truth import (
+    ChartTruth,
+    load_synthetic_truth,
+)
+from sci_fi_parser.data_pipeline import ImageSet
+from sci_fi_parser.image_extraction.loader import load_images_from_folder
+from sci_fi_parser.vlm.vlm_config import VLMProfile
+from sci_fi_parser.vlm.vlm_schema import ChartData, Extractor, parse_chartdata
 
 
 @dataclass(slots=True)
 class PipelineInputs:
-    truth: dict
-    images: list[str]
-    img_dir: Path
+    image_set: ImageSet
+    truth_by_image_id: dict[str, ChartTruth]
 
 
 def load_inputs(data: Path, limit: int | None = None) -> PipelineInputs:
-    """Load the current synthetic truth and image list."""
-    truth = benchmark.load_truth(data)
-    images = sorted(truth)[:limit] if limit else sorted(truth)
-    return PipelineInputs(truth=truth, images=images, img_dir=data / "images")
+    truth_by_name, metadata_by_name = load_synthetic_truth(data)
+    img_dir = data / "images"
 
-
-def bench_image_extraction(data: Path, limit: int | None = None) -> tuple(ImageSet(), PdfSet()):
-    """Placeholder for a future real image-extraction benchmark stage."""
-    from sci_fi_parser.image_extraction.pipeline import start_extraction
     image_set = ImageSet()
-    pdf_set = PdfSet()
-    start_extraction(data, image_set, pdf_set, None)
-    return image_set, pdf_set
+    load_images_from_folder(img_dir, image_set)
 
+    image_ids = [
+        image_id for image_id, _ in sorted(
+            image_set.items(), key=lambda item: image_set.get_image_path(item[0]).name
+        )
+        if image_set.get_image_path(image_id).name in truth_by_name
+    ]
+    if limit:
+        image_ids = image_ids[:limit]
 
-def bench_classification(inputs: PipelineInputs) -> None:
-    """Placeholder for a future chart-classification stage."""
-    return None
+    truth_by_image_id: dict[str, ChartTruth] = {}
+    for image_id in image_ids:
+        name = image_set.get_image_path(image_id).name
+        truth_by_image_id[image_id] = truth_by_name[name]
+        image_set.get(image_id).setdefault("metadata", {})["benchmark"] = (
+            metadata_by_name.get(name, {})
+        )
 
-
-def bench_ocr_and_cv(inputs: PipelineInputs) -> OCRSet:
-    """Run the real OCR/CV pipeline stage and return its normal OCRSet output."""
-    from sci_fi_parser.cv.pipeline import extract_ocr_data, format_ocr_output
-
-    ocr_set = OCRSet()
-    raw_data = extract_ocr_data(inputs.img_dir)
-    for data in raw_data:
-        output_string = format_ocr_output(data)
-        ocr_set.add(data.image_name, output_string)
-    return ocr_set
-
-
-def bench_vlm_output(*, inputs: PipelineInputs, out: Path, extractor_name: str,
-                     profile: VLMProfile | None, seed: int,
-                     ocr_set: OCRSet | None,
-                     print_summary: bool = True) -> dict:
-    """Run the existing VLM/value benchmark as the final pipeline stage."""
-    prompt_suffixes = None
-    if ocr_set is not None:
-        prompt_suffixes = {
-            name: _ocr_suffix(ocr_set.get(name)) for name in inputs.images
-        }
-    return benchmark.run_benchmark(
-        data=inputs.img_dir.parent,
-        out=out,
-        extractor_name=extractor_name,
-        profile=profile,
-        seed=seed,
-        limit=len(inputs.images),
-        prompt_suffixes=prompt_suffixes,
-        print_summary=print_summary,
+    return PipelineInputs(
+        image_set=image_set,
+        truth_by_image_id=truth_by_image_id,
     )
 
 
-def run_pipeline(*, data: Path, out: Path, extractor_name: str = "noisy-oracle",
-                 profile: VLMProfile | None = None, seed: int = 0,
-                 limit: int | None = None, ocr_cv: bool = False,
-                 print_summary: bool = True) -> dict:
+def run_classification_stage(inputs: PipelineInputs) -> None:
+    from sci_fi_parser.classifier.pipeline import start_classification
+
+    start_classification(inputs.image_set)
+
+
+def run_ocr_cv_stage(inputs: PipelineInputs) -> None:
+    from sci_fi_parser.cv.pipeline import start_ocr
+
+    start_ocr(inputs.image_set)
+
+
+def _prompt_suffix(inputs: PipelineInputs, image_id: str) -> str:
+    value = inputs.image_set.get(image_id).get("ocrcv", {}).get("result", "")
+    return f"OCR/CV context:\n{value}" if isinstance(value, str) and value else ""
+
+
+def run_vlm_stage(inputs: PipelineInputs, extractor: Extractor) -> None:
+    from tqdm import tqdm
+
+    for image_id in tqdm(inputs.truth_by_image_id):
+        record = inputs.image_set.get(image_id)
+        path = inputs.image_set.get_image_path(image_id)
+        t0 = time.perf_counter()
+        try:
+            parsed, raw = extractor.extract(
+                path,
+                prompt_suffix=_prompt_suffix(inputs, image_id),
+            )
+            parsed_payload = parse_chartdata(parsed).model_dump()
+        except Exception as exc:
+            print(f"  ! {path.name}: {type(exc).__name__}: {exc}")
+            parsed_payload = ChartData(
+                chart_type=None, series=[], confidence=None,
+            ).model_dump()
+            raw = {"error": f"{type(exc).__name__}: {exc}"}
+        inputs.image_set.add_vlm_result(image_id, parsed_payload)
+        inputs.image_set.add_vlm_result_raw(image_id, raw)
+        record.setdefault("metadata", {}).setdefault("vlm", {})["seconds"] = (
+            time.perf_counter() - t0
+        )
+
+
+def write_outputs(
+    out: Path,
+    extractor: Extractor,
+    agg: dict,
+    results: list[benchmark.ChartResult],
+    img_dir: Path,
+) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    benchmark._write_results_json(out, extractor, agg, results)
+    from sci_fi_parser.accuracy import draw_lap
+
+    draw_lap.write_html(
+        out / "report.html",
+        extractor.name,
+        agg,
+        value_results_to_draw_lap_charts(results),
+        value_results_to_breakdowns(results),
+        img_dir,
+    )
+
+
+def run_pipeline(
+    *,
+    data: Path,
+    out: Path,
+    extractor_name: str = "noisy-oracle",
+    profile: VLMProfile | None = None,
+    seed: int = 0,
+    limit: int | None = None,
+    classification: bool = False,
+    ocr_cv: bool = False,
+    print_summary: bool = True,
+) -> dict:
     inputs = load_inputs(data, limit)
-    ocr_set = bench_ocr_and_cv(inputs) if ocr_cv else None
-    return bench_vlm_output(
-        inputs=inputs,
-        out=out,
-        extractor_name=extractor_name,
+    if classification:
+        run_classification_stage(inputs)
+    if ocr_cv:
+        run_ocr_cv_stage(inputs)
+
+    extractor = benchmark.build_extractor(
+        extractor_name,
+        {
+            inputs.image_set.get_image_path(image_id).name: truth
+            for image_id, truth in inputs.truth_by_image_id.items()
+        },
+        np.random.default_rng(seed),
         profile=profile,
-        seed=seed,
-        ocr_set=ocr_set,
-        print_summary=print_summary,
     )
+    run_vlm_stage(inputs, extractor)
+
+    results = score_vlm_outputs(
+        inputs.image_set,
+        inputs.truth_by_image_id,
+    )
+    agg = aggregate_value_results(results)
+    write_outputs(out, extractor, agg, results, data / "images")
+    if print_summary:
+        benchmark._print_summary(extractor, agg, results, out)
+    return agg
 
 
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data", type=Path, required=True,
-                    help="synthetic dataset dir (images/ + labels.jsonl)")
+                    help="synthetic dataset dir (images/ + truth.jsonl)")
     ap.add_argument("--out", type=Path, default=Path("reports/pipeline"))
     ap.add_argument("--extractor", default="noisy-oracle",
                     help="noisy-oracle | ollama | ollama:<model> | api | api:<model>")
-    ap.add_argument("--vlm-config", type=Path, default=None,
-                    help="VLM profile TOML (default: config/vlm.toml if present)")
+    ap.add_argument("--vlm-config", type=Path, default=None, help="VLM profile TOML")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None, help="only first N charts")
-    ap.add_argument("--ocr-cv", action="store_true",
-                    help="run current OCR/CV components and pass their output to the VLM")
+    ap.add_argument("--classification", action="store_true", help="run classification stage")
+    ap.add_argument("--ocr-cv", action="store_true", help="run OCR/CV stage")
     return ap.parse_args()
 
 
@@ -122,6 +196,7 @@ def main() -> None:
         profile=benchmark._resolve_profile(args.vlm_config),
         seed=args.seed,
         limit=args.limit,
+        classification=args.classification,
         ocr_cv=args.ocr_cv,
     )
 
