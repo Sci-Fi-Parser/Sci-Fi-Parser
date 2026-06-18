@@ -10,6 +10,7 @@ import argparse
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
@@ -24,6 +25,7 @@ from sci_fi_parser.accuracy.scoring import (
 )
 from sci_fi_parser.accuracy.truth import (
     ChartTruth,
+    load_benetech_truth,
     load_synthetic_truth,
 )
 from sci_fi_parser.data_pipeline import ImageSet
@@ -36,10 +38,26 @@ from sci_fi_parser.vlm.vlm_schema import ChartData, Extractor, parse_chartdata
 class PipelineInputs:
     image_set: ImageSet
     truth_by_image_id: dict[str, ChartTruth]
+    image_dir: Path
 
 
-def load_inputs(data: Path, limit: int | None = None) -> PipelineInputs:
-    truth_by_name, metadata_by_name = load_synthetic_truth(data)
+DatasetKind = Literal["synthetic", "benetech"]
+
+
+def load_inputs(
+    data: Path,
+    limit: int | None = None,
+    dataset: DatasetKind = "synthetic",
+) -> PipelineInputs:
+    if dataset == "synthetic":
+        truth_by_key, metadata_by_key = load_synthetic_truth(data)
+        truth_key = lambda path: path.name
+    elif dataset == "benetech":
+        truth_by_key, metadata_by_key = load_benetech_truth(data)
+        truth_key = lambda path: path.stem
+    else:
+        raise ValueError(f"unknown benchmark dataset: {dataset}")
+
     img_dir = data / "images"
 
     image_set = ImageSet()
@@ -49,22 +67,23 @@ def load_inputs(data: Path, limit: int | None = None) -> PipelineInputs:
         image_id for image_id, _ in sorted(
             image_set.items(), key=lambda item: image_set.get_image_path(item[0]).name
         )
-        if image_set.get_image_path(image_id).name in truth_by_name
+        if truth_key(image_set.get_image_path(image_id)) in truth_by_key
     ]
     if limit:
         image_ids = image_ids[:limit]
 
     truth_by_image_id: dict[str, ChartTruth] = {}
     for image_id in image_ids:
-        name = image_set.get_image_path(image_id).name
-        truth_by_image_id[image_id] = truth_by_name[name]
+        key = truth_key(image_set.get_image_path(image_id))
+        truth_by_image_id[image_id] = truth_by_key[key]
         image_set.get(image_id).setdefault("metadata", {})["benchmark"] = (
-            metadata_by_name.get(name, {})
+            metadata_by_key.get(key, {})
         )
 
     return PipelineInputs(
         image_set=image_set,
         truth_by_image_id=truth_by_image_id,
+        image_dir=img_dir,
     )
 
 
@@ -140,11 +159,12 @@ def run_pipeline(
     profile: VLMProfile | None = None,
     seed: int = 0,
     limit: int | None = None,
+    dataset: DatasetKind = "synthetic",
     classification: bool = False,
     ocr_cv: bool = False,
     print_summary: bool = True,
 ) -> dict:
-    inputs = load_inputs(data, limit)
+    inputs = load_inputs(data, limit, dataset)
     if classification:
         run_classification_stage(inputs)
     if ocr_cv:
@@ -166,7 +186,7 @@ def run_pipeline(
         inputs.truth_by_image_id,
     )
     agg = aggregate_value_results(results)
-    write_outputs(out, extractor, agg, results, data / "images")
+    write_outputs(out, extractor, agg, results, inputs.image_dir)
     if print_summary:
         benchmark._print_summary(extractor, agg, results, out)
     return agg
@@ -175,7 +195,9 @@ def run_pipeline(
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data", type=Path, required=True,
-                    help="synthetic dataset dir (images/ + truth.jsonl)")
+                    help="dataset dir containing images/ plus truth.jsonl or annotations/")
+    ap.add_argument("--dataset", choices=("synthetic", "benetech"),
+                    default="synthetic")
     ap.add_argument("--out", type=Path, default=Path("reports/pipeline"))
     ap.add_argument("--extractor", default="noisy-oracle",
                     help="noisy-oracle | ollama | ollama:<model> | api | api:<model>")
@@ -196,6 +218,7 @@ def main() -> None:
         profile=benchmark._resolve_profile(args.vlm_config),
         seed=args.seed,
         limit=args.limit,
+        dataset=args.dataset,
         classification=args.classification,
         ocr_cv=args.ocr_cv,
     )

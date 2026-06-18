@@ -213,7 +213,7 @@ def test_new_typed_value_scoring_and_report_adapter():
     truth = ChartTruth(
         chart_type="vertical_bar",
         series=[Series(name="Revenue", points=[Point(x="2018", y=100.0)])],
-        value_range=(0.0, 200.0),
+        data_range=(0.0, 200.0),
     )
     pred = ChartData(
         chart_type="vertical_bar",

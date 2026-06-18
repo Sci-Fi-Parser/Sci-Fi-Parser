@@ -5,7 +5,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from sci_fi_parser.accuracy.truth import ChartTruth
+from sci_fi_parser.accuracy.truth import ChartTruth, derive_data_range
 from sci_fi_parser.vlm.vlm_schema import Point, Series
 
 from .config import GenConfig
@@ -206,16 +206,16 @@ def _truth_chart_type(style: Style) -> str:
 
 
 def _build_truth(style: Style, cats: list[str], svals: list[np.ndarray],
-                 geometry: dict | None, val_range) -> ChartTruth:
+                 geometry: dict | None) -> ChartTruth:
     n = len(cats)
-    val_lo, val_hi = float(val_range[0]), float(val_range[1])
+    series = [Series(name=style.series_names[s],
+                     points=[Point(x=cats[c], y=float(svals[s][c]))
+                             for c in range(n)])
+              for s in range(style.n_series)]
     return ChartTruth(
         chart_type=_truth_chart_type(style),
-        series=[Series(name=style.series_names[s],
-                       points=[Point(x=cats[c], y=float(svals[s][c]))
-                               for c in range(n)])
-                for s in range(style.n_series)],
-        value_range=(val_lo, val_hi),
+        series=series,
+        data_range=derive_data_range(series),
         geometry=geometry,
     )
 
@@ -245,8 +245,7 @@ def render_chart(cfg: GenConfig, style: Style, cats: list[str], svals: list[np.n
     image, to_img = _rasterize(fig, ax)
     geometry = (_collect_geometry(ax, style, cats, svals, pos, items, to_img, image)
                 if geometry_full else None)
-    val_range = ax.get_xlim() if style.horizontal else ax.get_ylim()
-    truth = _build_truth(style, cats, svals, geometry, val_range)
+    truth = _build_truth(style, cats, svals, geometry)
     metadata = _build_metadata(style, len(cats), labels_on, geometry_full,
                                meta_extra, resolution)
     plt.close(fig)

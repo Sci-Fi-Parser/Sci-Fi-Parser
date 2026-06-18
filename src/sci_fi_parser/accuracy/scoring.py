@@ -14,7 +14,7 @@ def score_chart_values(
     seconds: float = 0.0,
     metadata: dict | None = None,
 ) -> benchmark.ChartResult:
-    lo, hi = truth.value_range
+    lo, hi = truth.data_range
     span = abs(hi - lo) or 1.0
     tmap = {(s.name, benchmark._cat_key(p.x)): float(p.y)
             for s in truth.series for p in s.points}

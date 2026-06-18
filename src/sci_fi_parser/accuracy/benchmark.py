@@ -80,8 +80,8 @@ class NoisyOracle:
     real extractor.
 
     Noise is scaled by the value-axis span so the oracle degrades consistently
-    across charts regardless of their units. ``value_range`` in truth.jsonl
-    must reflect the actual data range — if it doesn't, the oracle looks
+    across charts regardless of their units. ``data_range`` in truth.jsonl
+    must reflect the actual data range -- if it doesn't, the oracle looks
     artificially perfect and the check is useless.
     """
 
@@ -147,7 +147,7 @@ class NoisyOracle:
             chart = ChartData(chart_type=entry.chart_type,
                               series=out_series, confidence=conf)
             return chart.model_dump(), {}
-        lo, hi = entry.value_range
+        lo, hi = entry.data_range
         span = abs(hi - lo) or 1.0
         out_series = [self._perturb(s, lo, hi, span) for s in entry.series]
         conf = float(np.clip(self._rng.normal(0.9, 0.05), 0, 1))
@@ -396,6 +396,7 @@ def _print_summary(extractor: Extractor, agg: dict, results: list[ChartResult],
 def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle",
                   profile: VLMProfile | None = None,
                   seed: int = 0, limit: int | None = None,
+                  dataset: str = "synthetic",
                   prompt_suffixes: dict[str, str] | None = None,
                   print_summary: bool = True) -> dict:
     """Compatibility wrapper for callers that still import ``run_benchmark``."""
@@ -410,6 +411,7 @@ def run_benchmark(*, data: Path, out: Path, extractor_name: str = "noisy-oracle"
         profile=profile,
         seed=seed,
         limit=limit,
+        dataset=dataset,
         print_summary=print_summary,
     )
 
