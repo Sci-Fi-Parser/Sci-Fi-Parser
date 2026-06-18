@@ -96,7 +96,7 @@ class ImageSet:
         image_path: Path,
         extraction_metadata: dict | None = None,
     ) -> None:
-        """Add an extracted image using the standard ImageSet record shape."""
+        """Add an image using the standard ImageSet record shape."""
         record = self._empty_record(image_path)
         record["metadata"]["extraction"].update(extraction_metadata or {})
         self._data[image_id] = record
