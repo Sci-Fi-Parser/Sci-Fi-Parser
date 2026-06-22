@@ -12,6 +12,7 @@ from sci_fi_parser.data_pipeline import OCRSet, VLMSet, ImageSet, PdfSet
 from sci_fi_parser.vlm.pipeline import start_vlm
 from sci_fi_parser.cv.pipeline import start_ocr
 from sci_fi_parser.image_extraction.pipeline import start_extraction
+from sci_fi_parser.storage.writer import save_image_set
 
 PDF_INPUT_FOLDER = Path("train_data/small_pdfs")
 EXTRACTED_IMAGE_FOLDER = Path("temp/extracted_images")
@@ -25,6 +26,12 @@ def main() -> None:
     start_extraction(PDF_INPUT_FOLDER, image_set, pdf_set, EXTRACTED_IMAGE_FOLDER)
     start_ocr(image_set)
     start_vlm(image_set, VLM_CONFIG)
+
+    save_image_set(
+        image_set=image_set,
+        output_dir=Path(OUTPUT_FOLDER)
+    )
+
     for image_id, _ in image_set.items():
         print("##########")
         print(image_set.get_ocrcv_result(image_id))
