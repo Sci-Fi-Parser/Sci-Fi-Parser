@@ -12,8 +12,6 @@ import io
 import numpy as np
 from PIL import Image
 
-from sci_fi_parser.accuracy.truth import ChartTruth
-
 SQLITE_DDL = """
 CREATE TABLE IF NOT EXISTS dataset (
     id INTEGER PRIMARY KEY, source TEXT, source_ref TEXT,
@@ -41,11 +39,11 @@ def augment(image: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     return out
 
 
-def make_overlay(image: np.ndarray, truth: ChartTruth) -> np.ndarray:
+def make_overlay(image: np.ndarray, truth: dict) -> np.ndarray:
     """Draw ground-truth boxes/points/ticks onto the image to verify pixel accuracy."""
     import cv2  # pylint: disable=import-outside-toplevel
     out = cv2.cvtColor(image, cv2.COLOR_RGB2BGR).copy()
-    geo = truth.geometry
+    geo = truth.get("geometry")
     if geo is None:
         return out
     horizontal = geo.get("orientation") == "h"
@@ -67,7 +65,7 @@ def make_overlay(image: np.ndarray, truth: ChartTruth) -> np.ndarray:
     return out
 
 
-def write_overlay(path, image: np.ndarray, truth: ChartTruth) -> None:
+def write_overlay(path, image: np.ndarray, truth: dict) -> None:
     """Render the debug overlay for one chart and write it to ``path``."""
     import cv2  # pylint: disable=import-outside-toplevel
     cv2.imwrite(str(path), make_overlay(image, truth))

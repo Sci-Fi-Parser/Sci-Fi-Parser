@@ -22,8 +22,6 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from sci_fi_parser.accuracy.truth import truth_to_json
-
 from .config import CATALOG, GenConfig, load_config
 from .generate import generate_preview, generate_random, generate_series
 from .output import SQLITE_DDL, augment, png_bytes, write_overlay
@@ -65,15 +63,15 @@ def _refresh(out: Path) -> None:
     print(f"refresh: cleared old output in {out}")
 
 
-def _insert_row(con: sqlite3.Connection, seed: int, name: str, truth, metadata: dict,
+def _insert_row(con: sqlite3.Connection, seed: int, name: str, truth: dict, metadata: dict,
                 image: np.ndarray) -> None:
-    truth_json = truth_to_json(truth, metadata)
+    truth_record = {**truth, "metadata": metadata}
     con.execute(
         "INSERT INTO dataset(source,source_ref,label1,label2,geometry,meta,"
         "img,mime_type,width,height) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        ("synthetic", f"seed{seed}/{name}", truth.chart_type,
-         json.dumps(truth_json),
-         json.dumps(truth.geometry) if truth.geometry else None,
+        ("synthetic", f"seed{seed}/{name}", truth.get("chart_type"),
+         json.dumps(truth_record),
+         json.dumps(truth.get("geometry")) if truth.get("geometry") else None,
          json.dumps(metadata), png_bytes(image), "image/png",
          image.shape[1], image.shape[0]))
 
@@ -97,7 +95,7 @@ def _write_dataset(stream, args: argparse.Namespace, img_dir: Path, dbg_dir: Pat
             if args.augment:
                 image = augment(image, rng)
             Image.fromarray(image).save(img_dir / name)
-            jsonl.write(json.dumps({"image": name, **truth_to_json(truth, metadata)}) + "\n")
+            jsonl.write(json.dumps({"image": name, **truth, "metadata": metadata}) + "\n")
             preset = metadata["preset"]
             counts[preset] = counts.get(preset, 0) + 1
             n_total += 1

@@ -27,23 +27,14 @@ def derive_data_range(series: list[Series]) -> tuple[float, float]:
     return (lo - 0.10 * lo, hi + 0.10 * hi)
 
 
-def truth_to_json(truth: ChartTruth, metadata: dict | None = None) -> dict:
-    return {
-        "chart_type": truth.chart_type,
-        "series": [s.model_dump(mode="json") for s in truth.series],
-        "data_range": [float(truth.data_range[0]), float(truth.data_range[1])],
-        "geometry": truth.geometry,
-        "metadata": metadata or {},
-    }
-
-
 def truth_from_json(raw: dict) -> tuple[ChartTruth, dict]:
     series = [Series.model_validate(s) for s in raw["series"]]
+    lo, hi = raw["data_range"]
     return (
         ChartTruth(
             chart_type=raw.get("chart_type"),
             series=series,
-            data_range=derive_data_range(series),
+            data_range=(float(lo), float(hi)),
             geometry=raw.get("geometry"),
         ),
         raw.get("metadata", {}),

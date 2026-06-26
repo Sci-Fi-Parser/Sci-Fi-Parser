@@ -1,12 +1,9 @@
-"""Render one chart to an RGB image plus typed benchmark truth."""
+"""Render one chart to an RGB image plus JSON benchmark truth."""
 
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-from sci_fi_parser.accuracy.truth import ChartTruth, derive_data_range
-from sci_fi_parser.vlm.vlm_schema import Point, Series
 
 from .config import GenConfig
 from .style import Style, fit_fontsize
@@ -197,33 +194,39 @@ def _collect_geometry(ax, style: Style, cats: list[str], svals: list[np.ndarray]
             "value_ticks": _value_ticks(ax, style, to_img), "items": marks}
 
 
-def _truth_chart_type(style: Style) -> str:
-    if style.family == "line":
-        return "line"
-    if style.horizontal:
-        return "horizontal_bar"
-    return "vertical_bar"
+def _derive_data_range(svals: list[np.ndarray]) -> list[float]:
+    values = [float(value) for series in svals for value in series]
+    if not values:
+        return [0.0, 1.0]
+    lo = min(values)
+    hi = max(values)
+    return [lo - 0.10 * lo, hi + 0.10 * hi]
 
 
 def _build_truth(style: Style, cats: list[str], svals: list[np.ndarray],
-                 geometry: dict | None) -> ChartTruth:
+                 geometry: dict | None) -> dict:
     n = len(cats)
-    series = [Series(name=style.series_names[s],
-                     points=[Point(x=cats[c], y=float(svals[s][c]))
-                             for c in range(n)])
-              for s in range(style.n_series)]
-    return ChartTruth(
-        chart_type=_truth_chart_type(style),
-        series=series,
-        data_range=derive_data_range(series),
-        geometry=geometry,
-    )
+    return {
+        "chart_type": style.chart_type,
+        "series": [
+            {
+                "name": style.series_names[s],
+                "points": [
+                    {"x": cats[c], "y": float(svals[s][c])}
+                    for c in range(n)
+                ],
+            }
+            for s in range(style.n_series)
+        ],
+        "data_range": _derive_data_range(svals),
+        "geometry": geometry,
+    }
 
 
 def _build_metadata(style: Style, n: int, labels_on: bool, geometry_full: bool,
                     meta_extra: dict, resolution: int | None) -> dict:
     return {
-        "type": _truth_chart_type(style), "preset": style.alias,
+        "type": style.chart_type, "preset": style.alias,
         "orientation": style.orientation, "density": n,
         "n_series": style.n_series, "labels_on": bool(labels_on),
         "geometry_full": bool(geometry_full), "resolution": resolution,
@@ -233,8 +236,8 @@ def _build_metadata(style: Style, n: int, labels_on: bool, geometry_full: bool,
 
 def render_chart(cfg: GenConfig, style: Style, cats: list[str], svals: list[np.ndarray],
                  labels_on: bool, geometry_full: bool, meta_extra: dict,
-                 resolution: int | None = None) -> tuple[np.ndarray, ChartTruth, dict]:
-    """Render one chart -> (RGB image, typed truth, report metadata)."""
+                 resolution: int | None = None) -> tuple[np.ndarray, dict, dict]:
+    """Render one chart -> (RGB image, JSON truth, report metadata)."""
     fs = fit_fontsize(cfg, len(cats))
     # resolution = target image height in px -> derive dpi (keeps the figure aspect).
     dpi = style.dpi if resolution is None else max(40, round(resolution / style.h_in))

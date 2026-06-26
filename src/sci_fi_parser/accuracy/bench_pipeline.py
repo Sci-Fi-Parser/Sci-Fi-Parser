@@ -96,7 +96,10 @@ def run_classification_stage(inputs: PipelineInputs) -> None:
 def run_ocr_cv_stage(inputs: PipelineInputs) -> None:
     from sci_fi_parser.cv.pipeline import start_ocr
 
-    start_ocr(inputs.image_set)
+    scoped = ImageSet()
+    for image_id in inputs.truth_by_image_id:
+        scoped.add(image_id, inputs.image_set.get(image_id))
+    start_ocr(scoped)
 
 
 def _prompt_suffix(inputs: PipelineInputs, image_id: str) -> str:

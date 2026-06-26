@@ -1,4 +1,4 @@
-"""Generation modes that stream ``(filename, image, truth, metadata)`` samples.
+"""Generation modes that stream ``(filename, image, truth_json, metadata)`` samples.
 
 * :func:`generate_series` -- the default controlled-density experiment.
 * :func:`generate_random` -- fully-random charts for variety/volume.
@@ -11,13 +11,11 @@ from collections.abc import Iterator
 
 import numpy as np
 
-from sci_fi_parser.accuracy.truth import ChartTruth
-
 from .config import CATALOG, GenConfig
 from .render import render_chart
 from .style import Style, make_categories, sample_style, series_values
 
-Sample = tuple[str, np.ndarray, ChartTruth, dict]
+Sample = tuple[str, np.ndarray, dict, dict]
 
 
 def _emit_density(cfg: GenConfig, style: Style, sid: str, d: int, cats: list[str],
