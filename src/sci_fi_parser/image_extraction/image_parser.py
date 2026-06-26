@@ -65,12 +65,12 @@ def extract_images(
             xref_seen.add(xref)
             for rect in page.get_image_rects(xref):
                 pix = page.get_pixmap(dpi=300, clip=rect)
-                img = _downsize(pix)
+                downsized_img = _downsize(pix)
 
-                if img:
+                if downsized_img:
                     image_id = str(uuid4())
                     image_data[image_id] = (
-                        img,
+                        downsized_img,
                         {
                             "pdf_id": pdf_id,
                             "page_number": str(page.number + 1),
