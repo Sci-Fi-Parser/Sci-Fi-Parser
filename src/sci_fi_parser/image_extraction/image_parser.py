@@ -5,6 +5,7 @@ It creates one PDF metadata entry and zero or more image entries for embedded ra
 images and clustered vector drawings. All IDs and metadata values are strings; the
 Pillow images are kept outside metadata so later pipeline stages can save them.
 """
+import logging
 
 from pathlib import Path
 from uuid import uuid4
@@ -30,6 +31,9 @@ def start_parser(
         - "pdf_data" (dict[pdf_id str, metadata dict]): PDF-level metadata entries keyed by string of UUID.
         - "image_data" (dict[image_id str, tuple(Image.Image, metadata dict)]): Pillow image and metadata keyed by UUID string
     """
+    if not doc.name:
+        raise ValueError("Document has no name; cannot build metadata")
+
     pdf_id = str(uuid4())
     pdf_data = {
         pdf_id: {
@@ -64,13 +68,17 @@ def extract_images(
                 continue
             xref_seen.add(xref)
             for rect in page.get_image_rects(xref):
-                pix = page.get_pixmap(dpi=300, clip=rect)
-                img = _downsize(pix)
+                try:
+                    pix = page.get_pixmap(dpi=300, clip=rect)
+                    downsized_img = _downsize(pix)
+                except (pymupdf.mupdf.FzErrorGeneric, RuntimeError) as e:
+                    logging.warning("Failed to extract image xref=%s page=%s: %s", xref, page, e)
+                    continue
 
-                if img:
+                if downsized_img:
                     image_id = str(uuid4())
                     image_data[image_id] = (
-                        img,
+                        downsized_img,
                         {
                             "pdf_id": pdf_id,
                             "page_number": str(page.number + 1),
@@ -92,8 +100,12 @@ def extract_drawings(
     """
     for page in doc:
         for drawing in page.cluster_drawings(x_tolerance=75, y_tolerance=75):
-            pix = page.get_pixmap(dpi=300, clip=drawing,)
-            img = _downsize(pix)
+            try:
+                pix = page.get_pixmap(dpi=300, clip=drawing,)
+                img = _downsize(pix)
+            except (pymupdf.mupdf.FzErrorGeneric, RuntimeError) as e:
+                logging.warning("Failed to extract drawing page= %s: %s", page, e)
+                continue
 
             if img:
                 image_id = str(uuid4())
