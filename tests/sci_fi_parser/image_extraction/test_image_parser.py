@@ -169,7 +169,7 @@ def test_extract_drawings_skips_failed_pixmap(caplog) -> None:
     assert "Failed" in caplog.text
 
 
-def test_downsize_does_not_uspize_small_image() -> None:
+def test_downsize_does_not_upsize_small_image() -> None:
     pixmap = Pixmap(csRGB, IRect(p0=(0, 0), p1=(100, 50)))
 
     image = image_parser._downsize(pixmap)
