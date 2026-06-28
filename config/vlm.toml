@@ -64,7 +64,7 @@ num_ctx = 16000
 # schema: chart_type, series[].name, series[].points[].x / .y, confidence.
 prompt = """Extract the data from this chart.
 Rules:
-- chart_type: one of bar_chart, grouped_bar_chart, stacked_bar_chart, horizontal_bar_chart, line_chart.
+- chart_type: one of vertical_bar, grouped_bar, stacked_bar, horizontal_bar, line, scatter, dot, none.
 - Use the x-axis category labels EXACTLY as printed. Do not invent dates, years, or names.
 - Series naming: if there is a legend, use the legend labels. If there is NO legend (single-series chart), use the y-axis title as the series name. Never leave the name blank.
 - Read each y-value from the y-axis scale and the bar / marker height. If numeric labels are printed on the bars, prefer those.

@@ -18,6 +18,11 @@ from PIL import Image
 MAX_IMAGE_SIZE = 1000
 
 
+def create_image_id() -> str:
+    """Create an image id shared by extracted and input images."""
+    return str(uuid4())
+
+
 def start_parser(
     doc: pymupdf.Document,
 ) -> tuple[dict[str, dict[str, str]], dict[str, tuple[Image.Image, dict[str, str]]]]:
@@ -76,7 +81,7 @@ def extract_images(
                     continue
 
                 if downsized_img:
-                    image_id = str(uuid4())
+                    image_id = create_image_id()
                     image_data[image_id] = (
                         downsized_img,
                         {
@@ -108,7 +113,7 @@ def extract_drawings(
                 continue
 
             if img:
-                image_id = str(uuid4())
+                image_id = create_image_id()
                 image_data[image_id] = (
                     img,
                     {

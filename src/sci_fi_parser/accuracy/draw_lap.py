@@ -181,7 +181,7 @@ def _dev_bell_png(devs: list[float]) -> str:
     ax.set_xlim(-100, 100)
     ax.set_xticks([-100, -50, 0, 50, 100])
     ax.set_xticklabels(["-100%", "-50%", "0%", "+50%", "+100%"])
-    ax.set_xlabel("deviation  (pred − true) / axis range", fontsize=9)
+    ax.set_xlabel("deviation  (pred − true) / data range", fontsize=9)
     ax.set_ylabel("bars", fontsize=9)
     ax.tick_params(labelsize=8)
     ax.grid(axis="y", color="#eef2f7", lw=1)
@@ -278,7 +278,7 @@ def _summary_cards(agg: dict) -> str:
          "Number of chart images scored in this run."),
         ("Mean error", _pct(agg["mean_pct"]),
          "Mean per-bar error across all matched bars. "
-         "Error = |predicted − true| as a percentage of the value-axis range."),
+         "Error = |predicted − true| as a percentage of the stored data range."),
         ("Median", _pct(agg["median_pct"]),
          "Median per-bar error. Less sensitive to outliers than the mean."),
         ("p95", _pct(agg["p95_pct"]),
@@ -290,9 +290,9 @@ def _summary_cards(agg: dict) -> str:
          "Fraction of predicted bars that matched a true bar. "
          "100% = no hallucinated extras."),
         ("≤1%", f"{agg['within_1pct']*100:.0f}%",
-         "Share of matched bars whose error is within 1% of the axis range."),
+         "Share of matched bars whose error is within 1% of the data range."),
         ("≤5%", f"{agg['within_5pct']*100:.0f}%",
-         "Share of matched bars whose error is within 5% of the axis range."),
+         "Share of matched bars whose error is within 5% of the data range."),
         ("Type acc", type_str,
          "Fraction of charts where the extractor's chart_type matches truth. "
          "Only counts charts where both sides reported a type."),
@@ -368,21 +368,20 @@ def write_html(path: Path, extractor: str, agg: dict, charts: list[dict],
 <style>{_CSS}</style>
 <h1>Extractor benchmark — <code>{html.escape(extractor)}</code></h1>
 <div class="stats">{summary}</div>
-<p>Error = |predicted − true| as a percentage of the <b>value-axis range</b>
-(max − min), matching how a point is read off the axis regardless of its own
-magnitude. Recall = bars found / true bars. Precision = correct
+<p>Error = |predicted − true| as a percentage of the stored <b>data range</b>.
+Recall = bars found / true bars. Precision = correct
 (series,category) / predicted. Type acc = correct chart_type / charts with a
 type prediction. Mean conf = average self-reported confidence (VLM).</p>
 
 <h2>Breakdowns</h2>
 <div class="tables">{breakdown_html}</div>
 
-<h2 title="Distribution of signed per-bar deviation (pred − true) / axis range, across every matched bar. Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates." style="cursor:help">Deviation distribution</h2>
+<h2 title="Distribution of signed per-bar deviation (pred − true) / data range, across every matched bar. Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates." style="cursor:help">Deviation distribution</h2>
 <div class="devwrap">{dev_img}</div>
 
 {_pane_heading("Charts — best to worst", len(charts), len(charts),
     "Every chart as a card, ordered from lowest combined value error (best) "
-    "to highest (worst). Score = mean + max per-bar error (% of axis range) "
+    "to highest (worst). Score = mean + max per-bar error (% of data range) "
     "plus a small label-match penalty; charts that matched no bars sort last.")}
 <div class="grid">{cards_html}</div>
 

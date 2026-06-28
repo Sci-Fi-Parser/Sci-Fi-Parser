@@ -1,10 +1,4 @@
-"""Render one chart to an RGB image plus its pixel-accurate label record.
-
-A chart is labelled *by construction*: we know the values we plotted, and matplotlib's
-``ax.transData`` transform gives the exact pixel of every bar/marker, axis line, and
-tick. Three label levels come for free -- ``label2`` (values), ``geometry`` (pixel
-boxes/points + ticks), ``label1`` (chart type).
-"""
+"""Render one chart to an RGB image plus JSON benchmark truth."""
 
 from __future__ import annotations
 
@@ -152,7 +146,7 @@ def _rasterize(fig, ax):
 
 
 # --------------------------------------------------------------------------- #
-# Ground-truth geometry + label assembly
+# Ground-truth geometry + truth assembly
 # --------------------------------------------------------------------------- #
 def _line_marks(style: Style, cats: list[str], svals: list[np.ndarray],
                 pos: np.ndarray, to_img) -> list[dict]:
@@ -200,43 +194,50 @@ def _collect_geometry(ax, style: Style, cats: list[str], svals: list[np.ndarray]
             "value_ticks": _value_ticks(ax, style, to_img), "items": marks}
 
 
-def _build_label(style: Style, cats: list[str], svals: list[np.ndarray], labels_on: bool,
-                 geometry_full: bool, geometry: dict | None, meta_extra: dict,
-                 resolution: int | None, dpi: int, val_range) -> dict:
-    """Assemble the full label record: label1 / label2 / geometry / meta / render."""
+def _derive_data_range(svals: list[np.ndarray]) -> list[float]:
+    values = [float(value) for series in svals for value in series]
+    if not values:
+        return [0.0, 1.0]
+    lo = min(values)
+    hi = max(values)
+    return [lo - 0.10 * lo, hi + 0.10 * hi]
+
+
+def _build_truth(style: Style, cats: list[str], svals: list[np.ndarray],
+                 geometry: dict | None) -> dict:
     n = len(cats)
-    val_lo, val_hi = float(val_range[0]), float(val_range[1])
-    cat_axis = {"title": None, "scale": "category"}
-    val_axis = {"title": style.y_name, "unit": style.y_unit, "scale": "linear",
-                "range": [val_lo, val_hi]}
     return {
-        "label1": style.chart_type,
-        "label2": {
-            "chart_type": style.chart_type, "preset": style.alias,
-            "orientation": style.orientation,
-            "axes": {"x": val_axis, "y": cat_axis} if style.horizontal
-                    else {"x": cat_axis, "y": val_axis},
-            "value_range": [val_lo, val_hi],
-            "series": [{"name": style.series_names[s],
-                        "points": [[cats[c], float(svals[s][c])] for c in range(n)]}
-                       for s in range(style.n_series)],
-            "confidence": 1.0,
-        },
+        "chart_type": style.chart_type,
+        "series": [
+            {
+                "name": style.series_names[s],
+                "points": [
+                    {"x": cats[c], "y": float(svals[s][c])}
+                    for c in range(n)
+                ],
+            }
+            for s in range(style.n_series)
+        ],
+        "data_range": _derive_data_range(svals),
         "geometry": geometry,
-        "meta": {"type": style.chart_type, "preset": style.alias,
-                 "orientation": style.orientation, "density": n,
-                 "n_series": style.n_series, "labels_on": bool(labels_on),
-                 "geometry_full": bool(geometry_full), "resolution": resolution,
-                 **meta_extra},
-        "render": {"figsize_in": [style.w_in, style.h_in], "dpi": dpi,
-                   "title": style.title},
+    }
+
+
+def _build_metadata(style: Style, n: int, labels_on: bool, geometry_full: bool,
+                    meta_extra: dict, resolution: int | None) -> dict:
+    return {
+        "type": style.chart_type, "preset": style.alias,
+        "orientation": style.orientation, "density": n,
+        "n_series": style.n_series, "labels_on": bool(labels_on),
+        "geometry_full": bool(geometry_full), "resolution": resolution,
+        **meta_extra,
     }
 
 
 def render_chart(cfg: GenConfig, style: Style, cats: list[str], svals: list[np.ndarray],
                  labels_on: bool, geometry_full: bool, meta_extra: dict,
-                 resolution: int | None = None) -> tuple[np.ndarray, dict]:
-    """Render one chart (fixed style, given density) -> (RGB image, label record)."""
+                 resolution: int | None = None) -> tuple[np.ndarray, dict, dict]:
+    """Render one chart -> (RGB image, JSON truth, report metadata)."""
     fs = fit_fontsize(cfg, len(cats))
     # resolution = target image height in px -> derive dpi (keeps the figure aspect).
     dpi = style.dpi if resolution is None else max(40, round(resolution / style.h_in))
@@ -247,8 +248,8 @@ def render_chart(cfg: GenConfig, style: Style, cats: list[str], svals: list[np.n
     image, to_img = _rasterize(fig, ax)
     geometry = (_collect_geometry(ax, style, cats, svals, pos, items, to_img, image)
                 if geometry_full else None)
-    val_range = ax.get_xlim() if style.horizontal else ax.get_ylim()
-    label = _build_label(style, cats, svals, labels_on, geometry_full, geometry,
-                         meta_extra, resolution, dpi, val_range)
+    truth = _build_truth(style, cats, svals, geometry)
+    metadata = _build_metadata(style, len(cats), labels_on, geometry_full,
+                               meta_extra, resolution)
     plt.close(fig)
-    return image, label
+    return image, truth, metadata

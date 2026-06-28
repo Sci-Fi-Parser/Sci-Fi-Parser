@@ -26,8 +26,8 @@ from pathlib import Path
 DEFAULT_PROMPT = (
     "Extract the data from this chart.\n"
     "Rules:\n"
-    "- chart_type: one of bar_chart, grouped_bar_chart, stacked_bar_chart, "
-    "horizontal_bar_chart, line_chart, none\n"
+    "- chart_type: one of vertical_bar, grouped_bar, stacked_bar, "
+    "horizontal_bar, line, scatter, dot, none\n"
     "- Use the x-axis category labels EXACTLY as printed. Do not invent "
     "dates, years, or names.\n"
     "- Series naming: if there is a legend, use the legend labels. "

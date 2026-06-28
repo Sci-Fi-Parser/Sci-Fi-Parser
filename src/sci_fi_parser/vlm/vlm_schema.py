@@ -28,11 +28,13 @@ from pydantic import BaseModel
 
 
 ChartType = Literal[
-    "bar_chart",
-    "grouped_bar_chart",
-    "stacked_bar_chart",
-    "horizontal_bar_chart",
-    "line_chart",
+    "vertical_bar",
+    "grouped_bar",
+    "stacked_bar",
+    "horizontal_bar",
+    "line",
+    "scatter",
+    "dot",
     "none",
 ]
 
