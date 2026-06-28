@@ -81,7 +81,7 @@ def save_image_set(image_set, output_dir: Path) -> None:
                         "chart_id": chart_id,
                         "series_id": series_id,
                         "point_index": point_index,
-                        "x_raw": x_raw,
+                        "x_raw": str(x_raw) if x_raw is not None else None,
                         "x_numeric": _safe_float(x_raw),
                         "x_type": _infer_x_type(x_raw),
                         "y": _safe_float(p.get("y")),

@@ -32,10 +32,7 @@ def main() -> None:
         output_dir=Path(OUTPUT_FOLDER)
     )
 
-    for image_id, _ in image_set.items():
-        print("##########")
-        print(image_set.get_ocrcv_result(image_id))
-        print(image_set.get_vlm_result(image_id))
+
 
 if __name__ == "__main__":
     main()
