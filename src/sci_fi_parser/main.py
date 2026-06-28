@@ -13,6 +13,7 @@ from sci_fi_parser.data_pipeline import OCRSet, VLMSet, ImageSet, PdfSet
 from sci_fi_parser.vlm.pipeline import start_vlm
 from sci_fi_parser.cv.pipeline import start_ocr
 from sci_fi_parser.image_extraction.pipeline import start_extraction
+from sci_fi_parser.storage.writer import save_image_set
 from sci_fi_parser.classifier.pipeline import start_classification
 from sci_fi_parser.classifier.image_classifier import ImageClassifier
 
@@ -29,10 +30,13 @@ def main() -> None:
     start_classification(image_set)
     start_ocr(image_set)
     start_vlm(image_set, VLM_CONFIG)
-    for image_id, _ in image_set.items():
-        print("##########")
-        print(image_set.get_ocrcv_result(image_id))
-        print(image_set.get_vlm_result(image_id))
+
+    save_image_set(
+        image_set=image_set,
+        output_dir=Path(OUTPUT_FOLDER)
+    )
+
+
 
 if __name__ == "__main__":
     main()
