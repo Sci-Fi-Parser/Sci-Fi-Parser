@@ -11,12 +11,13 @@ def start_classification(
         image_set: ImageSet
 ) -> None:
     """
-    TODO
+    Iterates over the image set, classifies each image and adds the result.
+
     """
     classifier = image_classifier.ImageClassifier()
-    image_paths = [(im_id, image_set.get_image(im_id)) for im_id in image_set]
+    image_paths = [(im_id, image_set.get_image_path(im_id)) for im_id in image_set]
     for im_id, im_path in image_paths:
-        if im_path.suffix().lower() in IMAGE_SUFFIXES:
+        if im_path.suffix.lower() in IMAGE_SUFFIXES:
             classification, scores = classifier.classify_image(im_path)
             image_set.add_classification_result(im_id, classification)
             image_set.add_classification_raw(im_id, scores)

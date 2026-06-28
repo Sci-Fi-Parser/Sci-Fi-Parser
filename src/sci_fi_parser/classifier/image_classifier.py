@@ -5,7 +5,11 @@ from pathlib import Path
 import torch
 
 class ImageClassifier:
-    def __init__(self, model: CNNClassifier = None, image_transform = None):
+    def __init__(self, image_labels: list = None, model: CNNClassifier = None, image_transform = None):
+        if image_labels is None:
+            self.image_labels = ImageClassifier.create_dummy_labels()
+        else:
+            self.image_labels = image_labels
         if model is None:
             self.model = ImageClassifier.create_dummy_model()
         else:
@@ -20,7 +24,9 @@ class ImageClassifier:
             with Image.open(image_path) as im:
                 as_tensor = torch.unsqueeze(self.transform(im), 0) #A dummy batch dimension is added to the tensor
                 model_output = self.model.forward(as_tensor)
-                return torch.argmax(model_output), model_output
+                label_index = torch.argmax(model_output).item()
+                scores = {label: val.item() for label, val in zip(self.image_labels, model_output[0])}
+                return self.image_labels[label_index], scores
             
     @classmethod
     def create_dummy_model(cls):
@@ -33,8 +39,11 @@ class ImageClassifier:
         input_size = 128
         return transforms.Compose([transforms.Resize((input_size, input_size)), transforms.ToTensor()])
         
+    @classmethod
+    def create_dummy_labels(cls):
+        return ["graphs_d", "graphs_h", "graphs_l", "graphs_s", "graphs_v", ]
 if __name__=="__main__":
-    im_classifier = ImageClassifier()
+    im_classifier = ImageClassifier(["graphs_d", "graphs_h", "graphs_l", "graphs_s", "graphs_v", ])
     my_image = Path("cnn_data_split/val/graphs_val/0a14bb795a27.jpg")
     classification, full_output = im_classifier.classify_image(my_image)
     print(classification, full_output)

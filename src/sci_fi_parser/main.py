@@ -8,11 +8,14 @@ lives in :mod:`sci_fi_parser.data_pipeline` (data containers + offloader),
 
 from pathlib import Path
 
+
 from sci_fi_parser.data_pipeline import OCRSet, VLMSet, ImageSet, PdfSet
 from sci_fi_parser.vlm.pipeline import start_vlm
 from sci_fi_parser.cv.pipeline import start_ocr
 from sci_fi_parser.image_extraction.pipeline import start_extraction
 from sci_fi_parser.storage.writer import save_image_set
+from sci_fi_parser.classifier.pipeline import start_classification
+from sci_fi_parser.classifier.image_classifier import ImageClassifier
 
 PDF_INPUT_FOLDER = Path("train_data/small_pdfs")
 EXTRACTED_IMAGE_FOLDER = Path("temp/extracted_images")
@@ -24,6 +27,7 @@ def main() -> None:
     pdf_set = PdfSet()
 
     start_extraction(PDF_INPUT_FOLDER, image_set, pdf_set, EXTRACTED_IMAGE_FOLDER)
+    start_classification(image_set)
     start_ocr(image_set)
     start_vlm(image_set, VLM_CONFIG)
 
