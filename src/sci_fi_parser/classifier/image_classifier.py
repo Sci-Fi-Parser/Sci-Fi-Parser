@@ -27,7 +27,8 @@ class ImageClassifier:
                 model_output = self.model.forward(as_tensor)
                 label_index = torch.argmax(model_output).item()
                 scores = {label: val.item() for label, val in zip(self.image_labels, model_output[0])}
-                return self.image_labels[label_index], scores[label_index]
+                label = self.image_labels[label_index]
+                return label, scores[label]
             
     @classmethod
     def create_dummy_model(cls):
@@ -42,7 +43,7 @@ class ImageClassifier:
         
     @classmethod
     def create_dummy_labels(cls):
-        return ["graphs_d", "graphs_h", "graphs_l", "graphs_s", "graphs_v", ]
+        return ["graphs_d", "graphs_h", "graphs_l", "graphs_s", "graphs_v", "graphs_val"]
     
 class DoclingClassifier(ImageClassifier):
     def __init__(self):
@@ -67,7 +68,6 @@ class DoclingClassifier(ImageClassifier):
             as_tensor = torch.unsqueeze(self.transform(im), 0)
             with torch.no_grad():
                 logits = self.model(as_tensor).logits
-        print(logits)
         probs = torch.softmax(logits, dim=-1)
         pred_id = probs.argmax(dim=-1).item()
         score = probs[0, pred_id].item()

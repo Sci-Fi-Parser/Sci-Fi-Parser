@@ -51,6 +51,8 @@ if __name__ == "__main__":
     dummy_input = torch.randn(8, 3, 256, 256)  # batch of 8 RGB images
     output = model(dummy_input)
 
-    print(f"Input shape : {dummy_input.shape}")
-    print(f"Output shape: {output.shape}")          # (8, 10)
-    print(f"Parameters  : {sum(p.numel() for p in model.parameters()):,}")
+    with torch.no_grad():
+        print(f"Input shape : {dummy_input.shape}")
+        print(f"Output shape: {output.shape}")          # (8, 10)
+        print(f"Parameters  : {sum(p.numel() for p in model.parameters()):,}")
+        print(torch.sum(output, dim=1))
