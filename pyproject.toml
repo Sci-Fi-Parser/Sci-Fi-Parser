@@ -16,6 +16,7 @@ dependencies = [
   "torchvision>=0.27.0",
   "tqdm>=4.67.3",
   "transformers>=5.12.1",
+  "pyarrow>=24.0.0",
 ]
 description = "A package to to parse data from graphs in documents."
 readme = "README.md"
@@ -40,4 +41,11 @@ dev = [
     "pytest>=9.0.3",
     "pylint (>=4.0.3,<5.0.0)",
     "autopep8>=2.3.2",
+    "coverage>=7.14.1",
+]
+
+[tool.coverage.run]
+omit = [
+    "config.py",
+    "config-3.py",
 ]

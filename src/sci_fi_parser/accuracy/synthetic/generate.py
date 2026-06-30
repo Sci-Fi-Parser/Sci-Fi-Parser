@@ -1,4 +1,4 @@
-"""Generation modes that stream ``(filename, image, label)`` samples.
+"""Generation modes that stream ``(filename, image, truth_json, metadata)`` samples.
 
 * :func:`generate_series` -- the default controlled-density experiment.
 * :func:`generate_random` -- fully-random charts for variety/volume.
@@ -15,7 +15,7 @@ from .config import CATALOG, GenConfig
 from .render import render_chart
 from .style import Style, make_categories, sample_style, series_values
 
-Sample = tuple[str, np.ndarray, dict]   # (filename, RGB image, label record)
+Sample = tuple[str, np.ndarray, dict, dict]
 
 
 def _emit_density(cfg: GenConfig, style: Style, sid: str, d: int, cats: list[str],
@@ -26,10 +26,10 @@ def _emit_density(cfg: GenConfig, style: Style, sid: str, d: int, cats: list[str
             onoff = "on" if labels_on else "off"
             name = f"{sid}_d{d:02d}_{onoff}_{res}.png"
             pair = f"{sid}_d{d:02d}_{res}"        # links the off/on twin at this res
-            image, label = render_chart(
+            image, truth, metadata = render_chart(
                 cfg, style, cats, svals, labels_on, geo,
                 {"series_id": sid, "pair_id": pair, "density_step": d}, resolution=res)
-            yield name, image, label
+            yield name, image, truth, metadata
 
 
 def _series_charts(rng: np.random.Generator, cfg: GenConfig, alias: str,
@@ -61,24 +61,24 @@ def generate_random(rng: np.random.Generator, cfg: GenConfig,
         cats = make_categories(rng, d)
         svals = series_values(rng, style, d)
         res = int(rng.choice(cfg.resolutions))
-        image, label = render_chart(
+        image, truth, metadata = render_chart(
             cfg, style, cats, svals,
             rng.random() < cfg.value_labels_prob,
             rng.random() < cfg.geometry_full_prob,
             {"series_id": f"random_{i}", "pair_id": None, "density_step": None},
             resolution=res)
-        yield f"random_{i:05d}_{res}.png", image, label
+        yield f"random_{i:05d}_{res}.png", image, truth, metadata
 
 
 def generate_preview(cfg: GenConfig) -> Iterator[Sample]:
-    """One small sample per catalog type -> ``(alias.png, image, label)``."""
+    """One small sample per catalog type."""
     rng = np.random.default_rng(7)
     for alias in CATALOG:
         style = sample_style(rng, cfg, alias)
         style.w_in, style.h_in, style.dpi = 3.4, 2.6, 90   # small thumbnail
         cats = make_categories(rng, 8)
         svals = series_values(rng, style, 8)
-        image, label = render_chart(
+        image, truth, metadata = render_chart(
             cfg, style, cats, svals, False, False,
             {"series_id": alias, "pair_id": None, "density_step": None})
-        yield f"{alias}.png", image, label
+        yield f"{alias}.png", image, truth, metadata
