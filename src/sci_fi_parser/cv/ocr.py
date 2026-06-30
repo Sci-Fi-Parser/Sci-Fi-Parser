@@ -1,7 +1,5 @@
 from paddleocr import PaddleOCR
 
-# PNG/JPG --> labels, values, confidence score.
-
 
 class Ocr:
     def __init__(self, input_path=None):
@@ -17,7 +15,7 @@ class Ocr:
             lang="en",
         )
 
-    def read_image(self, input_path) -> dict:
+    def read_image(self, input_path) -> None:
         self.input_path = input_path
 
     def run_ocr(self) -> dict:
