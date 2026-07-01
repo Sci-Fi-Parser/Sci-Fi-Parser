@@ -14,7 +14,7 @@ def start_classification(
     Iterates over the image set, classifies each image and adds the result.
 
     """
-    classifier = image_classifier.ImageClassifier()
+    classifier = image_classifier.DoclingClassifier()
     image_paths = [(im_id, image_set.get_image_path(im_id)) for im_id in image_set]
     for im_id, im_path in image_paths:
         if im_path.suffix.lower() in IMAGE_SUFFIXES:
