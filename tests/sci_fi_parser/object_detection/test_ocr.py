@@ -1,5 +1,4 @@
 from unittest.mock import MagicMock, patch
-
 from sci_fi_parser.object_detection.ocr import Ocr
 
 
