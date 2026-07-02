@@ -8,11 +8,11 @@ Pillow images are kept outside metadata so later pipeline stages can save them.
 
 import logging
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 import pymupdf
 from PIL import Image
-from typing import cast
 
 MAX_IMAGE_SIZE = 1000
 

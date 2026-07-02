@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pymupdf
 
-from sci_fi_parser.schema import ImageSet, PdfSet
 from sci_fi_parser.image_extraction.image_parser import start_parser
+from sci_fi_parser.schema import ImageSet, PdfSet
 
 
 def start_extraction(
