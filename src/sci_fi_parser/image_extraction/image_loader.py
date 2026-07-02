@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sci_fi_parser.schema import ImageSet
 from sci_fi_parser.image_extraction.image_parser import create_image_id
+from sci_fi_parser.schema import ImageSet
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
 

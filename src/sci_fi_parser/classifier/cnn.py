@@ -33,7 +33,8 @@ class CNNClassifier(nn.Module):
             channels_in = ch_out
 
         """
-        Each convolutional block halves the input image size so the final size is the initial size divided by 2^(number of blocks)
+        Each convolutional block halves the input image size so the final
+        size is the initial size divided by 2^(number of blocks)
         """
         feature_size = input_image_size // (2 ** len(channels_out))
         flatten_dim = channels_out[-1] * feature_size * feature_size  #

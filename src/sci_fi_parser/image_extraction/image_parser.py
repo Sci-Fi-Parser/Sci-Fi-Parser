@@ -31,8 +31,10 @@ def start_parser(
 
     Returns:
         A tuple of pdf_data and image_data:
-        - "pdf_data" (dict[pdf_id str, metadata dict]): PDF-level metadata entries keyed by string of UUID.
-        - "image_data" (dict[image_id str, tuple(Image.Image, metadata dict)]): Pillow image and metadata keyed by UUID string
+        - "pdf_data" (dict[pdf_id str, metadata dict]):
+          PDF-level metadata entries keyed by string of UUID.
+        - "image_data" (dict[image_id str, tuple(Image.Image, metadata dict)]):
+          Pillow image and metadata keyed by UUID string
     """
     if not doc.name:
         raise ValueError("Document has no name; cannot build metadata")
