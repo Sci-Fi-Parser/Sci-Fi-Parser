@@ -7,7 +7,6 @@ from sci_fi_parser.object_detection.computer_vision.bars import detect_bars
 from sci_fi_parser.object_detection.ocr import Ocr
 from sci_fi_parser.schema import ImageSet
 
-
 SUPPORTED_CHARTS = ["bar_chart"]
 
 
@@ -88,6 +87,6 @@ def start_ocr(image_set: ImageSet, batch_size=100) -> None:
             image_paths.append((image_id, image_set.get_image_path(image_id)))
 
         results = extract_ocr_data(image_paths)
-        for image_id, result in zip(chart_ids, results):
+        for image_id, result in zip(chart_ids, results, strict=True):
             image_set.add_ocrcv_result(image_id, format_ocr_output(result))
             image_set.add_ocrcv_raw(image_id, result)

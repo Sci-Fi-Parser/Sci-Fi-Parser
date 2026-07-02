@@ -6,6 +6,7 @@ from PIL import Image
 
 from sci_fi_parser.benchmark.bench_pipeline import run_pipeline
 
+
 def _write_tiny_dataset(root):
     image_dir = root / "images"
     image_dir.mkdir()
