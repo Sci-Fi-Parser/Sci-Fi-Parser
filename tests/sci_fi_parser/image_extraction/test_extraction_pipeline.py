@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from PIL import Image
-from sci_fi_parser.data_pipeline import ImageSet, PdfSet
+from sci_fi_parser.schema import ImageSet, PdfSet
 
-from sci_fi_parser.image_extraction import pipeline
+from sci_fi_parser.image_extraction import extraction_pipeline
 
 
 class DummyDocument:
@@ -31,10 +31,10 @@ def test_start_extraction_writes_images_and_metadata(tmp_path, monkeypatch):
 
     image_set = ImageSet()
     pdf_set = PdfSet()
-    monkeypatch.setattr(pipeline.pymupdf, "open", fake_open)
-    monkeypatch.setattr(pipeline, "start_parser", fake_start_parser)
+    monkeypatch.setattr(extraction_pipeline.pymupdf, "open", fake_open)
+    monkeypatch.setattr(extraction_pipeline, "start_parser", fake_start_parser)
 
-    pipeline.start_extraction(pdf_path, image_set, pdf_set, output_path)
+    extraction_pipeline.start_extraction(pdf_path, image_set, pdf_set, output_path)
 
     saved_image = output_path / "image-1.png"
     assert saved_image.exists()
@@ -52,4 +52,4 @@ def test_find_pdfs_accepts_directory(tmp_path):
     second.touch()
     ignored.touch()
 
-    assert pipeline._find_pdfs(tmp_path) == [first, second]
+    assert extraction_pipeline._find_pdfs(tmp_path) == [first, second]
