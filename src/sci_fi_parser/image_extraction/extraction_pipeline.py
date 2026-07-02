@@ -16,13 +16,14 @@ from pathlib import Path
 
 import pymupdf
 
+from sci_fi_parser.schema import ImageSet, PdfSet
 from sci_fi_parser.image_extraction.image_parser import start_parser
 
 
 def start_extraction(
     input_path: Path,
-    image_set: dict,
-    pdf_set: dict,
+    image_set: ImageSet,
+    pdf_set: PdfSet,
     extracted_image_folder: Path | None,
 ) -> None:
     """Extract images and metadata from one PDF file or a flat PDF directory.
