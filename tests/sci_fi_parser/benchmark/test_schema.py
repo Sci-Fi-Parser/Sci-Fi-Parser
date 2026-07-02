@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-import sys
-import types
 
 from PIL import Image
+
+from sci_fi_parser.benchmark.bench_pipeline import run_pipeline
 
 
 def _write_tiny_dataset(root):
@@ -12,24 +12,27 @@ def _write_tiny_dataset(root):
     image_dir.mkdir()
     Image.new("RGB", (16, 16), "white").save(image_dir / "chart.png")
     (root / "truth.jsonl").write_text(
-        json.dumps({
-            "image": "chart.png",
-            "chart_type": "vertical_bar",
-            "series": [{
-                "name": "Revenue",
-                "points": [{"x": "2018", "y": 100.0}],
-            }],
-            "data_range": [50.0, 150.0],
-            "geometry": None,
-            "metadata": {"preset": "tiny", "density": 1, "labels_on": False},
-        }) + "\n",
+        json.dumps(
+            {
+                "image": "chart.png",
+                "chart_type": "vertical_bar",
+                "series": [
+                    {
+                        "name": "Revenue",
+                        "points": [{"x": "2018", "y": 100.0}],
+                    }
+                ],
+                "data_range": [50.0, 150.0],
+                "geometry": None,
+                "metadata": {"preset": "tiny", "density": 1, "labels_on": False},
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
 
 
 def test_pipeline_runs_noisy_oracle_on_truth_json(tmp_path):
-    from sci_fi_parser.accuracy.bench_pipeline import run_pipeline
-
     _write_tiny_dataset(tmp_path)
     out = tmp_path / "report"
 

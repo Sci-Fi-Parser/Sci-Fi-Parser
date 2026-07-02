@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch
-from sci_fi_parser.cv.ocr import Ocr
+from sci_fi_parser.object_detection.ocr import Ocr
 
 
-@patch("sci_fi_parser.cv.ocr.PaddleOCR")
+@patch("sci_fi_parser.object_detection.ocr.PaddleOCR")
 def test_constructor_passes_expected_kwargs(mock_paddleocr):
     Ocr("some/path.png")
     mock_paddleocr.assert_called_once_with(
@@ -13,7 +13,7 @@ def test_constructor_passes_expected_kwargs(mock_paddleocr):
     )
 
 
-@patch("sci_fi_parser.cv.ocr.PaddleOCR")
+@patch("sci_fi_parser.object_detection.ocr.PaddleOCR")
 def test_run_ocr_returns_extracted(mock_paddleocr_cls):
     fake_result = MagicMock()
     fake_result.get.side_effect = lambda k: {
@@ -34,7 +34,7 @@ def test_run_ocr_returns_extracted(mock_paddleocr_cls):
     }
 
 
-@patch("sci_fi_parser.cv.ocr.PaddleOCR")
+@patch("sci_fi_parser.object_detection.ocr.PaddleOCR")
 def test_read_image_works(_):
     ocr = Ocr()
     path = "some/path.png"

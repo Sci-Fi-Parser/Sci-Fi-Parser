@@ -139,7 +139,7 @@ def write_outputs(
 ) -> None:
     out.mkdir(parents=True, exist_ok=True)
     benchmark._write_results_json(out, extractor, agg, results)
-    from sci_fi_parser.accuracy import draw_lap
+    from sci_fi_parser.benchmark import draw_lap
 
     draw_lap.write_html(
         out / "report.html",
