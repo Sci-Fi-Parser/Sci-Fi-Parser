@@ -1,6 +1,6 @@
 import torch
 
-from src.sci_fi_parser.classifier import cnn
+from sci_fi_parser.classifier import cnn
 
 
 def test_cnn_output_shape():

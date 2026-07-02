@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-from sci_fi_parser.object_detecion.computer_vision.config import CvConfig
+from sci_fi_parser.object_detection.computer_vision.config import CvConfig
 
 
 @dataclass(slots=True)

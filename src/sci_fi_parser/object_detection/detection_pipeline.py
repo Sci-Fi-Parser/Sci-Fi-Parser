@@ -7,7 +7,8 @@ from sci_fi_parser.object_detection.computer_vision.bars import detect_bars
 from sci_fi_parser.object_detection.ocr import Ocr
 from sci_fi_parser.schema import ImageSet
 
-SUPPORTED_CHARTS = ["bar"]
+
+SUPPORTED_CHARTS = ["bar_chart"]
 
 
 @dataclass
@@ -58,7 +59,9 @@ def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
                 continue
             ocr_max_x, _, ocr_min_x, _ = bbox
             # print(f"max: {ocr_max_x}, min: {ocr_min_x}")
-            if (ocr_min_x <= left and ocr_max_x >= right) or (ocr_min_x >= left and ocr_max_x <= right):
+            if (ocr_min_x <= left and ocr_max_x >= right) or (
+                ocr_min_x >= left and ocr_max_x <= right
+            ):
                 matching_ocr.append(bbox)
         linked.append((bar, matching_ocr))
 
@@ -76,12 +79,9 @@ def start_ocr(image_set: ImageSet, batch_size=100) -> None:
         return
 
     for chart_type in SUPPORTED_CHARTS:
-        # For now we assume all images are a single type.
-        # chart_ids = image_set.filter_by_type(chart_type, batch_size)
-        # if not chart_ids:
-        # continue
-
-        chart_ids: list[str] = list(image_set)
+        chart_ids = image_set.filter_by_type(chart_type, batch_size)
+        if not chart_ids:
+            continue
 
         image_paths: list[tuple[str, Path]] = []
         for image_id in chart_ids:
