@@ -75,7 +75,7 @@ class ImageSet:
     def items(self):
         return self._data.items()
 
-    def get(self, id: str) -> str:
+    def get(self, id: str) -> dict | str:
         return self._data.get(id, "")
 
     def __len__(self) -> int:
@@ -222,7 +222,7 @@ class PdfSet:
     def items(self):
         return self._data.items()
 
-    def get(self, name: str) -> str:
+    def get(self, name: str) -> dict | str:
         return self._data.get(name, "")
 
     def __len__(self) -> int:
