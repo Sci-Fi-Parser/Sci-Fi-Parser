@@ -11,7 +11,7 @@ from sci_fi_parser.cv.debug_draw import draw_bar_ocr_matches
 from sci_fi_parser.data_pipeline import ImageSet
 
 
-SUPPORTED_CHARTS = ["bar"]
+SUPPORTED_CHARTS = ["bar_chart"]
 
 
 @dataclass
@@ -82,12 +82,9 @@ def start_ocr(image_set: ImageSet, batch_size=100) -> None:
         return
 
     for chart_type in SUPPORTED_CHARTS:
-        # For now we assume all images are a single type.
-        # chart_ids = image_set.filter_by_type(chart_type, batch_size)
-        # if not chart_ids:
-        # continue
-
-        chart_ids: list[str] = list(image_set)
+        chart_ids = image_set.filter_by_type(chart_type, batch_size)
+        if not chart_ids:
+            continue
 
         image_paths: list[tuple[str, Path]] = []
         for image_id in chart_ids:
