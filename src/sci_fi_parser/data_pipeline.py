@@ -103,12 +103,13 @@ class ImageSet:
 
     def filter_by_type(self, chart_type: str, limit: int = 100) -> list[str]:
         """Return images classified as ``chart_type``, optionally capped by limit."""
-        filtered = []
+        filtered: list[str] = []
         if limit <= 0:
             return filtered
+
         for image_id, payload in self.items():
             result = payload.get("classification", {}).get("result", {})
-            if result.get("selected_type") != chart_type:
+            if result != chart_type:
                 continue
             filtered.append(image_id)
             if len(filtered) >= limit:

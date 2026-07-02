@@ -11,9 +11,9 @@ def _bar(x: int, y: int, width: int, height: int) -> BarCandidate:
     return BarCandidate(bbox=BoundingBox(x=x, y=y, width=width, height=height))
 
 
-def _empty_image_record(image_path: Path, chart_type: str = "bar") -> dict:
+def _empty_image_record(image_path: Path, chart_type: str = "bar_chart") -> dict:
     record = ImageSet._empty_record(image_path)
-    record["classification"]["result"]["selected_type"] = chart_type
+    record["classification"]["result"] = chart_type
     return record
 
 
