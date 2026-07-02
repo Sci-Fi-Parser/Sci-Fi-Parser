@@ -85,6 +85,6 @@ def start_ocr(image_set: ImageSet, batch_size=100) -> None:
             image_paths.append((image_id, image_set.get_image_path(image_id)))
 
         results = extract_ocr_data(image_paths)
-        for image_id, result in zip(chart_ids, results):
+        for image_id, result in zip(chart_ids, results, strict=True):
             image_set.add_ocrcv_result(image_id, format_ocr_output(result))
             image_set.add_ocrcv_raw(image_id, result)
