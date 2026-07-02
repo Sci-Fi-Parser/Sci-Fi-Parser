@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import asdict
 
 from sci_fi_parser.object_detection import detection_pipeline
 from sci_fi_parser.object_detection.computer_vision.bars import BarCandidate, BoundingBox
@@ -95,8 +96,8 @@ def test_start_ocr_writes_results_for_each_matching_image(monkeypatch, tmp_path)
     first_record = image_set.get("chart-1")
     second_record = image_set.get("chart-2")
 
-    assert first_record["ocrcv"]["raw"] == first_result
-    assert second_record["ocrcv"]["raw"] == second_result
+    assert first_record["ocrcv"]["raw"] == asdict(first_result)
+    assert second_record["ocrcv"]["raw"] == asdict(second_result)
     assert first_record["ocrcv"]["result"] == detection_pipeline.format_ocr_output(first_result)
     assert second_record["ocrcv"]["result"] == detection_pipeline.format_ocr_output(second_result)
 

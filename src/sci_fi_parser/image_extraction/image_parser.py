@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import pymupdf
 from PIL import Image
+from typing import cast
 
 MAX_IMAGE_SIZE = 1000
 
@@ -66,7 +67,7 @@ def extract_images(
     and stored under a generated string image ID.
     """
     xref_seen = set()
-    for page in doc:
+    for page in doc.pages():
         for img in page.get_images():
             xref = img[0]
             if xref in xref_seen:
@@ -103,7 +104,7 @@ def extract_drawings(
     cluster is rendered as a clipped pixmap. The stored metadata mirrors embedded image
     metadata style
     """
-    for page in doc:
+    for page in doc.pages():
         for drawing in page.cluster_drawings(x_tolerance=75, y_tolerance=75):
             try:
                 pix = page.get_pixmap(
@@ -135,7 +136,7 @@ def _downsize(pix: pymupdf.Pixmap) -> Image.Image | None:
     """
     if pix.width <= 0 or pix.height <= 0:
         return None
-    img = pix.pil_image()
+    img = cast(Image.Image, pix.pil_image())
     img.thumbnail((MAX_IMAGE_SIZE, MAX_IMAGE_SIZE))
     return img
 
