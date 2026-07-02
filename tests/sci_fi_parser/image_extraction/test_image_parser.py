@@ -1,11 +1,9 @@
 import logging
-
 from unittest.mock import MagicMock
 
 import pytest
-
 from PIL import Image
-from pymupdf import Pixmap, IRect, csRGB
+from pymupdf import IRect, Pixmap, csRGB
 
 from sci_fi_parser.image_extraction import image_parser
 

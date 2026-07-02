@@ -28,8 +28,8 @@ from sci_fi_parser.benchmark.truth import (
     load_benetech_truth,
     load_synthetic_truth,
 )
-from sci_fi_parser.schema import ImageSet
 from sci_fi_parser.image_extraction.image_loader import load_images_from_folder
+from sci_fi_parser.schema import ImageSet
 from sci_fi_parser.vlm.vlm_config import VLMProfile
 from sci_fi_parser.vlm.vlm_schema import ChartData, Extractor, parse_chartdata
 
@@ -49,12 +49,16 @@ def load_inputs(
     limit: int | None = None,
     dataset: DatasetKind = "synthetic",
 ) -> PipelineInputs:
+    def truth_key(path: Path) -> str:
+        if dataset == "synthetic":
+            return path.name
+        if dataset == "benetech":
+            return path.stem
+
     if dataset == "synthetic":
         truth_by_key, metadata_by_key = load_synthetic_truth(data)
-        truth_key = lambda path: path.name
     elif dataset == "benetech":
         truth_by_key, metadata_by_key = load_benetech_truth(data)
-        truth_key = lambda path: path.stem
     else:
         raise ValueError(f"unknown benchmark dataset: {dataset}")
 

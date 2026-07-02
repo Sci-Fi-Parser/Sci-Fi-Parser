@@ -9,9 +9,9 @@ lives in :mod:`sci_fi_parser.data_pipeline` (data containers + offloader),
 from pathlib import Path
 
 from sci_fi_parser.classifier.classifier_pipeline import start_classification
+from sci_fi_parser.image_extraction.extraction_pipeline import start_extraction
 from sci_fi_parser.object_detection.detection_pipeline import start_ocr
 from sci_fi_parser.schema import ImageSet, PdfSet
-from sci_fi_parser.image_extraction.extraction_pipeline import start_extraction
 from sci_fi_parser.storage.writer import save_image_set
 from sci_fi_parser.vlm.vlm_pipeline import start_vlm
 
