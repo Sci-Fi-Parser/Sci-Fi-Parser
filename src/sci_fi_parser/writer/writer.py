@@ -1,8 +1,8 @@
 import json
-import shutil
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, timezone
 from typing import Any
+
 import cv2
 import numpy as np
 
@@ -30,7 +30,7 @@ class DatasetWriter:
 
         record = {
             **record,
-            "saved_at": datetime.now(timezone.utc).isoformat(),
+            "saved_at": datetime.now(UTC).isoformat(),
         }
 
         with path.open("a", encoding="utf-8") as f:
@@ -40,10 +40,7 @@ class DatasetWriter:
         path = self.output_dir / "runs.jsonl"
 
         with path.open("a", encoding="utf-8") as f:
-            f.write(
-                json.dumps(record, ensure_ascii=False)
-                + "\n"
-            )
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     def write_ocr_result(self, record: dict[str, Any]) -> None:
         self.write_jsonl("ocr_results.jsonl", record)
@@ -54,7 +51,6 @@ class DatasetWriter:
     def write_error(self, record: dict[str, Any]) -> None:
         self.write_jsonl("errors.jsonl", record)
 
-    
     def save_chart_crop(
         self,
         image: np.ndarray,
@@ -66,7 +62,7 @@ class DatasetWriter:
         cv2.imwrite(str(destination), image)
 
         return str(destination.relative_to(self.output_dir))
-    
+
     def save_chart_crop(
         self,
         image: np.ndarray,
@@ -90,7 +86,7 @@ class DatasetWriter:
         cv2.imwrite(str(destination), image)
 
         return str(destination.relative_to(self.output_dir))
-    
+
     def save_raw_ocr(
         self,
         chart_id: str,
@@ -110,25 +106,19 @@ class DatasetWriter:
                 ensure_ascii=False,
             )
 
-        return str(
-            destination.relative_to(
-                self.output_dir
-            )
-        )
-    
+        return str(destination.relative_to(self.output_dir))
+
     def save_raw_vlm_response(self, chart_id: str, data: str) -> str:
         path = self.raw_responses_dir / f"{chart_id}.json"
         with path.open("w", encoding="utf-8") as f:
             json.dump({"raw_response": data}, f, ensure_ascii=False, indent=2)
         return str(path.relative_to(self.output_dir))
 
-
     def save_parsed_vlm(self, chart_id: str, data: dict) -> str:
         path = self.parsed_vlm_dir / f"{chart_id}.json"
         with path.open("w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return str(path.relative_to(self.output_dir))
-
 
     def write_vlm_result(self, record: dict) -> None:
         self.write_jsonl("vlm_results.jsonl", record)

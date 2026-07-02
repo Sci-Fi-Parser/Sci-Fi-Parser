@@ -5,15 +5,13 @@ It creates one PDF metadata entry and zero or more image entries for embedded ra
 images and clustered vector drawings. All IDs and metadata values are strings; the
 Pillow images are kept outside metadata so later pipeline stages can save them.
 """
-import logging
 
+import logging
 from pathlib import Path
 from uuid import uuid4
 
 import pymupdf
-
 from PIL import Image
-
 
 MAX_IMAGE_SIZE = 1000
 
@@ -106,7 +104,10 @@ def extract_drawings(
     for page in doc:
         for drawing in page.cluster_drawings(x_tolerance=75, y_tolerance=75):
             try:
-                pix = page.get_pixmap(dpi=300, clip=drawing,)
+                pix = page.get_pixmap(
+                    dpi=300,
+                    clip=drawing,
+                )
                 img = _downsize(pix)
             except (pymupdf.mupdf.FzErrorGeneric, RuntimeError) as e:
                 logging.warning("Failed to extract drawing page= %s: %s", page, e)
@@ -139,6 +140,7 @@ def _downsize(pix: pymupdf.Pixmap) -> Image.Image | None:
 
 if __name__ == "__main__":
     from pprint import pprint
+
     pdf = input("Enter PDF: ")
     document = pymupdf.open(pdf)
     res = start_parser(document)

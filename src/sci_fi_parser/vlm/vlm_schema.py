@@ -26,7 +26,6 @@ from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-
 ChartType = Literal[
     "vertical_bar",
     "grouped_bar",
@@ -76,7 +75,7 @@ def parse_chartdata(raw: str | dict) -> ChartData:
     """
     if isinstance(raw, str):
         text = raw.strip()
-        if "```" in text:                       # strip ```json ... ``` fences
+        if "```" in text:  # strip ```json ... ``` fences
             text = text.split("```")[1]
             text = text[4:] if text.lstrip().lower().startswith("json") else text
         start, end = text.find("{"), text.rfind("}")
@@ -96,5 +95,4 @@ class Extractor(Protocol):
 
     name: str
 
-    def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
-        ...
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]: ...

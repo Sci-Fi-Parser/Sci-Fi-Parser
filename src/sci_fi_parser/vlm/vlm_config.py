@@ -22,7 +22,6 @@ import tomllib
 from dataclasses import dataclass, fields
 from pathlib import Path
 
-
 DEFAULT_PROMPT = (
     "Extract the data from this chart.\n"
     "Rules:\n"
@@ -76,6 +75,5 @@ def load_profile(path: Path) -> VLMProfile:
     valid = {f.name for f in fields(VLMProfile)}
     unknown = set(raw) - valid
     if unknown:
-        raise ValueError(
-            f"unknown key(s) in {path}: {sorted(unknown)}; valid: {sorted(valid)}")
+        raise ValueError(f"unknown key(s) in {path}: {sorted(unknown)}; valid: {sorted(valid)}")
     return VLMProfile(**raw)
