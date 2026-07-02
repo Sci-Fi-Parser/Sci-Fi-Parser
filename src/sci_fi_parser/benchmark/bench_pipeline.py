@@ -95,7 +95,7 @@ def run_classification_stage(inputs: PipelineInputs) -> None:
 
 
 def run_ocr_cv_stage(inputs: PipelineInputs) -> None:
-    from sci_fi_parser.object_detection.pipeline import start_ocr
+    from sci_fi_parser.object_detection.detection_pipeline import start_ocr
 
     scoped = ImageSet()
     for image_id in inputs.truth_by_image_id:

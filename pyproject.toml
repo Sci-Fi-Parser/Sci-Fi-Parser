@@ -26,11 +26,11 @@ license = "MIT"
 cv = ["opencv-python>=4.10"]
 
 [project.scripts]
-benchmark = "sci_fi_parser.accuracy.benchmark:main"
-benchmark-compare = "sci_fi_parser.accuracy.vlm_compare:main"
-bench-pipeline = "sci_fi_parser.accuracy.bench_pipeline:main"
+benchmark = "sci_fi_parser.benchmark.benchmark:main"
+benchmark-compare = "sci_fi_parser.benchmark.vlm_compare:main"
+bench-pipeline = "sci_fi_parser.benchmark.bench_pipeline:main"
 parse-chart = "sci_fi_parser.main:main"
-synthetic-bars = "sci_fi_parser.accuracy.synthetic.cli:main"
+synthetic-bars = "scripts.synthetic.cli:main"
 
 [build-system]
 requires = ["hatchling >= 1.26"]
@@ -51,3 +51,6 @@ omit = [
     "config.py",
     "config-3.py",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sci_fi_parser", "scripts"]

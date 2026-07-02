@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 from dataclasses import asdict
+from pathlib import Path
 
 from sci_fi_parser.object_detection import detection_pipeline
 from sci_fi_parser.object_detection.computer_vision.bars import BarCandidate, BoundingBox
