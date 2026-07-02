@@ -63,18 +63,6 @@ class DatasetWriter:
 
         return str(destination.relative_to(self.output_dir))
 
-    def save_chart_crop(
-        self,
-        image: np.ndarray,
-        chart_id: str,
-    ) -> str:
-
-        destination = self.chart_crops_dir / f"{chart_id}.png"
-
-        cv2.imwrite(str(destination), image)
-
-        return str(destination.relative_to(self.output_dir))
-
     def save_overlay(
         self,
         image: np.ndarray,

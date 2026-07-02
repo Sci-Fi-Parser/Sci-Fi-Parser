@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
-
 from sci_fi_parser.object_detecion.computer_vision.config import CvConfig
 
 
@@ -39,7 +38,6 @@ def detect_line_segments(image: np.ndarray, config: CvConfig | None = None) -> l
     if raw_lines is None:
         return []
 
-    max_length = float(max(image_height, image_width))
     line_segments: list[LineSegment] = []
     for line in raw_lines:
         x1, y1, x2, y2 = line[0]
