@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from PIL import Image
-from sci_fi_parser.schema import ImageSet, PdfSet
 
 from sci_fi_parser.image_extraction import extraction_pipeline
+from sci_fi_parser.schema import ImageSet, PdfSet
 
 
 class DummyDocument:
