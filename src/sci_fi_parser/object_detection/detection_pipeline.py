@@ -58,9 +58,7 @@ def match_bars_and_ocr(bars: list, ocr_json: dict) -> list:
                 continue
             ocr_max_x, _, ocr_min_x, _ = bbox
             # print(f"max: {ocr_max_x}, min: {ocr_min_x}")
-            if (ocr_min_x <= left and ocr_max_x >= right) or (
-                ocr_min_x >= left and ocr_max_x <= right
-            ):
+            if (ocr_min_x <= left and ocr_max_x >= right) or (ocr_min_x >= left and ocr_max_x <= right):
                 matching_ocr.append(bbox)
         linked.append((bar, matching_ocr))
 

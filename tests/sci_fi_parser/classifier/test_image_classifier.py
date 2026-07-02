@@ -2,6 +2,7 @@ from sci_fi_parser.classifier import image_classifier
 
 IMAGE_PATH = "tests/test_materials/0a14bb795a27.jpg"
 
+
 def test_classifier_with_default_parameters():
     classifier = image_classifier.ImageClassifier()
     im_path = IMAGE_PATH

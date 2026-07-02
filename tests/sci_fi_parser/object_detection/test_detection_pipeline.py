@@ -28,9 +28,7 @@ def test_match_bars_and_ocr_filters_low_confidence_and_outside_boxes():
         ],
     }
 
-    assert detection_pipeline.match_bars_and_ocr([bar], ocr_json) == [
-        (bar, [[25, 0, 8, 0], [18, 0, 12, 0]])
-    ]
+    assert detection_pipeline.match_bars_and_ocr([bar], ocr_json) == [(bar, [[25, 0, 8, 0], [18, 0, 12, 0]])]
 
 
 def test_extract_ocr_data_uses_detected_bars_and_ocr_output(monkeypatch, tmp_path):
