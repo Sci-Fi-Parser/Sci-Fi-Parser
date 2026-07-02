@@ -25,7 +25,6 @@ from typing import Any
 from sci_fi_parser.vlm.vlm_config import VLMProfile
 from sci_fi_parser.vlm.vlm_schema import ChartData, parse_chartdata
 
-
 _MIME_BY_SUFFIX = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
 
 # VLM inference can take minutes per chart on CPU; give the request plenty of room.
@@ -73,8 +72,7 @@ class OllamaVLM:
     (``ollama pull <tag>``).
     """
 
-    def __init__(self, profile: VLMProfile | None = None,
-                 model_override: str | None = None):
+    def __init__(self, profile: VLMProfile | None = None, model_override: str | None = None):
         profile = profile or VLMProfile()
         self.name = model_override or profile.model
         self._model = self.name
@@ -96,18 +94,18 @@ class OllamaVLM:
         signal) as additional context.
         """
         import ollama  # pylint: disable=import-outside-toplevel
+
         content = _prompt_with_suffix(self._prompt, prompt_suffix)
         resp = ollama.chat(
             model=self._model,
-            messages=[{"role": "user", "content": content,
-                       "images": [str(image_path)]}],
+            messages=[{"role": "user", "content": content, "images": [str(image_path)]}],
             format=chartdata_schema(),
             options=self._options,
-
         )
         raw_data = resp.model_dump()
         parsed_chartdata = parse_chartdata(raw_data["message"]["content"]).model_dump()
         return (parsed_chartdata, raw_data)
+
 
 class ChatCompletionsVLM:
     """VLM via any OpenAI-compatible chat-completions endpoint.
@@ -130,8 +128,7 @@ class ChatCompletionsVLM:
     local server still works.
     """
 
-    def __init__(self, profile: VLMProfile | None = None,
-                 model_override: str | None = None):
+    def __init__(self, profile: VLMProfile | None = None, model_override: str | None = None):
         profile = profile or VLMProfile()
         self.name = model_override or profile.model
         self._model = self.name
@@ -144,12 +141,10 @@ class ChatCompletionsVLM:
         if self._response_format == "json_object":
             return {"type": "json_object"}
         if self._response_format == "json_schema":
-            return {"type": "json_schema",
-                    "json_schema": {"name": "ChartData",
-                                    "schema": chartdata_schema()}}
+            return {"type": "json_schema", "json_schema": {"name": "ChartData", "schema": chartdata_schema()}}
         raise ValueError(
-            f"unknown response_format {self._response_format!r} "
-            "(expected 'json_schema' or 'json_object')")
+            f"unknown response_format {self._response_format!r} (expected 'json_schema' or 'json_object')"
+        )
 
     def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
         """Run the VLM on one image. ``prompt_suffix`` is appended to the base
@@ -157,18 +152,22 @@ class ChatCompletionsVLM:
         signal) as additional context.
         """
         import httpx  # pylint: disable=import-outside-toplevel
+
         mime = _MIME_BY_SUFFIX.get(image_path.suffix.lower(), "image/png")
         data = base64.b64encode(image_path.read_bytes()).decode("ascii")
         payload = {
             "model": self._model,
-            "messages": [{"role": "user", "content": [
-                {"type": "text",
-                 "text": _prompt_with_suffix(self._prompt, prompt_suffix)},
-                {"type": "image_url",
-                 "image_url": {"url": f"data:{mime};base64,{data}"}},
-            ]}],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": _prompt_with_suffix(self._prompt, prompt_suffix)},
+                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}"}},
+                    ],
+                }
+            ],
             "response_format": self._make_response_format(),
-            "chat_template_kwargs": {"enable_thinking": False}
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         resp = httpx.post(
             f"{self._base_url}/chat/completions",
@@ -180,15 +179,13 @@ class ChatCompletionsVLM:
         raw_data = resp.json()
         parsed_chartdata = parse_chartdata(raw_data["choices"][0]["message"]["content"]).model_dump()
         return (parsed_chartdata, raw_data)
-        
 
-def build_vlm(profile: VLMProfile | None = None,
-              model_override: str | None = None):
+
+def build_vlm(profile: VLMProfile | None = None, model_override: str | None = None):
     """Return the extractor for ``profile.backend`` (``"ollama"`` | ``"api"``)."""
     profile = profile or VLMProfile()
     if profile.backend == "ollama":
         return OllamaVLM(profile=profile, model_override=model_override)
     if profile.backend == "api":
         return ChatCompletionsVLM(profile=profile, model_override=model_override)
-    raise ValueError(
-        f"unknown backend {profile.backend!r} (expected 'ollama' or 'api')")
+    raise ValueError(f"unknown backend {profile.backend!r} (expected 'ollama' or 'api')")
