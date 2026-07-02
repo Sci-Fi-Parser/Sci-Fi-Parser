@@ -1,0 +1,17 @@
+from src.sci_fi_parser.classifier import image_classifier
+
+
+def test_classifier_with_default_parameters():
+    classifier = image_classifier.ImageClassifier()
+    im_path = "tests/0a14bb795a27.jpg"
+    classifier_output = classifier.classify_image(im_path)
+    assert classifier_output[0] in ["graphs_d", "graphs_h", "graphs_l", "graphs_s", "graphs_v", "graphs_val"]
+    assert 0 <= classifier_output[1] <= 1
+
+
+def test_docling_model_output():
+    classifier = image_classifier.DoclingClassifier()
+    im_path = "tests/0a14bb795a27.jpg"
+    classifier_output = classifier.classify_image(im_path)
+    assert classifier_output[0] == "line_chart"
+    assert 1 - classifier_output[1] < 0.01

@@ -42,6 +42,8 @@ dev = [
     "pylint (>=4.0.3,<5.0.0)",
     "autopep8>=2.3.2",
     "coverage>=7.14.1",
+    "ruff>=0.15.20",
+    "mypy>=2.1.0",
 ]
 
 [tool.coverage.run]
