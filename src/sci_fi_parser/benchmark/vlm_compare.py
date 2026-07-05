@@ -415,7 +415,6 @@ _LEADER_COLS = [
     ("Bar Δ", "bar_count_err_total", _int_or_dash),
     ("Recall", "recall", _pct100),
     ("Type acc", "type_accuracy", _pct100),
-    ("Mean conf", "mean_confidence", _val),
     ("Mean time", "mean_sec", _secs),
     ("Total time", "total_sec", _secs),
 ]

@@ -49,7 +49,6 @@ def score_chart_values(
         seconds=seconds,
         type_true=truth.chart_type,
         type_pred=pred.chart_type,
-        confidence=pred.confidence,
     )
     return result
 
@@ -66,7 +65,7 @@ def score_vlm_outputs(
         try:
             pred = parse_chartdata(image_set.get_vlm_result(image_id))
         except Exception:  # pylint: disable=broad-exception-caught
-            pred = ChartData(chart_type=None, series=[], confidence=None)
+            pred = ChartData(chart_type=None, series=[])
         seconds = float(record.get("metadata", {}).get("vlm", {}).get("seconds", 0.0))
         metadata = record.get("metadata", {}).get("benchmark", {})
         results.append(

@@ -55,16 +55,14 @@ class Series(BaseModel):
 class ChartData(BaseModel):
     """The canonical extraction output. Every extractor returns this shape.
 
-    ``chart_type`` and ``confidence`` are *required but nullable*: a VLM
-    constrained by ``format=ChartData.model_json_schema()`` will always emit
-    both fields, but is allowed to report ``null`` when it can't determine the
-    chart type or its own confidence. Without ``required``-ness the model
-    silently omits them.
+    ``chart_type`` is *required but nullable*: a VLM constrained by
+    ``format=ChartData.model_json_schema()`` will always emit the field, but is
+    allowed to report ``null`` when it can't determine the chart type. Without
+    ``required``-ness the model silently omits it.
     """
 
     chart_type: ChartType | None
     series: list[Series]
-    confidence: float | None
 
 
 def parse_chartdata(raw: str | dict) -> ChartData:

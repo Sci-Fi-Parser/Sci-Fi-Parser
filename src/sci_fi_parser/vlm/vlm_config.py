@@ -18,9 +18,6 @@ DEFAULT_PROMPT = (
     "If numeric labels are printed on the bars, prefer those.\n"
     "- Watch y-axis units: '200K' = 200000, '1.5M' = 1500000, "
     "'2.3B' = 2300000000. Return plain numbers, no suffixes, no extra zeros.\n"
-    "- confidence: a number from 0.0 to 1.0 reflecting how certain you are "
-    "that the extracted values are correct. Lower it for charts without "
-    "printed value labels or with hard-to-read axes.\n"
     "- Do not output series, categories, or values that do not appear on "
     "the chart. If the image is not a chart, output empty JSON."
 )
