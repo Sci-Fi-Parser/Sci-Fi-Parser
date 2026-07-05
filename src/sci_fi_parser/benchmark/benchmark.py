@@ -38,7 +38,7 @@ from statistics import mean
 import numpy as np
 
 from sci_fi_parser.benchmark.truth import ChartTruth
-from sci_fi_parser.vlm.vlm import ChatCompletionsVLM, OllamaVLM
+from sci_fi_parser.vlm.vlm import ChatCompletionsVLM
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.vlm.vlm_schema import (
     ChartData,
@@ -335,17 +335,11 @@ def build_extractor(
 ) -> Extractor:
     if name == "noisy-oracle":
         return NoisyOracle(truth, rng)
-    if name == "ollama":
-        return OllamaVLM(profile=profile)
-    if name.startswith("ollama:"):
-        return OllamaVLM(profile=profile, model_override=name.split(":", 1)[1])
-    if name == "api":
+    if name == "vlm":
         return ChatCompletionsVLM(profile=profile)
-    if name.startswith("api:"):
+    if name.startswith("vlm:"):
         return ChatCompletionsVLM(profile=profile, model_override=name.split(":", 1)[1])
-    raise SystemExit(
-        f"unknown extractor {name!r} (try: noisy-oracle, ollama, ollama:<model>, api, api:<model>)"
-    )
+    raise SystemExit(f"unknown extractor {name!r} (try: noisy-oracle, vlm, vlm:<model>)")
 
 
 def _resolve_profile(config_arg: Path | None) -> VLMProfile:

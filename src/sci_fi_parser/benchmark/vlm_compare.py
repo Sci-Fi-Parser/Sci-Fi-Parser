@@ -505,7 +505,7 @@ def _safe_run(
         agg = run_benchmark(
             data=data,
             out=out,
-            extractor_name="ollama",
+            extractor_name="vlm",
             profile=entry.profile,
             seed=seed,
             limit=limit,

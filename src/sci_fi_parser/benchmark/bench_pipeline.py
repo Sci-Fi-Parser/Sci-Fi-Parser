@@ -209,7 +209,7 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--extractor",
         default="noisy-oracle",
-        help="noisy-oracle | ollama | ollama:<model> | api | api:<model>",
+        help="noisy-oracle | vlm | vlm:<model>",
     )
     ap.add_argument("--vlm-config", type=Path, default=None, help="VLM profile TOML")
     ap.add_argument("--seed", type=int, default=0)
