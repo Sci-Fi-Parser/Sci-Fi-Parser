@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import copy
 import os
 from pathlib import Path
 from typing import Any
@@ -19,14 +18,14 @@ def _prompt_with_suffix(prompt: str, suffix: str) -> str:
     return prompt + (f"\n\n{suffix}" if suffix else "")
 
 
-def chartdata_schema() -> dict[str, Any]:
+def inlined_chartdata_schema() -> dict[str, Any]:
     schema = ChartData.model_json_schema()
     defs = schema.get("$defs", {})
 
     def inline(node: Any) -> Any:
         if isinstance(node, dict):
             if "$ref" in node:
-                return inline(copy.deepcopy(defs[node["$ref"].split("/")[-1]]))
+                return inline(defs[node["$ref"].split("/")[-1]])
             return {k: inline(v) for k, v in node.items() if k != "$defs"}
         if isinstance(node, list):
             return [inline(item) for item in node]
@@ -51,7 +50,7 @@ class ChatCompletionsVLM:
         if self._response_format == "json_schema":
             return {
                 "type": "json_schema",
-                "json_schema": {"name": "ChartData", "schema": chartdata_schema()},
+                "json_schema": {"name": "ChartData", "schema": inlined_chartdata_schema()},
             }
         raise ValueError(
             f"unknown response_format {self._response_format!r} (expected 'json_schema' or 'json_object')"
