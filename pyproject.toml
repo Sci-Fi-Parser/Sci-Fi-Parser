@@ -21,6 +21,36 @@ dependencies = [
 description = "A package to to parse data from graphs in documents."
 readme = "README.md"
 license = "MIT"
+license-files = { paths = ["LICENSE"] }
+
+keywords = [
+  "scientific figure parser",
+  "document parsing",
+  "pdf processing",
+  "chart extraction",
+  "graph extraction",
+  "ocr",
+  "computer vision",
+  "vision-language models",
+  "data extraction",
+  "scientific documents",
+]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Text Processing :: General",
+]
+
+[project.urls]
+Repository = "https://github.com/Sci-Fi-Parser/Sci-Fi-Parser"
+Issues = "https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/issues"
 
 [project.optional-dependencies]
 cv = ["opencv-python>=4.10"]
