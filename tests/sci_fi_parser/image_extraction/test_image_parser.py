@@ -1,11 +1,9 @@
 import logging
-
 from unittest.mock import MagicMock
 
 import pytest
-
 from PIL import Image
-from pymupdf import Pixmap, IRect, csRGB
+from pymupdf import IRect, Pixmap, csRGB
 
 from sci_fi_parser.image_extraction import image_parser
 
@@ -43,7 +41,7 @@ def test_extract_images_adds_entry() -> None:
     mock_page.get_pixmap.return_value = mock_pix
 
     mock_doc = MagicMock()
-    mock_doc.__iter__ = lambda s: iter([mock_page])
+    mock_doc.pages.return_value = [mock_page]
 
     image_data = {}
     image_parser.extract_images(mock_doc, image_data, "pdf-123")
@@ -64,7 +62,7 @@ def test_extract_images_duplicate_xref() -> None:
     mock_page.get_pixmap.return_value = mock_pix
 
     mock_doc = MagicMock()
-    mock_doc.__iter__ = lambda s: iter([mock_page])
+    mock_doc.pages.return_value = [mock_page]
 
     image_data = {}
     image_parser.extract_images(mock_doc, image_data, "pdf-123")
@@ -82,7 +80,7 @@ def test_extract_images_skips_empty_pixmap() -> None:
     mock_page.get_pixmap.return_value = mock_pix
 
     mock_doc = MagicMock()
-    mock_doc.__iter__ = lambda s: iter([mock_page])
+    mock_doc.pages.return_value = [mock_page]
 
     image_data = {}
     image_parser.extract_images(mock_doc, image_data, "pdf-123")
@@ -100,7 +98,7 @@ def test_extract_images_skips_failed_pixmap(caplog) -> None:
     mock_page.get_pixmap.side_effect = [RuntimeError("corrupt"), good_pix]
 
     mock_doc = MagicMock()
-    mock_doc.__iter__ = lambda s: iter([mock_page])
+    mock_doc.pages.return_value = [mock_page]
 
     image_data = {}
 
@@ -121,7 +119,7 @@ def test_extract_drawings_adds_entry() -> None:
     mock_page.get_pixmap.return_value = mock_pix
 
     mock_doc = MagicMock()
-    mock_doc.__iter__ = lambda s: iter([mock_page])
+    mock_doc.pages.return_value = [mock_page]
 
     image_data = {}
     image_parser.extract_drawings(mock_doc, image_data, "pdf-123")
@@ -141,7 +139,7 @@ def test_extract_drawings_skips_empty_pixmap() -> None:
     mock_page.get_pixmap.return_value = mock_pix
 
     mock_doc = MagicMock()
-    mock_doc.__iter__ = lambda s: iter([mock_page])
+    mock_doc.pages.return_value = [mock_page]
 
     image_data = {}
     image_parser.extract_drawings(mock_doc, image_data, "pdf-123")
@@ -158,7 +156,7 @@ def test_extract_drawings_skips_failed_pixmap(caplog) -> None:
     mock_page.get_pixmap.side_effect = [RuntimeError("corrupt"), good_pix]
 
     mock_doc = MagicMock()
-    mock_doc.__iter__ = lambda s: iter([mock_page])
+    mock_doc.pages.return_value = [mock_page]
 
     image_data = {}
 

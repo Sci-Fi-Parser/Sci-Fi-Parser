@@ -9,7 +9,6 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png")
 
 
@@ -18,10 +17,7 @@ def has_xy_data_series(annotation: dict[str, Any]) -> bool:
     if not isinstance(data_series, list):
         return False
 
-    return any(
-        isinstance(point, dict) and "x" in point and "y" in point
-        for point in data_series
-    )
+    return any(isinstance(point, dict) and "x" in point and "y" in point for point in data_series)
 
 
 def is_wanted_annotation(annotation: dict[str, Any]) -> bool:

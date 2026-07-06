@@ -2,20 +2,29 @@
 
 To get the development environment:
 
-- Clone repo and cd into the directory
-
-- Make virtual environment and install dependencies
+- Clone repo and cd into the directory and run
 
 ```bash
 uv sync --group dev
 ```
+**Useful dev commands** 
 
-To run tests enter the virtual environment:
-```bash
-source .venv/bin/activate
-pytest
-```
-Alternatively run them directly: 
+Run tests
 ```bash
 uv run pytest
+```
+
+Lint
+```bash
+uv run ruff check
+```
+
+Format
+```bash
+uv run ruff format
+```
+
+Type check
+```bash
+uv run mypy src/
 ```

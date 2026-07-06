@@ -5,15 +5,14 @@ It creates one PDF metadata entry and zero or more image entries for embedded ra
 images and clustered vector drawings. All IDs and metadata values are strings; the
 Pillow images are kept outside metadata so later pipeline stages can save them.
 """
-import logging
 
+import logging
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 import pymupdf
-
 from PIL import Image
-
 
 MAX_IMAGE_SIZE = 1000
 
@@ -33,8 +32,10 @@ def start_parser(
 
     Returns:
         A tuple of pdf_data and image_data:
-        - "pdf_data" (dict[pdf_id str, metadata dict]): PDF-level metadata entries keyed by string of UUID.
-        - "image_data" (dict[image_id str, tuple(Image.Image, metadata dict)]): Pillow image and metadata keyed by UUID string
+        - "pdf_data" (dict[pdf_id str, metadata dict]):
+          PDF-level metadata entries keyed by string of UUID.
+        - "image_data" (dict[image_id str, tuple(Image.Image, metadata dict)]):
+          Pillow image and metadata keyed by UUID string
     """
     if not doc.name:
         raise ValueError("Document has no name; cannot build metadata")
@@ -66,7 +67,7 @@ def extract_images(
     and stored under a generated string image ID.
     """
     xref_seen = set()
-    for page in doc:
+    for page in doc.pages():
         for img in page.get_images():
             xref = img[0]
             if xref in xref_seen:
@@ -103,10 +104,13 @@ def extract_drawings(
     cluster is rendered as a clipped pixmap. The stored metadata mirrors embedded image
     metadata style
     """
-    for page in doc:
+    for page in doc.pages():
         for drawing in page.cluster_drawings(x_tolerance=75, y_tolerance=75):
             try:
-                pix = page.get_pixmap(dpi=300, clip=drawing,)
+                pix = page.get_pixmap(
+                    dpi=300,
+                    clip=drawing,
+                )
                 img = _downsize(pix)
             except (pymupdf.mupdf.FzErrorGeneric, RuntimeError) as e:
                 logging.warning("Failed to extract drawing page= %s: %s", page, e)
@@ -132,13 +136,14 @@ def _downsize(pix: pymupdf.Pixmap) -> Image.Image | None:
     """
     if pix.width <= 0 or pix.height <= 0:
         return None
-    img = pix.pil_image()
+    img = cast(Image.Image, pix.pil_image())
     img.thumbnail((MAX_IMAGE_SIZE, MAX_IMAGE_SIZE))
     return img
 
 
 if __name__ == "__main__":
     from pprint import pprint
+
     pdf = input("Enter PDF: ")
     document = pymupdf.open(pdf)
     res = start_parser(document)
