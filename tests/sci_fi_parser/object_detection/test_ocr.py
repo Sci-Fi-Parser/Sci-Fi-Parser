@@ -41,4 +41,4 @@ def test_read_image_works(_):
     path = "some/path.png"
     ocr.read_image(path)
 
-    assert ocr.input_path == path
+    assert ocr.input_data == path
