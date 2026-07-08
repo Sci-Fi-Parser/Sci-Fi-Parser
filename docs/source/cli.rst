@@ -1,5 +1,5 @@
 Command Line Interface
-=====================
+======================
 
 The project installs a few command-line entry points via ``[project.scripts]``
 in ``pyproject.toml``.
