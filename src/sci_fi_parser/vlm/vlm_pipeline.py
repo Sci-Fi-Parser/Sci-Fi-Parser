@@ -1,11 +1,3 @@
-"""VLM stage of the extraction pipeline.
-
-Reads OCR text from an :class:`OCRSet`, runs the VLM on each image with that
-text appended to the prompt, and stores the resulting ChartData in a
-:class:`VLMSet`. The set types and the offloader live in
-:mod:`sci_fi_parser.data_pipeline`.
-"""
-
 from __future__ import annotations
 
 import logging

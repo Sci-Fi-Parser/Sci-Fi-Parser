@@ -31,7 +31,7 @@ from sci_fi_parser.benchmark.truth import (
 from sci_fi_parser.image_extraction.image_loader import load_images_from_folder
 from sci_fi_parser.schema import ImageSet
 from sci_fi_parser.vlm.vlm_config import VLMProfile
-from sci_fi_parser.vlm.vlm_schema import ChartData, Extractor, parse_chartdata
+from sci_fi_parser.vlm.vlm_schema import ChartData, Extractor
 
 
 @dataclass(slots=True)
@@ -120,7 +120,7 @@ def run_vlm_stage(inputs: PipelineInputs, extractor: Extractor) -> None:
                 path,
                 prompt_suffix=_prompt_suffix(inputs, image_id),
             )
-            parsed_payload = parse_chartdata(parsed).model_dump()
+            parsed_payload = ChartData.model_validate(parsed).model_dump()
         except Exception as exc:
             print(f"  ! {path.name}: {type(exc).__name__}: {exc}")
             parsed_payload = ChartData(chart_type=None, series=[]).model_dump()

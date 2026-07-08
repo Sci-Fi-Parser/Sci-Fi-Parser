@@ -6,11 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from sci_fi_parser.vlm.vlm_config import VLMProfile
-from sci_fi_parser.vlm.vlm_schema import ChartData, parse_chartdata
+from sci_fi_parser.vlm.vlm_schema import ChartData
 
 _MIME_BY_SUFFIX = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
 
-# VLM inference can take minutes per chart on CPU; give the request plenty of room.
 _REQUEST_TIMEOUT = 600.0
 
 
@@ -81,7 +80,7 @@ class ChatCompletionsVLM:
             "response_format": self._make_response_format(),
             "seed": 1,
             "temperature": 0,
-            "chat_template_kwargs": {"enable_thinking": False},
+            "max_tokens": -1,
         }
         resp = httpx.post(
             f"{self._base_url}/chat/completions",
@@ -92,4 +91,4 @@ class ChatCompletionsVLM:
         resp.raise_for_status()
         raw_data = resp.json()
         content = raw_data["choices"][0]["message"]["content"]
-        return (parse_chartdata(content).model_dump(), raw_data)
+        return (ChartData.model_validate_json(content).model_dump(), raw_data)
