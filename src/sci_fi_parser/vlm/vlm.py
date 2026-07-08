@@ -36,6 +36,7 @@ def _inlined_chartdata_schema() -> dict[str, Any]:
 
 
 class ChatCompletionsVLM:
+    # TODO: DOCSTRING
     def __init__(self, profile: VLMProfile | None = None, model_override: str | None = None):
         profile = profile or VLMProfile()
         self.name = model_override or profile.model
@@ -58,6 +59,8 @@ class ChatCompletionsVLM:
         )
 
     def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
+        # TODO: DOCSTRING
+
         import httpx  # pylint: disable=import-outside-toplevel
 
         mime = _MIME_BY_SUFFIX.get(image_path.suffix.lower(), "image/png")

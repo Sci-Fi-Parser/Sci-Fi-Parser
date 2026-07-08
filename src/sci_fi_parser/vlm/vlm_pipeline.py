@@ -11,7 +11,7 @@ from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 
 
 def start_vlm(image_set: ImageSet, profile: VLMProfile | Path) -> None:
-
+    # TODO: DOCSTRING
     if not isinstance(profile, VLMProfile):
         profile = load_profile(profile)
     vlm = ChatCompletionsVLM(profile)

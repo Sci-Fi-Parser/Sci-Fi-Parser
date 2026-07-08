@@ -10,15 +10,11 @@ ChartType = Literal[
 
 
 class Point(BaseModel):
-    """A data point consisting of label `x` and value `y`."""
-
     x: str | float
     y: float
 
 
 class Series(BaseModel):
-    """A named series of data points."""
-
     name: str = "series"
     points: list[Point]
 

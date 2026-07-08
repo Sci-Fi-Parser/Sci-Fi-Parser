@@ -25,6 +25,7 @@ DEFAULT_PROMPT = (
 
 @dataclass(slots=True)
 class VLMProfile:
+    # TODO: DOCSTRING
     model: str = "qwen2.5vl:7b"
     prompt: str = DEFAULT_PROMPT
     base_url: str = "http://localhost:11434/v1"
@@ -33,12 +34,11 @@ class VLMProfile:
 
 
 def load_profile(path: Path) -> VLMProfile:
+    # TODO: DOCSTRING
     with path.open("rb") as fh:
         raw = tomllib.load(fh)
     valid = {f.name for f in fields(VLMProfile)}
     unknown = set(raw) - valid
     if unknown:
-        raise ValueError(
-            f"unknown key(s) in {path}: {sorted(unknown)}; valid: {sorted(valid)}"
-        )
+        raise ValueError(f"unknown key(s) in {path}: {sorted(unknown)}; valid: {sorted(valid)}")
     return VLMProfile(**raw)
