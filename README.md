@@ -1,30 +1,32 @@
 # Scientific Figure Parser
 
-To get the development environment:
+[![CI](https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/actions/workflows/ci.yaml/badge.svg)](https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/actions/workflows/ci.yaml)
 
-- Clone repo and cd into the directory and run
+Sci-Fi-Parser is a Python package that provides a pipeline to take charts from PDF documents and extract data from them.
+
+## Installation
 
 ```bash
-uv sync --group dev
-```
-**Useful dev commands** 
-
-Run tests
-```bash
-uv run pytest
+$ pip install sci-fi-parser
 ```
 
-Lint
-```bash
-uv run ruff check
+## Usage
+
+For full api usage, consult the documentation.
+
+```python
+from sci_fi_parser import parse_folder
+
+result = parse_folder(
+    "path/to/pdfs",
+    output_dir="output",
+    extracted_image_dir="temp/extracted_images",
+    vlm_config="config/vlm.toml",
+)
+
+print(result.summary())
 ```
 
-Format
-```bash
-uv run ruff format
-```
+## License
 
-Type check
-```bash
-uv run mypy src/
-```
+Sci-Fi-Parser is licensed under the terms of the [MIT license](LICENSE).
