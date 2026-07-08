@@ -9,7 +9,6 @@ Sci-Fi-Parser is a Python package that provides a pipeline to take charts from P
 ```bash
 $ pip install sci-fi-parser
 ```
-**Useful dev commands** 
 
 ## Usage
 
