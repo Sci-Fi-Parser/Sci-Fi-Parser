@@ -7,12 +7,12 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
-from sci_fi_parser.vlm.vlm_schema import Point, Series
+from sci_fi_parser.vlm.vlm_schema import ChartType, Point, Series
 
 
 @dataclass(slots=True)
 class ChartTruth:
-    chart_type: str | None
+    chart_type: ChartType | None
     series: list[Series]
     data_range: tuple[float, float]
     geometry: object | None = None

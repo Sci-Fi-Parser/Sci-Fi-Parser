@@ -393,7 +393,9 @@ type prediction.</p>
 <h2>Breakdowns</h2>
 <div class="tables">{breakdown_html}</div>
 
-<h2 title="Distribution of signed per-bar deviation (pred − true) / data range, across every matched bar. Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates." style="cursor:help">Deviation distribution</h2>
+<h2 title="Distribution of signed per-bar deviation (pred − true) / data range, across every matched bar.
+Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates."
+style="cursor:help">Deviation distribution</h2>
 <div class="devwrap">{dev_img}</div>
 
 {
