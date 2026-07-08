@@ -1,13 +1,6 @@
 API Reference
 =============
 
-The main public entry point lives in :mod:`sci_fi_parser.api`.
-
-.. automodule:: sci_fi_parser.api
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Core data containers are defined in :mod:`sci_fi_parser.schema`.
 
 .. automodule:: sci_fi_parser.schema
