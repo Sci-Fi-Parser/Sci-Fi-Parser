@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Literal, Protocol, runtime_checkable
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -28,16 +27,3 @@ class ChartData(BaseModel):
     chart_type: ChartType | None = None
     log_scale: bool | None = None
     series: list[Series] = []
-
-
-@runtime_checkable
-class Extractor(Protocol):
-    """The single interface every extractor must satisfy.
-
-    ``name`` shows up in benchmark reports; ``extract`` is the workhorse.
-    Runtime-checkable so ``isinstance(x, Extractor)`` works in registries.
-    """
-
-    name: str
-
-    def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]: ...

@@ -17,7 +17,9 @@ def _prompt_with_suffix(prompt: str, suffix: str) -> str:
     return prompt + (f"\n\n{suffix}" if suffix else "")
 
 
-def inlined_chartdata_schema() -> dict[str, Any]:
+def _inlined_chartdata_schema() -> dict[str, Any]:
+    # Nested $refs problematic
+    # https://github.com/ggml-org/llama.cpp/issues/8073
     schema = ChartData.model_json_schema()
     defs = schema.get("$defs", {})
 
@@ -49,7 +51,7 @@ class ChatCompletionsVLM:
         if self._response_format == "json_schema":
             return {
                 "type": "json_schema",
-                "json_schema": {"name": "ChartData", "schema": inlined_chartdata_schema()},
+                "json_schema": {"name": "ChartData", "schema": _inlined_chartdata_schema()},
             }
         raise ValueError(
             f"unknown response_format {self._response_format!r} (expected 'json_schema' or 'json_object')"

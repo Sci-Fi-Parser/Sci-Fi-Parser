@@ -31,7 +31,7 @@ from sci_fi_parser.benchmark.truth import (
 from sci_fi_parser.image_extraction.image_loader import load_images_from_folder
 from sci_fi_parser.schema import ImageSet
 from sci_fi_parser.vlm.vlm_config import VLMProfile
-from sci_fi_parser.vlm.vlm_schema import ChartData, Extractor
+from sci_fi_parser.vlm.vlm_schema import ChartData
 
 
 @dataclass(slots=True)
@@ -108,7 +108,7 @@ def _prompt_suffix(inputs: PipelineInputs, image_id: str) -> str:
     return f"OCR/CV context:\n{value}" if isinstance(value, str) and value else ""
 
 
-def run_vlm_stage(inputs: PipelineInputs, extractor: Extractor) -> None:
+def run_vlm_stage(inputs: PipelineInputs, extractor: benchmark.Extractor) -> None:
     from tqdm import tqdm
 
     for image_id in tqdm(inputs.truth_by_image_id):
@@ -132,7 +132,7 @@ def run_vlm_stage(inputs: PipelineInputs, extractor: Extractor) -> None:
 
 def write_outputs(
     out: Path,
-    extractor: Extractor,
+    extractor: benchmark.Extractor,
     agg: dict,
     results: list[benchmark.ChartResult],
     img_dir: Path,

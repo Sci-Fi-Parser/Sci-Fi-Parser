@@ -11,7 +11,8 @@ One canonical schema, many extractors
 -------------------------------------
 Every extractor -- VLM, CV+OCR pipeline, chart-specialized model -- is adapted to
 a single :class:`ChartData` schema, so comparisons are apples-to-apples. Add an
-extractor by implementing ``Extractor.extract(image_path) -> (chartdata_dict, raw)``.
+extractor by implementing ``extract(image_path) -> (chartdata_dict, raw)`` plus a
+``name``, and adding the class to the ``Extractor`` union.
 
 Note: pure OCR is *not* a standalone value extractor (it reads text, not data
 points) -- benchmark it as part of a CV+OCR pipeline.
@@ -43,7 +44,6 @@ from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.vlm.vlm_schema import (
     ChartData,
     ChartType,
-    Extractor,
     Point,
     Series,
 )
@@ -71,7 +71,7 @@ def series_map(chart: ChartData) -> dict[tuple[str, str], float]:
 
 
 # --------------------------------------------------------------------------- #
-# Test double + Ollama skeleton (the Extractor protocol lives in sci_fi_parser.vlm.vlm_schema)
+# Test double
 # --------------------------------------------------------------------------- #
 class NoisyOracle:
     """Harness sanity-check — run before any real model to confirm the pipeline works.
@@ -160,6 +160,9 @@ class NoisyOracle:
         out_series = [self._perturb(s, lo, hi, span) for s in entry.series]
         chart = ChartData(chart_type=entry.chart_type, series=out_series)
         return chart.model_dump(), {}
+
+
+Extractor = ChatCompletionsVLM | NoisyOracle
 
 
 # --------------------------------------------------------------------------- #

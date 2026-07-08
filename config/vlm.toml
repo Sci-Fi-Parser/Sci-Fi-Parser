@@ -23,7 +23,9 @@ model = "qwen2.5vl:3b"
 # Endpoint URL of the OpenAI-compatible chat-completions server: ollama's
 # /v1 compat layer, llama.cpp llama-server, vLLM, LM Studio, OpenAI.
 #   [default: "http://localhost:11434/v1"]   (local ollama)
-# base_url = "http://localhost:8000/v1"
+# 11434: ollama default port
+# 8080: llama.cpp default port
+# base_url = "http://localhost:8080/v1"
 
 # Env var holding the API key; a dummy key is sent if it is unset (keyless
 # local servers work either way).
