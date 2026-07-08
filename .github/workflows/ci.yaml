@@ -20,7 +20,12 @@ jobs:
         run: uv sync --group dev
 
       - name: Run unit tests
-        run: uv run pytest
+        run: uv run pytest --cov --cov-branch --cov-report=xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Lint
         run: PYTHONPATH=src uv run pylint src --fail-under=9.0

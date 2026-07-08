@@ -1,6 +1,6 @@
 # Scientific Figure Parser
 
-[![CI](https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/actions/workflows/ci.yaml/badge.svg)](https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/actions/workflows/ci.yaml)
+[![CI](https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/actions/workflows/ci.yaml/badge.svg)](https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/actions/workflows/ci.yaml) [![codecov](https://codecov.io/gh/Sci-Fi-Parser/Sci-Fi-Parser/graph/badge.svg?token=BOEBN5S4C7)](https://codecov.io/gh/Sci-Fi-Parser/Sci-Fi-Parser) [![docs](https://app.readthedocs.org/projects/Sci-Fi-Parser/badge/?version=project-demo&style=flat-default)](https://sci-fi-parser.readthedocs.io/en/latest)
 
 Sci-Fi-Parser is a Python package that provides a pipeline to take charts from PDF documents and extract data from them.
 
@@ -12,7 +12,7 @@ $ pip install sci-fi-parser
 
 ## Usage
 
-For full api usage, consult the documentation.
+Full documentation can be found [here](https://sci-fi-parser.readthedocs.io/en/latest).
 
 ```python
 from sci_fi_parser import parse_folder
