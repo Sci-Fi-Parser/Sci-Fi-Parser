@@ -8,7 +8,9 @@ def test_classifier_with_default_parameters():
     im_path = IMAGE_PATH
     classifier_output = classifier.classify_image(im_path)
     assert classifier_output[0] in ["graphs_d", "graphs_h", "graphs_l", "graphs_s", "graphs_v", "graphs_val"]
-    assert 0 <= classifier_output[1] <= 1
+    for v in classifier_output[1].values():
+        assert 0<=v<=1
+    assert abs(1-sum(classifier_output[1].values()))<0.001
 
 
 def test_docling_model_output():
