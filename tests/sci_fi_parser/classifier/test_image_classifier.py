@@ -16,4 +16,4 @@ def test_docling_model_output():
     im_path = IMAGE_PATH
     classifier_output = classifier.classify_image(im_path)
     assert classifier_output[0] == "line_chart"
-    assert 1 - classifier_output[1] < 0.01
+    assert (1 - classifier_output[1]["line_chart"]) < 0.01
