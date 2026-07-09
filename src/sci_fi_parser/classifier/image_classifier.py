@@ -10,7 +10,7 @@ from sci_fi_parser.classifier.cnn import CNNClassifier
 
 
 class ImageClassifier:
-    def __init__(self, image_labels: Optional[List], model: Optional[CNNClassifier] = None, 
+    def __init__(self, image_labels: Optional[List] = None, model: Optional[CNNClassifier] = None, 
                  image_transform: Optional[transforms.transforms.Compose]=None):
         if image_labels is None:
             self.image_labels = ImageClassifier.create_dummy_labels()
