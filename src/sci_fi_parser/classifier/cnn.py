@@ -3,6 +3,9 @@ import torch.nn as nn
 
 
 class ConvBlock(nn.Module):
+    """
+    A basic building block of a convolutional neural network consisting of a convolutional layer, ReLU activation and a pooling layer
+    """
     def __init__(self, channels_in: int, channels_out: int, kernel_size: int, pool_size: int):
         super().__init__()
         self.block = nn.Sequential(
@@ -48,7 +51,16 @@ class CNNClassifier(nn.Module):
             nn.Softmax(dim=-1),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Compute and return the output of the entire network for some input:
+
+        params:
+            x: network input
+        
+        returns:
+            the output of the network corresponding to the input x
+        """
         x = self.features(x)
         return self.classifier(x)
 
@@ -65,9 +77,10 @@ if __name__ == "__main__":
     )
 
     dummy_input = torch.randn(8, 3, 256, 256)  # batch of 8 RGB images
-    output = model(dummy_input)
 
     with torch.no_grad():
+        output = model(dummy_input)
+        print(type(output))
         print(f"Input shape : {dummy_input.shape}")
         print(f"Output shape: {output.shape}")  # (8, 10)
         print(f"Parameters  : {sum(p.numel() for p in model.parameters()):,}")
