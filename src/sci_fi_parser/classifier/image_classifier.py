@@ -29,7 +29,7 @@ class ImageClassifier:
                 )  # A dummy batch dimension is added to the tensor
                 model_output = self.model.forward(as_tensor)
                 label_index = torch.argmax(model_output).item()
-                scores = {label: val.item() for label, val in zip(self.image_labels, model_output[0])}
+                scores = {label: val.item() for label, val in zip(self.image_labels, model_output[0], strict=True)}
                 label = self.image_labels[label_index]
                 return label, scores[label]
 
@@ -75,11 +75,10 @@ class DoclingClassifier(ImageClassifier):
         )
 
     def classify_image(self, image_path):
-        with Image.open(image_path) as im:
+        with Image.open(image_path) as im, torch.no_grad():
             im = im.convert("RGB")
             as_tensor = torch.unsqueeze(self.transform(im), 0)
-            with torch.no_grad():
-                logits = self.model(as_tensor).logits
+            logits = self.model(as_tensor).logits
         probs = torch.softmax(logits, dim=-1)
         pred_id = probs.argmax(dim=-1).item()
         score = probs[0, pred_id].item()
