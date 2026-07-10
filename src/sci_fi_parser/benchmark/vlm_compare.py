@@ -415,7 +415,6 @@ _LEADER_COLS = [
     ("Bar Δ", "bar_count_err_total", _int_or_dash),
     ("Recall", "recall", _pct100),
     ("Type acc", "type_accuracy", _pct100),
-    ("Mean conf", "mean_confidence", _val),
     ("Mean time", "mean_sec", _secs),
     ("Total time", "total_sec", _secs),
 ]
@@ -505,7 +504,7 @@ def _safe_run(
         agg = run_benchmark(
             data=data,
             out=out,
-            extractor_name="ollama",
+            extractor_name="vlm",
             profile=entry.profile,
             seed=seed,
             limit=limit,

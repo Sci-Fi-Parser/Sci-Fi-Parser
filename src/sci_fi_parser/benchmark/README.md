@@ -53,11 +53,13 @@ benchmark --data train_data/synthetic --out reports/run1
 ```
 
 The default extractor is `noisy-oracle` (a test double that perturbs truth) so
-the harness runs without an ollama server. For a real model, install
+the harness runs without a model server. For a real model, install
 [ollama](https://ollama.com) locally, `ollama pull qwen2.5vl:7b`, then use
-`--extractor ollama` to pick up the model declared in
+`--extractor vlm` to pick up the model declared in
 [../../../config/vlm.toml](../../../config/vlm.toml) — or override per-run
-with `--extractor ollama:<tag>`.
+with `--extractor vlm:<tag>`. The extractor talks to any OpenAI-compatible
+chat-completions endpoint (`base_url` in the profile); ollama's `/v1` compat
+layer is the default.
 
 **Metrics**
 - Error = `|predicted − true|` as **% of the true value**. Hover any card in
@@ -76,14 +78,13 @@ with `--extractor ollama:<tag>`.
 
 ## Configuring the VLM extractor
 
-The active model, prompt, and ollama options live in
+The active model, prompt, and endpoint live in
 [../../../config/vlm.toml](../../../config/vlm.toml). Edit that file to swap
 models permanently, or override on the CLI for one-offs:
 
 ```bash
-benchmark --data ... --extractor ollama:qwen2.5vl:7b-q8_0   # one-shot
-benchmark --data ... --vlm-config config/vlm_q8.toml         # A/B test
-BENCH_NUM_GPU=18 benchmark --data ... --extractor ollama    # env override
+benchmark --data ... --extractor vlm:qwen2.5vl:7b-q8_0   # one-shot
+benchmark --data ... --vlm-config config/vlm_q8.toml      # A/B test
 ```
 
 Resolution order: CLI flag > `config/vlm.toml` in cwd > built-in defaults.
@@ -103,9 +104,9 @@ class MyExtractor:
 ```
 
 Register it in `build_extractor` ([benchmark.py](benchmark.py)). `ChartData`
-is the single canonical schema every extractor must return: VLMs are
-constrained to emit it (via `format=ChartData.model_json_schema()` in ollama),
-CV+OCR pipelines are mapped into it.
+is the single canonical schema every extractor must return: the VLM is
+constrained to emit it (via `response_format: json_schema`), CV+OCR pipelines
+are mapped into it.
 
 > Note: pure OCR is *not* a standalone extractor (it reads text, not data
 > points) — pair it with CV.
@@ -120,7 +121,7 @@ accuracy/
   synthetic/        # ground-truth chart generator
 ```
 
-The VLM extractor itself (`OllamaVLM` + `VLMProfile` + `load_profile`) lives
+The VLM extractor itself (`ChatCompletionsVLM` + `VLMProfile` + `load_profile`) lives
 in the sibling package [../vlm/](../vlm/) — separated from this package so
 non-benchmark callers (e.g. the runtime pipeline) can import the model
 client without pulling in the measurement machinery.

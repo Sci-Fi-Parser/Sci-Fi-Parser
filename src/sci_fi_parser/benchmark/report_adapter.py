@@ -27,7 +27,6 @@ def value_results_to_draw_lap_charts(results: list[benchmark.ChartResult]) -> li
                 "errors_pct": list(result.errors_pct),
                 "span": result.span,
                 "seconds": result.seconds,
-                "confidence": result.confidence,
                 "truth": [[s, c, tv] for (s, c), tv in result.truth.items()],
                 "pred": [[s, c, pv] for (s, c), pv in result.pred.items()],
             }
