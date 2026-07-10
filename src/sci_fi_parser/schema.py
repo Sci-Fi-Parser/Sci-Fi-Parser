@@ -32,12 +32,12 @@ class Classification(TypedDict):
     raw: dict[str, Any]
 
 
-class OCRCV(TypedDict):
+class OcrCv(TypedDict):
     result: str
     raw: dict[str, Any]
 
 
-class VLM(TypedDict):
+class Vlm(TypedDict):
     result: dict[str, Any]
     raw: dict[str, Any]
 
@@ -46,8 +46,8 @@ class ImageRecord(TypedDict):
     metadata: Metadata
     output: Output
     classification: Classification
-    ocrcv: OCRCV
-    vlm: VLM
+    ocrcv: OcrCv
+    vlm: Vlm
 
 
 class ImageSet:

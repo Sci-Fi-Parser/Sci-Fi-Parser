@@ -55,8 +55,6 @@ Issues = "https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/issues"
 cv = ["opencv-python>=4.10"]
 
 [project.scripts]
-benchmark = "sci_fi_parser.benchmark.benchmark:main"
-benchmark-compare = "sci_fi_parser.benchmark.vlm_compare:main"
 bench-pipeline = "sci_fi_parser.benchmark.bench_pipeline:main"
 parse-chart = "sci_fi_parser.main:main"
 synthetic-bars = "scripts.synthetic.cli:main"
