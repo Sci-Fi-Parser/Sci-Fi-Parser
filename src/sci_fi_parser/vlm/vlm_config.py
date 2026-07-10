@@ -30,7 +30,6 @@ class VLMProfile:
     prompt: str = DEFAULT_PROMPT
     base_url: str = "http://localhost:11434/v1"
     api_key_env: str = "OPENAI_API_KEY"
-    response_format: str = "json_schema"
 
 
 def load_profile(path: Path) -> VLMProfile:

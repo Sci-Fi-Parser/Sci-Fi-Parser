@@ -32,13 +32,6 @@ model = "qwen2.5vl:3b"
 #   [default: "OPENAI_API_KEY"]
 # api_key_env = "OPENAI_API_KEY"
 
-# JSON-constraint strategy.
-#   [default: "json_schema"]   options: "json_schema" | "json_object"
-#   "json_schema" -> send the ChartData schema (grammar-constrained; best for
-#                    ollama / llama.cpp / vLLM / OpenAI structured outputs)
-#   "json_object" -> ask only for valid JSON; relies on the prompt + repair
-# response_format = "json_schema"
-
 # Prompt prepended to every chart image. Field names must match the ChartData
 # schema: chart_type, series[].name, series[].points[].x / .y, confidence.
 prompt = """Extract the data from this chart.
