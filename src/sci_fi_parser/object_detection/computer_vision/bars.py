@@ -1,3 +1,5 @@
+"""Computer vision helpers for detecting bar-like chart regions."""
+
 from dataclasses import dataclass
 
 import cv2
@@ -8,6 +10,15 @@ from sci_fi_parser.object_detection.computer_vision.config import CvConfig
 
 @dataclass(slots=True)
 class BoundingBox:
+    """Axis-aligned bounding box for a detected bar region.
+
+    Attributes:
+        x: Left coordinate of the box.
+        y: Top coordinate of the box.
+        width: Box width in pixels.
+        height: Box height in pixels.
+    """
+
     x: int
     y: int
     width: int
@@ -32,13 +43,25 @@ class BoundingBox:
 
 @dataclass(slots=True)
 class BarCandidate:
+    """Candidate bar detection result.
+
+    Attributes:
+        bbox: Bounding box covering the detected bar.
+    """
+
     bbox: BoundingBox
 
 
-def detect_bars(
-    image: np.ndarray,
-    config: CvConfig | None = None,
-) -> list[BarCandidate]:
+def detect_bars(image: np.ndarray, config: CvConfig | None = None) -> list[BarCandidate]:
+    """Detect vertical bar candidates in an image.
+
+    Args:
+        image: Input image in grayscale or BGR format.
+        config: Optional computer vision configuration.
+
+    Returns:
+        A list of bar candidates sorted from left to right.
+    """
     config = config or CvConfig()
 
     image_height, image_width = image.shape[:2]
@@ -46,13 +69,9 @@ def detect_bars(
     if image_width == 0 or image_height == 0:
         return []
 
-    binary = threshold_foreground(image)
+    binary = _threshold_foreground(image)
 
-    contours, _ = cv2.findContours(
-        binary,
-        cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE,
-    )
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     min_bar_area = image_height * image_width * config.min_bar_area_ratio
     max_bar_width = max(
@@ -86,28 +105,28 @@ def detect_bars(
             height=height,
         )
 
-        bars.append(
-            BarCandidate(
-                bbox=box,
-            )
-        )
+        bars.append(BarCandidate(bbox=box))
 
     bars.sort(key=lambda bar: bar.bbox.x)
 
     return bars
 
 
-def threshold_foreground(image: np.ndarray) -> np.ndarray:
+def _threshold_foreground(image: np.ndarray) -> np.ndarray:
+    """Convert an image to a binary foreground mask.
+
+    Args:
+        image: Input image in grayscale or BGR format.
+
+    Returns:
+        A binary mask where foreground pixels are white.
+    """
+
     if len(image.shape) == 3:
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         saturation = hsv[:, :, 1]
 
-        _, binary = cv2.threshold(
-            saturation,
-            0,
-            255,
-            cv2.THRESH_BINARY | cv2.THRESH_OTSU,
-        )
+        _, binary = cv2.threshold(saturation, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 
         # Remove thin label connections while preserving vertical bar blobs.
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 5))
@@ -115,19 +134,23 @@ def threshold_foreground(image: np.ndarray) -> np.ndarray:
 
         return binary
 
-    gray = to_grayscale(image)
+    gray = _to_grayscale(image)
 
-    _, binary = cv2.threshold(
-        gray,
-        0,
-        255,
-        cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU,
-    )
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
 
     return binary
 
 
-def to_grayscale(image: np.ndarray) -> np.ndarray:
+def _to_grayscale(image: np.ndarray) -> np.ndarray:
+    """Convert an image to grayscale.
+
+    Args:
+        image: Input image in grayscale or BGR format.
+
+    Returns:
+        A grayscale image.
+    """
+
     if len(image.shape) == 2:
         return image
 
