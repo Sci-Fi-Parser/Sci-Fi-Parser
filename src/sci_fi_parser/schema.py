@@ -159,11 +159,11 @@ class ImageSet:
         record["vlm"]["raw"] = vlm_raw_data
 
     def get_vlm_result(self, image_id: str) -> dict[str, Any]:
-        """Get VLM result for an from its id"""
+        """Get VLM result for an image from its id"""
         return self._data[image_id]["vlm"]["result"]
 
     def get_vlm_raw(self, image_id: str) -> dict[str, Any]:
-        """Get VLM result for an from its id"""
+        """Get VLM result for an image from its id"""
         return self._data[image_id]["vlm"]["raw"]
 
     @staticmethod

@@ -82,6 +82,3 @@ omit = [
     "config.py",
     "config-3.py",
 ]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/sci_fi_parser", "scripts"]

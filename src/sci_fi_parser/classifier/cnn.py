@@ -4,8 +4,10 @@ import torch.nn as nn
 
 class ConvBlock(nn.Module):
     """
-    A basic building block of a convolutional neural network consisting of a convolutional layer, ReLU activation and a pooling layer
+    A basic building block of a convolutional neural network consisting of a convolutional layer,
+    ReLU activation and a pooling layer
     """
+
     def __init__(self, channels_in: int, channels_out: int, kernel_size: int, pool_size: int):
         super().__init__()
         self.block = nn.Sequential(
@@ -57,7 +59,7 @@ class CNNClassifier(nn.Module):
 
         params:
             x: network input
-        
+
         returns:
             the output of the network corresponding to the input x
         """
