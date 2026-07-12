@@ -123,7 +123,7 @@ def run_vlm_stage(inputs: PipelineInputs, extractor: benchmark.Extractor) -> Non
             parsed_payload = ChartData.model_validate(parsed).model_dump()
         except Exception as exc:
             print(f"  ! {path.name}: {type(exc).__name__}: {exc}")
-            parsed_payload = ChartData(chart_type=None, series=[]).model_dump()
+            parsed_payload = ChartData(chart_type=None, series=[], log_scale=None).model_dump()
             raw = {"error": f"{type(exc).__name__}: {exc}"}
         inputs.image_set.add_vlm_result(image_id, parsed_payload)
         inputs.image_set.add_vlm_result_raw(image_id, raw)

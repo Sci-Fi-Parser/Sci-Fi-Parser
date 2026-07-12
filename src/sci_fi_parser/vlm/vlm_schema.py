@@ -20,6 +20,6 @@ class Series(BaseModel):
 
 
 class ChartData(BaseModel):
-    chart_type: ChartType
-    log_scale: bool
-    series: list[Series]
+    chart_type: ChartType | None
+    log_scale: bool | None
+    series: list[Series] | None

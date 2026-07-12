@@ -87,5 +87,4 @@ class ChatCompletionsVLM:
         resp.raise_for_status()
         raw_data = resp.json()
         content = raw_data["choices"][0]["message"]["content"]
-        print(content)
         return (ChartData.model_validate_json(content).model_dump(), raw_data)
