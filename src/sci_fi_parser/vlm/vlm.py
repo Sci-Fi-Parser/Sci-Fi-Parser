@@ -44,6 +44,7 @@ class ChatCompletionsVLM:
         self._prompt = profile.prompt
         self._base_url = profile.base_url.rstrip("/")
         self._api_key = os.environ.get(profile.api_key_env) or "sk-no-key"
+        self._schema = _inlined_chartdata_schema()
 
     def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
         # TODO: DOCSTRING
@@ -71,7 +72,7 @@ class ChatCompletionsVLM:
             ],
             "response_format": {
                 "type": "json_schema",
-                "json_schema": {"name": "ChartData", "schema": _inlined_chartdata_schema()},
+                "json_schema": {"name": "ChartData", "schema": self._schema},
             },
             "seed": 1,
             "temperature": 0,
@@ -86,4 +87,5 @@ class ChatCompletionsVLM:
         resp.raise_for_status()
         raw_data = resp.json()
         content = raw_data["choices"][0]["message"]["content"]
+        print(content)
         return (ChartData.model_validate_json(content).model_dump(), raw_data)
