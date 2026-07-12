@@ -29,7 +29,7 @@ class VLMProfile:
     model: str = "qwen2.5vl:7b"
     prompt: str = DEFAULT_PROMPT
     base_url: str = "http://localhost:11434/v1"
-    api_key_env: str = "OPENAI_API_KEY"
+    api_key_env: str = "API_KEY"
 
 
 def load_profile(path: Path) -> VLMProfile:
