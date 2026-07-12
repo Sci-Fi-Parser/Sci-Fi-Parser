@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+from sci_fi_parser.schema import ImageSet
+from sci_fi_parser.vlm import vlm_pipeline
+from sci_fi_parser.vlm.vlm_config import VLMProfile
+
+
+def _image_record(image_path: Path, chart_type: str, ocr_result: str = "") -> dict:
+    record = ImageSet._empty_record(image_path)
+    record["classification"]["result"] = chart_type
+    record["ocrcv"]["result"] = ocr_result
+    return record
+
+
+class _FakeVLM:
+    def __init__(self, profile, failing_paths: set[Path] | None = None):
+        self.profile = profile
+        self.failing_paths = failing_paths or set()
+        self.calls: list[tuple[Path, str]] = []
+
+    def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
+        self.calls.append((image_path, prompt_suffix))
+        if image_path in self.failing_paths:
+            raise RuntimeError("extraction failed")
+        return ({"chart_type": "vertical_bar"}, {"choices": []})
+
+
+def test_start_vlm_extracts_only_supported_charts(monkeypatch, tmp_path):
+    image_set = ImageSet()
+    bar_path = tmp_path / "bar.png"
+    image_set.add("bar-1", _image_record(bar_path, "bar_chart", "ocr text"))
+    image_set.add("line-1", _image_record(tmp_path / "line.png", "line_chart"))
+
+    created: list[_FakeVLM] = []
+
+    def fake_vlm(profile):
+        vlm = _FakeVLM(profile)
+        created.append(vlm)
+        return vlm
+
+    monkeypatch.setattr(vlm_pipeline, "ChatCompletionsVLM", fake_vlm)
+
+    profile = VLMProfile()
+    vlm_pipeline.start_vlm(image_set, profile)
+
+    assert created[0].profile is profile
+    assert created[0].calls == [(bar_path, "ocr text")]
+    assert image_set.get_vlm_result("bar-1") == {"chart_type": "vertical_bar"}
+    assert image_set.get_vlm_raw("bar-1") == {"choices": []}
+    assert image_set.get("line-1")["vlm"]["result"] == {}
+
+
+def test_start_vlm_continues_after_extraction_failure(monkeypatch, tmp_path, caplog):
+    image_set = ImageSet()
+    failing_path = tmp_path / "broken.png"
+    working_path = tmp_path / "working.png"
+    image_set.add("broken-1", _image_record(failing_path, "bar_chart"))
+    image_set.add("working-1", _image_record(working_path, "bar_chart"))
+
+    monkeypatch.setattr(
+        vlm_pipeline,
+        "ChatCompletionsVLM",
+        lambda profile: _FakeVLM(profile, failing_paths={failing_path}),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        vlm_pipeline.start_vlm(image_set, VLMProfile())
+
+    assert "broken-1" in caplog.text
+    assert image_set.get("broken-1")["vlm"]["result"] == {}
+    assert image_set.get_vlm_result("working-1") == {"chart_type": "vertical_bar"}
+
+
+def test_start_vlm_loads_profile_from_path(monkeypatch, tmp_path):
+    config_path = tmp_path / "vlm.toml"
+    profile = VLMProfile(model="from-toml")
+    loaded: list[Path] = []
+    created: list[VLMProfile] = []
+
+    def fake_load(path):
+        loaded.append(path)
+        return profile
+
+    def fake_vlm(p):
+        created.append(p)
+        return _FakeVLM(p)
+
+    monkeypatch.setattr(vlm_pipeline, "load_profile", fake_load)
+    monkeypatch.setattr(vlm_pipeline, "ChatCompletionsVLM", fake_vlm)
+
+    vlm_pipeline.start_vlm(ImageSet(), config_path)
+
+    assert loaded == [config_path]
+    assert created == [profile]
