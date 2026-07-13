@@ -9,7 +9,6 @@ from sci_fi_parser.schema import ImageSet, PdfSet
 from sci_fi_parser.storage.writer import save_image_set
 from sci_fi_parser.vlm.vlm_pipeline import start_vlm
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_EXTRACTED_IMAGE_DIR = PROJECT_ROOT / "temp" / "extracted_images"
