@@ -13,7 +13,12 @@ _SUPPORTED_CHARTS = ["bar_chart"]
 
 
 def start_vlm(image_set: ImageSet, profile: VLMProfile | Path) -> None:
-    # TODO: DOCSTRING
+    """Run VLM pipeline over an `ImageSet`.
+
+    Args:
+        image_set: An `ImageSet` instance.
+        profile: `VLMProfile` instance or `Path` to a config .toml.
+    """
     if not isinstance(profile, VLMProfile):
         profile = load_profile(profile)
     vlm = ChatCompletionsVLM(profile)

@@ -43,7 +43,7 @@ class ChatCompletionsVLM:
         self._model = self.name
         self._prompt = profile.prompt
         self._base_url = profile.base_url.rstrip("/")
-        self._api_key = os.environ.get(profile.api_key_env) or "sk-no-key"
+        self._api_key = os.environ.get(profile.api_key) or "sk-no-key"
         self._schema = _inlined_chartdata_schema()
 
     def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:

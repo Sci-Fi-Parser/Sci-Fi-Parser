@@ -26,15 +26,30 @@ DEFAULT_PROMPT = (
 
 @dataclass(slots=True)
 class VLMProfile:
-    # TODO: DOCSTRING
+    """VLM profile with defaults.
+
+    Args:
+        model: requested model, for Ollama endpoint
+        prompt: prompt for a VLM generation request
+        base_url: base url of the VLM endpoint
+        api_key: API key of the endpoint, if any
+    """
+
     model: str = "qwen2.5vl:7b"
     prompt: str = DEFAULT_PROMPT
     base_url: str = "http://localhost:11434/v1"
-    api_key_env: str = "API_KEY"
+    api_key: str = "API_KEY"
 
 
 def load_profile(path: Path) -> VLMProfile:
-    # TODO: DOCSTRING
+    """Loads a VLM config from a .toml file and checks if its valid.
+
+    Args:
+        path: `Path` to the config .toml file.
+
+    Returns:
+        VLMProfile instance with the specified config.
+    """
     with path.open("rb") as fh:
         raw = tomllib.load(fh)
     valid = {f.name for f in fields(VLMProfile)}
