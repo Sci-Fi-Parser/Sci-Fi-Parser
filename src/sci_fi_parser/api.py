@@ -13,7 +13,7 @@ from sci_fi_parser.vlm.vlm_pipeline import start_vlm
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_EXTRACTED_IMAGE_DIR = PROJECT_ROOT / "temp" / "extracted_images"
-DEFAULT_VLM_CONFIG = PROJECT_ROOT / "src" / "sci_fi_parser" /"config" / "vlm.toml"
+DEFAULT_VLM_CONFIG = PROJECT_ROOT / "src" / "sci_fi_parser" / "config" / "vlm.toml"
 
 
 class ParseResult:
@@ -66,9 +66,7 @@ class ParseResult:
     def _require_saved_output(self) -> Path:
         if self._output_dir is None:
             raise ValueError(
-                "No output directory available. "
-                "Pass output_dir to parse_folder() "
-                "or call result.save(...)."
+                "No output directory available. Pass output_dir to parse_folder() or call result.save(...)."
             )
 
         return self._output_dir
@@ -80,9 +78,7 @@ class ParseResult:
 
         output_dir = self._require_saved_output()
 
-        return pd.read_parquet(
-            output_dir / "tables" / "charts.parquet"
-        )
+        return pd.read_parquet(output_dir / "tables" / "charts.parquet")
 
     def series_dataframe(self) -> pd.DataFrame:
         """
@@ -91,9 +87,7 @@ class ParseResult:
 
         output_dir = self._require_saved_output()
 
-        return pd.read_parquet(
-            output_dir / "tables" / "series.parquet"
-        )
+        return pd.read_parquet(output_dir / "tables" / "series.parquet")
 
     def points_dataframe(self) -> pd.DataFrame:
         """
@@ -102,9 +96,7 @@ class ParseResult:
 
         output_dir = self._require_saved_output()
 
-        return pd.read_parquet(
-            output_dir / "tables" / "points.parquet"
-        )
+        return pd.read_parquet(output_dir / "tables" / "points.parquet")
 
 
 def parse_folder(

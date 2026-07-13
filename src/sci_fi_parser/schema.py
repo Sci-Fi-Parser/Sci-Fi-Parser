@@ -7,6 +7,7 @@ Classes:
 ImageSet stores per-image records for extraction, classification, OCR/CV, and VLM stages.
 PdfSet stores per-PDF metadata such as file name and page count.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
