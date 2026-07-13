@@ -20,7 +20,7 @@ DEFAULT_PROMPT = (
     "- Watch y-axis units: '200K' = 200000, '1.5M' = 1500000, "
     "'2.3B' = 2300000000. Return plain numbers, no suffixes, no extra zeros.\n"
     "- Do not output series, categories, or values that do not appear on "
-    "the chart. If the image is not a chart, output empty JSON."
+    'the chart. If the image is not a chart, set chart_type to "none" and series to an empty list.'
 )
 
 
