@@ -11,7 +11,8 @@ One canonical schema, many extractors
 -------------------------------------
 Every extractor -- VLM, CV+OCR pipeline, chart-specialized model -- is adapted to
 a single :class:`ChartData` schema, so comparisons are apples-to-apples. Add an
-extractor by implementing ``Extractor.extract(image_path) -> (chartdata_dict, raw)``.
+extractor by implementing ``extract(image_path) -> (chartdata_dict, raw)`` plus a
+``name``, and adding the class to the ``Extractor`` union.
 
 Note: pure OCR is *not* a standalone value extractor (it reads text, not data
 points) -- benchmark it as part of a CV+OCR pipeline.
@@ -38,12 +39,11 @@ from statistics import mean
 import numpy as np
 
 from sci_fi_parser.benchmark.truth import ChartTruth
-from sci_fi_parser.vlm.vlm import ChatCompletionsVLM, OllamaVLM
+from sci_fi_parser.vlm.vlm import ChatCompletionsVLM
 from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 from sci_fi_parser.vlm.vlm_schema import (
     ChartData,
     ChartType,
-    Extractor,
     Point,
     Series,
 )
@@ -71,7 +71,7 @@ def series_map(chart: ChartData) -> dict[tuple[str, str], float]:
 
 
 # --------------------------------------------------------------------------- #
-# Test double + Ollama skeleton (the Extractor protocol lives in sci_fi_parser.vlm.vlm_schema)
+# Test double
 # --------------------------------------------------------------------------- #
 class NoisyOracle:
     """Harness sanity-check — run before any real model to confirm the pipeline works.
@@ -153,15 +153,16 @@ class NoisyOracle:
             bias = float(self._rng.uniform(-50, 50))
             spread = float(self._rng.uniform(5, 80))
             out_series = [self._mock_series(s, bias, spread) for s in entry.series]
-            conf = float(np.clip(self._rng.normal(0.7, 0.15), 0, 1))
-            chart = ChartData(chart_type=entry.chart_type, series=out_series, confidence=conf)
+            chart = ChartData(chart_type=entry.chart_type, series=out_series)
             return chart.model_dump(), {}
         lo, hi = entry.data_range
         span = abs(hi - lo) or 1.0
         out_series = [self._perturb(s, lo, hi, span) for s in entry.series]
-        conf = float(np.clip(self._rng.normal(0.9, 0.05), 0, 1))
-        chart = ChartData(chart_type=entry.chart_type, series=out_series, confidence=conf)
+        chart = ChartData(chart_type=entry.chart_type, series=out_series)
         return chart.model_dump(), {}
+
+
+Extractor = ChatCompletionsVLM | NoisyOracle
 
 
 # --------------------------------------------------------------------------- #
@@ -194,7 +195,6 @@ class ChartResult:
     seconds: float = 0.0  # extractor wall-clock time for this image
     type_true: ChartType | None = None
     type_pred: ChartType | None = None
-    confidence: float | None = None  # VLM self-reported confidence, if any
 
     @property
     def mean_pct(self) -> float:
@@ -266,7 +266,6 @@ def aggregate(results: list[ChartResult]) -> dict:
     all_err = np.array([e for r in results for e in r.errors_pct], dtype=float)
     all_val = np.array([e for r in results for e in r.value_errors_pos], dtype=float)
     secs = np.array([r.seconds for r in results], dtype=float)
-    confs = np.array([r.confidence for r in results if r.confidence is not None], dtype=float)
     total_true = sum(r.n_true for r in results) or 1
     total_pred = sum(r.n_pred for r in results) or 1
     total_matched = sum(r.matched for r in results)
@@ -293,7 +292,6 @@ def aggregate(results: list[ChartResult]) -> dict:
         "within_1pct": float((all_err <= 1).mean()) if all_err.size else float("nan"),
         "within_5pct": float((all_err <= 5).mean()) if all_err.size else float("nan"),
         "type_accuracy": (n_type_match / n_type_known) if n_type_known else float("nan"),
-        "mean_confidence": float(confs.mean()) if confs.size else float("nan"),
         "mean_sec": float(secs.mean()) if secs.size else 0.0,
         "median_sec": float(np.median(secs)) if secs.size else 0.0,
         "p95_sec": float(np.percentile(secs, 95)) if secs.size else 0.0,
@@ -335,17 +333,11 @@ def build_extractor(
 ) -> Extractor:
     if name == "noisy-oracle":
         return NoisyOracle(truth, rng)
-    if name == "ollama":
-        return OllamaVLM(profile=profile)
-    if name.startswith("ollama:"):
-        return OllamaVLM(profile=profile, model_override=name.split(":", 1)[1])
-    if name == "api":
+    if name == "vlm":
         return ChatCompletionsVLM(profile=profile)
-    if name.startswith("api:"):
+    if name.startswith("vlm:"):
         return ChatCompletionsVLM(profile=profile, model_override=name.split(":", 1)[1])
-    raise SystemExit(
-        f"unknown extractor {name!r} (try: noisy-oracle, ollama, ollama:<model>, api, api:<model>)"
-    )
+    raise SystemExit(f"unknown extractor {name!r} (try: noisy-oracle, vlm, vlm:<model>)")
 
 
 def _resolve_profile(config_arg: Path | None) -> VLMProfile:
@@ -376,7 +368,6 @@ def _write_results_json(out: Path, extractor: Extractor, agg: dict, results: lis
                 "type_true": r.type_true,
                 "type_pred": r.type_pred,
                 "type_matched": r.type_matched,
-                "confidence": r.confidence,
             }
             for r in results
         ],
@@ -393,15 +384,12 @@ def _print_summary(extractor: Extractor, agg: dict, results: list[ChartResult], 
     errs = f"{_pct(agg['mean_pct'])} / {_pct(agg['median_pct'])} / {_pct(agg['p95_pct'])}"
     type_acc = agg["type_accuracy"]
     type_str = "-" if math.isnan(type_acc) else f"{type_acc * 100:.0f}%"
-    conf = agg["mean_confidence"]
-    conf_str = "-" if math.isnan(conf) else f"{conf:.2f}"
     print(f"\n  extractor : {extractor.name}")
     print(f"  charts    : {agg['n_charts']}  ({agg['n_bars_true']} bars)")
     print(f"  mean/med/p95 error : {errs}  (% of axis range)")
     print(f"  recall/precision   : {agg['recall'] * 100:.1f}% / {agg['precision'] * 100:.1f}%")
     print(f"  within 1% / 5%     : {agg['within_1pct'] * 100:.0f}% / {agg['within_5pct'] * 100:.0f}%")
     print(f"  type accuracy      : {type_str}")
-    print(f"  mean confidence    : {conf_str}")
     print(f"  missed/extra bars  : {agg['missed_total']} / {agg['extra_total']}")
     print(
         f"  time per chart     : mean {agg['mean_sec']:.1f} s · "

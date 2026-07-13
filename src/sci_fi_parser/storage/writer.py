@@ -56,7 +56,6 @@ def save_image_set(image_set, output_dir: Path) -> None:
                     "source_type": extraction.get("source_type"),
                     "image_path": str(output.get("path")) if output.get("path") is not None else None,
                     "chart_type": vlm_result.get("chart_type"),
-                    "confidence": vlm_result.get("confidence"),
                     "model": vlm_raw.get("model"),
                     "created_at": vlm_raw.get("created_at"),
                     "total_duration": vlm_raw.get("total_duration"),

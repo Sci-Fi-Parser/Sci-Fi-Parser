@@ -7,10 +7,47 @@ Classes:
 ImageSet stores per-image records for extraction, classification, OCR/CV, and VLM stages.
 PdfSet stores per-PDF metadata such as file name and page count.
 """
+
 from __future__ import annotations
 
+from collections.abc import ItemsView, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, NotRequired, TypedDict
+
+
+class Metadata(TypedDict):
+    extraction: dict[str, Any]
+    classification: dict[str, Any]
+    ocrcv: dict[str, Any]
+    vlm: dict[str, Any]
+    benchmark: NotRequired[dict[str, Any]]
+
+
+class Output(TypedDict):
+    path: Path
+
+
+class Classification(TypedDict):
+    result: str
+    raw: dict[str, Any]
+
+
+class OcrCv(TypedDict):
+    result: str
+    raw: dict[str, Any]
+
+
+class Vlm(TypedDict):
+    result: dict[str, Any]
+    raw: dict[str, Any]
+
+
+class ImageRecord(TypedDict):
+    metadata: Metadata
+    output: Output
+    classification: Classification
+    ocrcv: OcrCv
+    vlm: Vlm
 
 
 class ImageSet:
@@ -18,16 +55,16 @@ class ImageSet:
 
     def __init__(self) -> None:
         """Key: image_id, dict: metadata etc..."""
-        self._data: dict[str, dict] = {}
+        self._data: dict[str, ImageRecord] = {}
 
-    def add(self, id: str, payload: dict) -> None:
+    def add(self, id: str, payload: ImageRecord) -> None:
         self._data[id] = payload
 
-    def items(self):
+    def items(self) -> ItemsView[str, ImageRecord]:
         return self._data.items()
 
-    def get(self, id: str) -> dict | str:
-        return self._data.get(id, "")
+    def get(self, id: str) -> ImageRecord:
+        return self._data[id]
 
     def __len__(self) -> int:
         return len(self._data)
@@ -38,7 +75,7 @@ class ImageSet:
     def __str__(self) -> str:
         return str(self.__repr__)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self._data)
 
     def add_extracted_image(
@@ -53,7 +90,7 @@ class ImageSet:
         self._data[image_id] = record
 
     def filter_by_type(self, chart_type: str, limit: int = 100) -> list[str]:
-        """Return images classified as ``chart_type``, optionally capped by limit."""
+        """Returns a list of image ids classified as ``chart_type``, optionally capped by limit."""
         filtered: list[str] = []
         if limit <= 0:
             return filtered
@@ -73,37 +110,33 @@ class ImageSet:
         return self._data[image_id]["output"]["path"]
 
     # Classification
-    def add_classification_result(self, image_id: str, result) -> None:
+    def add_classification_result(self, image_id: str, result: str) -> None:
         """Add the classification result to the set."""
         record = self._data[image_id]
-        record.setdefault("classification", {})
         record["classification"]["result"] = result
 
-    def add_classification_raw(self, image_id: str, raw) -> None:
+    def add_classification_raw(self, image_id: str, raw: dict[str, Any]) -> None:
         """Add the raw classification scores to the set."""
         record = self._data[image_id]
-        record.setdefault("classification", {})
         record["classification"]["raw"] = raw
 
-    def get_classification_result(self, image_id: str):
+    def get_classification_result(self, image_id: str) -> str:
         """Get classification result for an image from its id."""
         return self._data[image_id]["classification"]["result"]
 
-    def get_classification_raw(self, image_id: str):
+    def get_classification_raw(self, image_id: str) -> dict[str, Any]:
         """Get raw classification scores for an image from its id."""
         return self._data[image_id]["classification"]["raw"]
 
     # OCR/CV
-    def add_ocrcv_raw(self, image_id: str, result: dict) -> None:
+    def add_ocrcv_raw(self, image_id: str, result: dict[str, Any]) -> None:
         """Add raw result data from OCR/CV pipeline."""
         record = self._data[image_id]
-        record.setdefault("ocrcv", {})
         record["ocrcv"]["raw"] = result
 
     def add_ocrcv_result(self, image_id: str, result: str) -> None:
         """Add contextual text from OCR/CV to be passed to VLM."""
         record = self._data[image_id]
-        record.setdefault("ocrcv", {})
         record["ocrcv"]["result"] = result
 
     def get_ocrcv_result(self, image_id: str) -> str:
@@ -115,28 +148,26 @@ class ImageSet:
         return self._data[image_id]["ocrcv"]["raw"]
 
     # VLM
-    def add_vlm_result(self, image_id: str, vlm_data: dict[str, Any]):
+    def add_vlm_result(self, image_id: str, vlm_data: dict[str, Any]) -> None:
         """Add the VLM parsed data to the set"""
         record = self._data[image_id]
-        record.setdefault("vlm", {})
         record["vlm"]["result"] = vlm_data
 
-    def add_vlm_result_raw(self, image_id: str, vlm_raw_data: dict[str, Any]):
+    def add_vlm_result_raw(self, image_id: str, vlm_raw_data: dict[str, Any]) -> None:
         """Add the VLM raw data to the set"""
         record = self._data[image_id]
-        record.setdefault("vlm", {})
         record["vlm"]["raw"] = vlm_raw_data
 
     def get_vlm_result(self, image_id: str) -> dict[str, Any]:
-        """Get VLM result for an from its id"""
+        """Get VLM result for an image from its id"""
         return self._data[image_id]["vlm"]["result"]
 
     def get_vlm_raw(self, image_id: str) -> dict[str, Any]:
-        """Get VLM result for an from its id"""
+        """Get VLM result for an image from its id"""
         return self._data[image_id]["vlm"]["raw"]
 
     @staticmethod
-    def _empty_record(image_path: Path) -> dict:
+    def _empty_record(image_path: Path) -> ImageRecord:
         return {
             "metadata": {
                 "extraction": {},
@@ -146,11 +177,11 @@ class ImageSet:
             },
             "output": {"path": image_path},
             "classification": {
-                "result": {},
+                "result": "",
                 "raw": {},
             },
             "ocrcv": {
-                "result": {},
+                "result": "",
                 "raw": {},
             },
             "vlm": {

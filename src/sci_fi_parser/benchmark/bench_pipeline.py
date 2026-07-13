@@ -31,7 +31,7 @@ from sci_fi_parser.benchmark.truth import (
 from sci_fi_parser.image_extraction.image_loader import load_images_from_folder
 from sci_fi_parser.schema import ImageSet
 from sci_fi_parser.vlm.vlm_config import VLMProfile
-from sci_fi_parser.vlm.vlm_schema import ChartData, Extractor, parse_chartdata
+from sci_fi_parser.vlm.vlm_schema import ChartData
 
 
 @dataclass(slots=True)
@@ -79,7 +79,7 @@ def load_inputs(
     for image_id in image_ids:
         key = truth_key(image_set.get_image_path(image_id))
         truth_by_image_id[image_id] = truth_by_key[key]
-        image_set.get(image_id).setdefault("metadata", {})["benchmark"] = metadata_by_key.get(key, {})
+        image_set.get(image_id)["metadata"]["benchmark"] = metadata_by_key.get(key, {})
 
     return PipelineInputs(
         image_set=image_set,
@@ -108,7 +108,7 @@ def _prompt_suffix(inputs: PipelineInputs, image_id: str) -> str:
     return f"OCR/CV context:\n{value}" if isinstance(value, str) and value else ""
 
 
-def run_vlm_stage(inputs: PipelineInputs, extractor: Extractor) -> None:
+def run_vlm_stage(inputs: PipelineInputs, extractor: benchmark.Extractor) -> None:
     from tqdm import tqdm
 
     for image_id in tqdm(inputs.truth_by_image_id):
@@ -120,23 +120,19 @@ def run_vlm_stage(inputs: PipelineInputs, extractor: Extractor) -> None:
                 path,
                 prompt_suffix=_prompt_suffix(inputs, image_id),
             )
-            parsed_payload = parse_chartdata(parsed).model_dump()
+            parsed_payload = ChartData.model_validate(parsed).model_dump()
         except Exception as exc:
             print(f"  ! {path.name}: {type(exc).__name__}: {exc}")
-            parsed_payload = ChartData(
-                chart_type=None,
-                series=[],
-                confidence=None,
-            ).model_dump()
+            parsed_payload = ChartData(chart_type=None, series=[]).model_dump()
             raw = {"error": f"{type(exc).__name__}: {exc}"}
         inputs.image_set.add_vlm_result(image_id, parsed_payload)
         inputs.image_set.add_vlm_result_raw(image_id, raw)
-        record.setdefault("metadata", {}).setdefault("vlm", {})["seconds"] = time.perf_counter() - t0
+        record["metadata"]["vlm"]["seconds"] = time.perf_counter() - t0
 
 
 def write_outputs(
     out: Path,
-    extractor: Extractor,
+    extractor: benchmark.Extractor,
     agg: dict,
     results: list[benchmark.ChartResult],
     img_dir: Path,
@@ -209,7 +205,7 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--extractor",
         default="noisy-oracle",
-        help="noisy-oracle | ollama | ollama:<model> | api | api:<model>",
+        help="noisy-oracle | vlm | vlm:<model>",
     )
     ap.add_argument("--vlm-config", type=Path, default=None, help="VLM profile TOML")
     ap.add_argument("--seed", type=int, default=0)

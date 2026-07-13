@@ -13,8 +13,7 @@ Data contract (``write_html``):
       {"image", "preset", "density", "labels_on",
        "type_true", "type_pred", "type_matched",
        "n_true", "matched", "missed", "extra",
-       "mean_pct", "max_pct", "errors_pct", "span",
-       "seconds", "confidence",
+       "mean_pct", "max_pct", "errors_pct", "span", "seconds",
        "truth": [[series, cat, true_value], ...],   # ordered
        "pred":  [[series, cat, pred_value], ...]}
 
@@ -235,11 +234,6 @@ def _type_chip(chart: dict) -> str:
     )
 
 
-def _conf_chip(chart: dict) -> str:
-    c = chart["confidence"]
-    return f" · conf {c:.2f}" if c is not None else ""
-
-
 def _detail_card(chart: dict, img_dir: Path) -> str:
     preset = html.escape(str(chart["preset"]))
     look = _pred_lookup(chart)
@@ -264,7 +258,7 @@ def _detail_card(chart: dict, img_dir: Path) -> str:
       <div class="meta">
         <b>{html.escape(str(chart["image"]))}</b> · {preset}
         · d{chart["density"]} · labels={chart["labels_on"]}
-        {_type_chip(chart)}{_conf_chip(chart)}<br/>
+        {_type_chip(chart)}<br/>
         mean {_pct(chart["mean_pct"])} · max {_pct(chart["max_pct"])}
         · {chart["seconds"]:.1f} s · missed {chart["missed"]} · extra {chart["extra"]}
         <table class="kv">{kv_head}{rows}</table>
@@ -276,8 +270,6 @@ def _summary_cards(agg: dict) -> str:
     """Top-of-report stat strip; each card has a hover description."""
     type_acc = agg["type_accuracy"]
     type_str = "-" if math.isnan(type_acc) else f"{type_acc * 100:.0f}%"
-    conf = agg["mean_confidence"]
-    conf_str = "-" if math.isnan(conf) else f"{conf:.2f}"
     cards: list[tuple[str, object, str]] = [
         ("Charts", agg["n_charts"], "Number of chart images scored in this run."),
         (
@@ -322,11 +314,6 @@ def _summary_cards(agg: dict) -> str:
             "Fraction of charts where the extractor's chart_type matches truth. "
             "Only counts charts where both sides reported a type.",
         ),
-        (
-            "Mean conf",
-            conf_str,
-            "Average self-reported confidence (0–1). Not necessarily calibrated against actual error.",
-        ),
         ("Missed", agg["missed_total"], "Total true bars the extractor failed to return across all charts."),
         ("Extra", agg["extra_total"], "Total predicted bars with no matching true bar (hallucinations)."),
         ("Mean time", f"{agg['mean_sec']:.1f} s", "Average extractor wall-clock time per chart."),
@@ -357,9 +344,6 @@ def _chart_row(chart: dict) -> str:
         type_cell = (
             "✓" if chart["type_matched"] else f"<span style='color:#a00'>{html.escape(str(tp))}</span>"
         )
-    conf = chart["confidence"]
-    conf_v = "" if conf is None else f"{conf:.2f}"
-    conf_sort = conf if conf is not None else 0
     return (
         f"<tr><td>{html.escape(str(chart['image']))}</td>"
         f"<td>{html.escape(str(chart['preset']))}</td>"
@@ -369,7 +353,6 @@ def _chart_row(chart: dict) -> str:
         f"<td>{chart['missed']}</td><td>{chart['extra']}</td>"
         f'<td data-v="{mean_v}">{_pct(mean_pct)}</td>'
         f'<td data-v="{max_v}">{_pct(max_pct)}</td>'
-        f'<td data-v="{conf_sort}">{conf_v}</td>'
         f'<td data-v="{chart["seconds"]}">{chart["seconds"]:.1f} s</td></tr>'
     )
 
@@ -405,12 +388,14 @@ def write_html(
 <p>Error = |predicted − true| as a percentage of the stored <b>data range</b>.
 Recall = bars found / true bars. Precision = correct
 (series,category) / predicted. Type acc = correct chart_type / charts with a
-type prediction. Mean conf = average self-reported confidence (VLM).</p>
+type prediction.</p>
 
 <h2>Breakdowns</h2>
 <div class="tables">{breakdown_html}</div>
 
-<h2 title="Distribution of signed per-bar deviation (pred − true) / data range, across every matched bar. Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates." style="cursor:help">Deviation distribution</h2>
+<h2 title="Distribution of signed per-bar deviation (pred − true) / data range, across every matched bar.
+Centred near 0 if the extractor is unbiased; right tail = over-estimates, left tail = under-estimates."
+style="cursor:help">Deviation distribution</h2>
 <div class="devwrap">{dev_img}</div>
 
 {
@@ -432,7 +417,7 @@ type prediction. Mean conf = average self-reported confidence (VLM).</p>
  <th data-num="1">true</th><th data-num="1">matched</th>
  <th data-num="1">missed</th><th data-num="1">extra</th>
  <th data-num="1">mean err</th><th data-num="1">max err</th>
- <th data-num="1">conf</th><th data-num="1">time</th></tr></thead>
+ <th data-num="1">time</th></tr></thead>
  <tbody>{table_rows}</tbody></table>
 <script>{_SORT_JS}</script>
 """,
