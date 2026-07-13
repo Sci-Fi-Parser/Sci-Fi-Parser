@@ -415,7 +415,6 @@ _LEADER_COLS = [
     ("Bar Δ", "bar_count_err_total", _int_or_dash),
     ("Recall", "recall", _pct100),
     ("Type acc", "type_accuracy", _pct100),
-    ("Mean conf", "mean_confidence", _val),
     ("Mean time", "mean_sec", _secs),
     ("Total time", "total_sec", _secs),
 ]
@@ -505,7 +504,7 @@ def _safe_run(
         agg = run_benchmark(
             data=data,
             out=out,
-            extractor_name="ollama",
+            extractor_name="vlm",
             profile=entry.profile,
             seed=seed,
             limit=limit,
@@ -688,9 +687,10 @@ def run_comparison(
     if dry_run:
         return
     mode = resolve_pull_mode(missing, pull, assume_yes)
-    if mode in ("prefetch", "circular") and missing and not assume_yes:
-        if not _confirm_yn(f"\nThis will pull {len(missing)} model(s). Proceed?"):
-            raise SystemExit("aborted by user")
+    if (mode in ("prefetch", "circular") and missing and not assume_yes) and (
+        not _confirm_yn(f"\nThis will pull {len(missing)} model(s). Proceed?")
+    ):
+        raise SystemExit("aborted by user")
     out.mkdir(parents=True, exist_ok=True)
     local = {s.tag for s in statuses if s.local}
     started = time.perf_counter()

@@ -113,10 +113,7 @@ def sample_style(rng: np.random.Generator, cfg: GenConfig, alias: str) -> Style:
     multi = p["series"] == "multi"
     n_ser = int(rng.integers(cfg.n_series[0], cfg.n_series[1] + 1)) if multi else int(p["series"])
     y_name, y_unit = _Y_AXES[int(rng.integers(len(_Y_AXES)))]
-    if n_ser > 1:
-        names = [str(x) for x in rng.choice(_SERIES_NAMES, size=n_ser, replace=False)]
-    else:
-        names = [y_name]
+    names = [str(x) for x in rng.choice(_SERIES_NAMES, size=n_ser, replace=False)] if n_ser > 1 else [y_name]
     cmap10 = plt.get_cmap("tab10")
     series_colors = [cmap10(s % 10) for s in range(n_ser)]
     scale = float(rng.choice([10.0, 100.0, 1_000.0, 1e6]))
