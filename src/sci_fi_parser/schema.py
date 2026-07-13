@@ -90,7 +90,7 @@ class ImageSet:
         self._data[image_id] = record
 
     def filter_by_type(self, chart_types: list[str], limit: int | None = None) -> list[str]:
-        """Return images classified as ``chart_type``, optionally capped by limit."""
+        """Return a list of image IDs classified as ``chart_type``, optionally capped by limit."""
         filtered: list[str] = []
         if limit and limit <= 0:
             return filtered
