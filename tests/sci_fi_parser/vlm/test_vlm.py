@@ -97,7 +97,7 @@ def test_extract_posts_image_and_parses_response(monkeypatch, tmp_path):
 def test_extract_defaults_to_png_mime_for_unknown_suffix(monkeypatch, tmp_path):
     image_path = tmp_path / "chart.bmp"
     image_path.write_bytes(b"bmp-bytes")
-    chart = {"chart_type": None, "log_scale": None, "series": None}
+    chart = {"chart_type": "none", "log_scale": False, "series": []}
     raw = {"choices": [{"message": {"content": json.dumps(chart)}}]}
 
     requests = []
