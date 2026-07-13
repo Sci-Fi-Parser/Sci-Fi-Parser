@@ -137,16 +137,13 @@ def start_ocr(image_set: ImageSet, batch_size=100) -> None:
         logging.info("Object detection batch size is 0 or less. Skipping stage.")
         return
 
-    for chart_type in SUPPORTED_CHARTS:
-        chart_ids = image_set.filter_by_type(chart_type, batch_size)
-        if not chart_ids:
-            continue
+    chart_ids = image_set.filter_by_type(SUPPORTED_CHARTS, batch_size)
 
-        image_paths: list[tuple[str, Path]] = []
-        for image_id in chart_ids:
-            image_paths.append((image_id, image_set.get_image_path(image_id)))
+    image_paths: list[tuple[str, Path]] = []
+    for image_id in chart_ids:
+        image_paths.append((image_id, image_set.get_image_path(image_id)))
 
-        results = extract_ocr_data(image_paths)
-        for image_id, result in zip(chart_ids, results, strict=True):
-            image_set.add_ocrcv_result(image_id, format_ocr_output(result))
-            image_set.add_ocrcv_raw(image_id, asdict(result))
+    results = extract_ocr_data(image_paths)
+    for image_id, result in zip(chart_ids, results, strict=True):
+        image_set.add_ocrcv_result(image_id, format_ocr_output(result))
+        image_set.add_ocrcv_raw(image_id, asdict(result))

@@ -9,6 +9,7 @@ DEFAULT_PROMPT = (
     "Rules:\n"
     "- chart_type: one of vertical_bar, grouped_bar, stacked_bar, "
     "horizontal_bar, line, scatter, dot, none\n"
+    "- log_scale: true if the chart is on the log scale, else false.\n"
     "- Use the x-axis category labels EXACTLY as printed. Do not invent "
     "dates, years, or names.\n"
     "- Series naming: if there is a legend, use the legend labels. "

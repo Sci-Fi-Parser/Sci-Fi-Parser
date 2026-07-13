@@ -7,6 +7,7 @@ Classes:
 ImageSet stores per-image records for extraction, classification, OCR/CV, and VLM stages.
 PdfSet stores per-PDF metadata such as file name and page count.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -52,18 +53,18 @@ class ImageSet:
         record["metadata"]["extraction"].update(extraction_metadata or {})
         self._data[image_id] = record
 
-    def filter_by_type(self, chart_type: str, limit: int = 100) -> list[str]:
+    def filter_by_type(self, chart_types: list[str], limit: int | None = None) -> list[str]:
         """Return images classified as ``chart_type``, optionally capped by limit."""
         filtered: list[str] = []
-        if limit <= 0:
+        if limit and limit <= 0:
             return filtered
 
         for image_id, payload in self.items():
             result = payload.get("classification", {}).get("result", {})
-            if result != chart_type:
+            if result not in chart_types:
                 continue
             filtered.append(image_id)
-            if len(filtered) >= limit:
+            if limit and len(filtered) >= limit:
                 break
         return filtered
 
