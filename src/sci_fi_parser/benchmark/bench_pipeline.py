@@ -79,7 +79,7 @@ def load_inputs(
     for image_id in image_ids:
         key = truth_key(image_set.get_image_path(image_id))
         truth_by_image_id[image_id] = truth_by_key[key]
-        image_set.get(image_id).setdefault("metadata", {})["benchmark"] = metadata_by_key.get(key, {})
+        image_set.get(image_id)["metadata"]["benchmark"] = metadata_by_key.get(key, {})
 
     return PipelineInputs(
         image_set=image_set,
@@ -127,7 +127,7 @@ def run_vlm_stage(inputs: PipelineInputs, extractor: benchmark.Extractor) -> Non
             raw = {"error": f"{type(exc).__name__}: {exc}"}
         inputs.image_set.add_vlm_result(image_id, parsed_payload)
         inputs.image_set.add_vlm_result_raw(image_id, raw)
-        record.setdefault("metadata", {}).setdefault("vlm", {})["seconds"] = time.perf_counter() - t0
+        record["metadata"]["vlm"]["seconds"] = time.perf_counter() - t0
 
 
 def write_outputs(
