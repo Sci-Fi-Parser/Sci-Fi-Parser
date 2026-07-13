@@ -687,9 +687,10 @@ def run_comparison(
     if dry_run:
         return
     mode = resolve_pull_mode(missing, pull, assume_yes)
-    if mode in ("prefetch", "circular") and missing and not assume_yes:
-        if not _confirm_yn(f"\nThis will pull {len(missing)} model(s). Proceed?"):
-            raise SystemExit("aborted by user")
+    if (mode in ("prefetch", "circular") and missing and not assume_yes) and (
+        not _confirm_yn(f"\nThis will pull {len(missing)} model(s). Proceed?")
+    ):
+        raise SystemExit("aborted by user")
     out.mkdir(parents=True, exist_ok=True)
     local = {s.tag for s in statuses if s.local}
     started = time.perf_counter()

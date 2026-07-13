@@ -27,5 +27,8 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
+      - name: Check formatting
+        run: uv run ruff format --check .
+
       - name: Lint
-        run: PYTHONPATH=src uv run pylint src --fail-under=9.0
+        run: uv run ruff check .

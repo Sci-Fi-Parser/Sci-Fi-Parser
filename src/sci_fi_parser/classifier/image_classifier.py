@@ -3,15 +3,16 @@ from PIL import Image, _typing
 from torchvision import transforms
 from transformers import EfficientNetForImageClassification
 
-from typing import Optional, List
-from pathlib import Path
-
 from sci_fi_parser.classifier.cnn import CNNClassifier
 
 
 class ImageClassifier:
-    def __init__(self, image_labels: Optional[List] = None, model: Optional[CNNClassifier] = None, 
-                 image_transform: Optional[transforms.transforms.Compose]=None):
+    def __init__(
+        self,
+        image_labels: list | None = None,
+        model: CNNClassifier | None = None,
+        image_transform: transforms.transforms.Compose | None = None,
+    ):
         if image_labels is None:
             self.image_labels = ImageClassifier.create_dummy_labels()
         else:
@@ -25,25 +26,28 @@ class ImageClassifier:
         else:
             self.transform = image_transform
 
-    def classify_image(self, image_path: _typing.StrOrBytesPath) -> tuple[str|int, dict]:
+    def classify_image(self, image_path: _typing.StrOrBytesPath) -> tuple[str | int, dict]:
         """
         Classifies a given image.
         inputs:
             image_path: path to the image
         outputs:
-            a tuple containing the class assigned to the image and the confidence scores of each possible class
+            a tuple containing the class assigned to the image and
+            the confidence scores of each possible class
 
         """
-        with torch.no_grad():  # with a trained network, gradient computation is not needed
-            with Image.open(image_path) as im:
-                as_tensor = torch.unsqueeze(
-                    self.transform(im), 0
-                )  # A dummy batch dimension is added to the tensor
-                model_output = self.model.forward(as_tensor)
-                label_index = torch.argmax(model_output).item()
-                scores = {label: val.item() for label, val in zip(self.image_labels, model_output[0], strict=True)}
-                label = self.image_labels[label_index]
-                return label, scores
+        with torch.no_grad(), Image.open(image_path) as im:
+            # with a trained network, gradient computation is not needed
+            as_tensor = torch.unsqueeze(
+                self.transform(im), 0
+            )  # A dummy batch dimension is added to the tensor
+            model_output = self.model.forward(as_tensor)
+            label_index = torch.argmax(model_output).item()
+            scores = {
+                label: val.item() for label, val in zip(self.image_labels, model_output[0], strict=True)
+            }
+            label = self.image_labels[label_index]
+            return label, scores
 
     @classmethod
     def create_dummy_model(cls):
@@ -72,6 +76,7 @@ class DoclingClassifier(ImageClassifier):
     """
     An image classifier that uses Docling's image classification model
     """
+
     def __init__(self):
         model_id = "docling-project/DocumentFigureClassifier-v2.5"
         self.model = EfficientNetForImageClassification.from_pretrained(model_id)
@@ -89,7 +94,7 @@ class DoclingClassifier(ImageClassifier):
             ]
         )
 
-    def classify_image(self, image_path: _typing.StrOrBytesPath) -> tuple[str|int, dict]:
+    def classify_image(self, image_path: _typing.StrOrBytesPath) -> tuple[str | int, dict]:
         with Image.open(image_path) as im, torch.no_grad():
             im = im.convert("RGB")
             as_tensor = torch.unsqueeze(self.transform(im), 0)
