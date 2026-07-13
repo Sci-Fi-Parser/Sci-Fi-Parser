@@ -15,11 +15,11 @@ class Point(BaseModel):
 
 
 class Series(BaseModel):
-    name: str = "series"
+    name: str
     points: list[Point]
 
 
 class ChartData(BaseModel):
-    chart_type: ChartType = "none"
-    log_scale: bool = False
-    series: list[Series] = []
+    chart_type: ChartType
+    log_scale: bool
+    series: list[Series]
