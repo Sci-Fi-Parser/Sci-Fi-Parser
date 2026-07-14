@@ -1,52 +1,13 @@
-# Canonical VLM extractor profile.
-#
-# Consumed by:
-#   * the extraction pipeline       (sci_fi_parser.main -> vlm.pipeline)
-#   * the `benchmark` script         (--extractor vlm | vlm:<model>)
-#   * the `benchmark-compare` script, which inherits these values as its
-#     baseline via `extends = "vlm.toml"`; each [[model]] entry overrides `model`.
-#
-# Every field lists its [default] and accepted values. Fields left unset fall
-# back to the default; unknown keys are rejected at load time.
-#
-# How to run the benchmark, the CLI flags, and the override order are
-# documented in src/sci_fi_parser/benchmark/README.md (or `benchmark --help`).
+# Requested model for an Ollama server.
+# model = "qwen2.5vl:3b"
 
-# Model name as known by the serving endpoint (ollama tag, vLLM model id, ...).
-#   [default: "qwen2.5vl:7b"]
-# Other tags benchmarked on the synthetic set:
-#   "qwen2.5vl:7b-q8_0"   higher precision, ~80-100 s/chart on CPU
-#   "qwen2.5vl:7b-fp16"   full precision,   ~150-200 s/chart on CPU
-#   "qwen2.5vl:3b"        smaller / faster, weak on abbreviated y-axes
-model = "qwen2.5vl:3b"
-
-# Endpoint URL of the OpenAI-compatible chat-completions server: ollama's
-# /v1 compat layer, llama.cpp llama-server, vLLM, LM Studio, OpenAI.
-#   [default: "http://localhost:11434/v1"]   (local ollama)
+# VLM endpoint base url, default: "http://localhost:11434/v1"
 # 11434: ollama default port
 # 8080: llama.cpp default port
-# base_url = "http://localhost:8080/v1"
+# base_url = ""
 
-# Env var holding the API key; a dummy key is sent if it is unset (keyless
-# local servers work either way).
-#   [default: "OPENAI_API_KEY"]
-# api_key_env = "OPENAI_API_KEY"
+# VLM API key
+# api_key_env = ""
 
-# JSON-constraint strategy.
-#   [default: "json_schema"]   options: "json_schema" | "json_object"
-#   "json_schema" -> send the ChartData schema (grammar-constrained; best for
-#                    ollama / llama.cpp / vLLM / OpenAI structured outputs)
-#   "json_object" -> ask only for valid JSON; relies on the prompt + repair
-# response_format = "json_schema"
-
-# Prompt prepended to every chart image. Field names must match the ChartData
-# schema: chart_type, series[].name, series[].points[].x / .y, confidence.
-prompt = """Extract the data from this chart.
-Rules:
-- chart_type: one of vertical_bar, grouped_bar, stacked_bar, horizontal_bar, line, scatter, dot, none.
-- Use the x-axis category labels EXACTLY as printed. Do not invent dates, years, or names.
-- Series naming: if there is a legend, use the legend labels. If there is NO legend (single-series chart), use the y-axis title as the series name. Never leave the name blank.
-- Read each y-value from the y-axis scale and the bar / marker height. If numeric labels are printed on the bars, prefer those.
-- Watch y-axis units: '200K' = 200000, '1.5M' = 1500000, '2.3B' = 2300000000. Return plain numbers, no suffixes, no extra zeros.
-- confidence: a number from 0.0 to 1.0 reflecting how certain you are that the extracted values are correct. Lower it for charts without printed value labels or with hard-to-read axes.
-- Do not output series, categories, or values that do not appear on the chart."""
+# VLM prompt
+# prompt = ""

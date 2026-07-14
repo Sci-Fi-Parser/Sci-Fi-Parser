@@ -43,20 +43,8 @@ class ChatCompletionsVLM:
         self._model = self.name
         self._prompt = profile.prompt
         self._base_url = profile.base_url.rstrip("/")
-        self._api_key = os.environ.get(profile.api_key_env) or "sk-no-key"
-        self._response_format = profile.response_format
-
-    def _make_response_format(self) -> dict:
-        if self._response_format == "json_object":
-            return {"type": "json_object"}
-        if self._response_format == "json_schema":
-            return {
-                "type": "json_schema",
-                "json_schema": {"name": "ChartData", "schema": _inlined_chartdata_schema()},
-            }
-        raise ValueError(
-            f"unknown response_format {self._response_format!r} (expected 'json_schema' or 'json_object')"
-        )
+        self._api_key = os.environ.get(profile.api_key) or "sk-no-key"
+        self._schema = _inlined_chartdata_schema()
 
     def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
         # TODO: DOCSTRING
@@ -82,7 +70,10 @@ class ChatCompletionsVLM:
                     ],
                 }
             ],
-            "response_format": self._make_response_format(),
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "ChartData", "schema": self._schema},
+            },
             "seed": 1,
             "temperature": 0,
             "max_tokens": -1,
