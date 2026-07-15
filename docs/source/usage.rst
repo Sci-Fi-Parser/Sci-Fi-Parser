@@ -16,12 +16,12 @@ The package exposes a single high-level entry point for end-to-end parsing:
 
    print(result.summary())
 
-``parse_folder`` walks a PDF file or a flat directory of PDFs, extracts chart
+:func:`parse_folder() <sci_fi_parser.api.parse_folder>` walks a PDF file or a flat directory of PDFs, extracts chart
 images, classifies them, runs OCR / computer vision, and finally applies the
-VLM stage. If ``output_dir`` is provided, the parsed dataset is written to JSONL
-and Parquet outputs.
+VLM stage by default. If ``output_dir`` is provided, the parsed dataset is written to JSONL
+and Parquet outputs. Alternatively, the output can be saved using the returned object with :meth:`ParseResult.save() <sci_fi_parser.api.ParseResult.save>`
 
-The returned :class:`sci_fi_parser.api.ParseResult` gives access to the parsed
+The returned :class:`ParseResult <sci_fi_parser.api.ParseResult>` gives access to the parsed
 image and PDF collections:
 
 .. code-block:: python
@@ -32,7 +32,7 @@ image and PDF collections:
    for image_id, record in image_set.items():
        print(image_id, record)
 
-Output written by :meth:`sci_fi_parser.api.ParseResult.save` is organized as:
+Saved output is organized as:
 
 * ``raw/image_set.jsonl`` for the full record stream
 * ``tables/charts.parquet`` for one row per chart
