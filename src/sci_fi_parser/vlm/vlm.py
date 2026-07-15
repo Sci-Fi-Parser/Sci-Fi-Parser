@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import os
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +35,16 @@ def _inlined_chartdata_schema() -> dict[str, Any]:
 
 
 class ChatCompletionsVLM:
-    # TODO: DOCSTRING
+    """Extracts chart data from images via an OpenAI-compatible chat completions API.
+
+    Sends the image and a prompt to the endpoint configured in the given
+    `VLMProfile`, constraining the response to the `ChartData` JSON schema.
+
+    Args:
+        profile: Connection and prompt settings. Defaults to `VLMProfile()`.
+        model_override: Model name to use instead of the profile's model.
+    """
+
     def __init__(self, profile: VLMProfile | None = None, model_override: str | None = None):
         profile = profile or VLMProfile()
         self._model = model_override or profile.model
@@ -46,8 +54,19 @@ class ChatCompletionsVLM:
         self._schema = _inlined_chartdata_schema()
 
     def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
-        # TODO: DOCSTRING
+        """Extracts chart data from a single image.
 
+        Args:
+            image_path: Path to a PNG or JPEG image of a chart.
+            prompt_suffix: Extra text appended to the profile's prompt.
+
+        Returns:
+            A tuple of (extracted `ChartData` as a dict, raw API response).
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error status.
+            pydantic.ValidationError: If the response does not match `ChartData`.
+        """
         import httpx  # pylint: disable=import-outside-toplevel
 
         mime = _MIME_BY_SUFFIX.get(image_path.suffix.lower(), "image/png")

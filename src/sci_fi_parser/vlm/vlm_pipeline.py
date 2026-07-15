@@ -13,10 +13,16 @@ _SUPPORTED_CHARTS = ["bar_chart"]
 
 
 def start_vlm(image_set: ImageSet, profile: VLMProfile | Path) -> None:
-    """Run VLM pipeline over an `ImageSet`.
+    """Runs VLM chart extraction over every supported image in an `ImageSet`.
+
+    For each image classified as a supported chart type, extracts chart data
+    with the OCR result appended to the prompt, and stores the parsed and raw
+    results back into `image_set`. Images whose extraction fails are logged
+    and skipped.
 
     Args:
-        image_set: An `ImageSet` instance.
+        image_set: Images with classification and OCR results; receives the
+            VLM results.
         profile: `VLMProfile` instance or `Path` to a config .toml.
     """
     if not isinstance(profile, VLMProfile):
