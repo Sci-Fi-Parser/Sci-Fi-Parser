@@ -63,7 +63,10 @@ parse-chart = "sci_fi_parser.main:main"
 =======
 synthetic-bars = "scripts.synthetic.cli:main"
 scifi-parser = "sci_fi_parser.cli:main"
+<<<<<<< HEAD
 >>>>>>> 7d063c6 (Added CLI functionality)
+=======
+>>>>>>> 2709fb129e14f88bd0decd0239c6866e4040d0b4
 
 [build-system]
 requires = ["hatchling >= 1.26"]
