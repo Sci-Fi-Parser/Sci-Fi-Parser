@@ -143,7 +143,7 @@ def write_outputs(
 
     draw_lap.write_html(
         out / "report.html",
-        extractor.name,
+        extractor._model,
         agg,
         value_results_to_draw_lap_charts(results),
         value_results_to_breakdowns(results),

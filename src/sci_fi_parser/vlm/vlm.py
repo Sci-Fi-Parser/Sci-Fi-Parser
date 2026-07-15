@@ -39,11 +39,10 @@ class ChatCompletionsVLM:
     # TODO: DOCSTRING
     def __init__(self, profile: VLMProfile | None = None, model_override: str | None = None):
         profile = profile or VLMProfile()
-        self.name = model_override or profile.model
-        self._model = self.name
+        self._model = model_override or profile.model
         self._prompt = profile.prompt
         self._base_url = profile.base_url.rstrip("/")
-        self._api_key = os.environ.get(profile.api_key) or "sk-no-key"
+        self._api_key = profile.api_key
         self._schema = _inlined_chartdata_schema()
 
     def extract(self, image_path: Path, prompt_suffix: str = "") -> tuple[dict, dict]:
@@ -79,7 +78,7 @@ class ChatCompletionsVLM:
             "max_tokens": -1,
         }
         resp = httpx.post(
-            f"{self._base_url}/chat/completions",
+            f"{self._base_url}/v1/chat/completions",
             headers={"Authorization": f"Bearer {self._api_key}"},
             json=payload,
             timeout=_REQUEST_TIMEOUT,
