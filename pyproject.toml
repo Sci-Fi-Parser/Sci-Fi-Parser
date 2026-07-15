@@ -16,6 +16,7 @@ dependencies = [
   "tqdm>=4.67.3",
   "transformers>=5.12.1",
   "pyarrow>=24.0.0",
+  "duckdb>=1.5.4",
   "pandas>=3.0.3",
 ]
 description = "A package to parse data from graphs in documents."
