@@ -73,6 +73,7 @@ def test_cli_pipeline_flags(mock_parse_folder):
         vlm=False,
     )
 
+
 @patch("sys.argv", ["scifi-parser", "--help"])
 def test_cli_help():
     with pytest.raises(SystemExit):
