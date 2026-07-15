@@ -14,7 +14,7 @@ def test_load_profile_reads_toml_and_keeps_defaults(tmp_path):
     assert profile.model == "test-model"
     assert profile.base_url == "http://example.test/v1"
     assert profile.prompt == DEFAULT_PROMPT
-    assert profile.api_key == "API_KEY"
+    assert profile.api_key == "sk-no-key"
 
 
 def test_load_profile_rejects_unknown_keys(tmp_path):
@@ -30,5 +30,5 @@ def test_profile_defaults():
 
     assert profile.model == "qwen2.5vl:7b"
     assert profile.prompt == DEFAULT_PROMPT
-    assert profile.base_url == "http://localhost:11434/v1"
-    assert profile.api_key == "API_KEY"
+    assert profile.base_url == "http://localhost:11434"
+    assert profile.api_key == "sk-no-key"
