@@ -1,5 +1,5 @@
-from pathlib import Path
 import argparse
+from pathlib import Path
 
 from sci_fi_parser.api import parse_folder
 

@@ -1,8 +1,9 @@
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from sci_fi_parser.cli import main
-import pytest
 
 
 @patch("sci_fi_parser.cli.parse_folder")
