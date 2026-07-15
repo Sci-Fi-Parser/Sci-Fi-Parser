@@ -59,6 +59,11 @@ cv = ["opencv-python>=4.10"]
 [project.scripts]
 bench-pipeline = "sci_fi_parser.benchmark.bench_pipeline:main"
 parse-chart = "sci_fi_parser.main:main"
+<<<<<<< HEAD
+=======
+synthetic-bars = "scripts.synthetic.cli:main"
+scifi-parser = "sci_fi_parser.cli:main"
+>>>>>>> 7d063c6 (Added CLI functionality)
 
 [build-system]
 requires = ["hatchling >= 1.26"]
