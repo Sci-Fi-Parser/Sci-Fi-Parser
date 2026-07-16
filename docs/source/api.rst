@@ -12,4 +12,3 @@ VLM configuration helpers live in :mod:`sci_fi_parser.vlm.vlm_config`.
 .. automodule:: sci_fi_parser.vlm.vlm_config
    :members:
    :show-inheritance:
-   :no-index:
