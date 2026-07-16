@@ -153,12 +153,12 @@ class NoisyOracle:
             bias = float(self._rng.uniform(-50, 50))
             spread = float(self._rng.uniform(5, 80))
             out_series = [self._mock_series(s, bias, spread) for s in entry.series]
-            chart = ChartData(chart_type=entry.chart_type, series=out_series)
+            chart = ChartData(chart_type=entry.chart_type or "none", log_scale=False, series=out_series)
             return chart.model_dump(), {}
         lo, hi = entry.data_range
         span = abs(hi - lo) or 1.0
         out_series = [self._perturb(s, lo, hi, span) for s in entry.series]
-        chart = ChartData(chart_type=entry.chart_type, series=out_series)
+        chart = ChartData(chart_type=entry.chart_type or "none", log_scale=False, series=out_series)
         return chart.model_dump(), {}
 
 
