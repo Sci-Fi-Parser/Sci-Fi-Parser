@@ -1,3 +1,10 @@
+"""Public parsing API for running the Sci-Fi-Parser pipeline.
+
+This module exposes a convenience function for parsing a folder of PDFs and a
+result object for accessing the parsed image and PDF sets, saving outputs, and
+loading benchmark-friendly data frames.
+"""
+
 from pathlib import Path
 
 import pandas as pd
@@ -16,9 +23,7 @@ DEFAULT_VLM_CONFIG = PROJECT_ROOT / "src" / "sci_fi_parser" / "config" / "vlm.to
 
 
 class ParseResult:
-    """
-    Represents the result of one parsing run.
-    """
+    """Represents the result of one parsing run."""
 
     def __init__(
         self,
@@ -32,25 +37,39 @@ class ParseResult:
 
     @property
     def images(self) -> ImageSet:
+        """Return the parsed images and associated metadata."""
+
         return self._image_set
 
     @property
     def pdfs(self) -> PdfSet:
+        """Return the parsed PDFs and associated metadata."""
+
         return self._pdf_set
 
     @property
     def output_dir(self) -> Path | None:
+        """Return the saved output directory, if one has been set."""
+
         return self._output_dir
 
     def summary(self) -> dict:
+        """Return a compact summary of the parsed dataset.
+
+        Returns:
+            A dictionary containing PDF and image counts.
+        """
+
         return {
             "pdf_count": len(self._pdf_set),
             "image_count": len(self._image_set),
         }
 
     def save(self, output_dir: str | Path) -> None:
-        """
-        Save the parsed dataset as JSONL and Parquet.
+        """Save the parsed dataset as JSONL and Parquet.
+
+        Args:
+            output_dir: Directory where the parsed dataset will be written.
         """
 
         output_dir = Path(output_dir)
@@ -71,8 +90,10 @@ class ParseResult:
         return self._output_dir
 
     def charts_dataframe(self) -> pd.DataFrame:
-        """
-        Load charts.parquet as a DataFrame.
+        """Load ``charts.parquet`` as a DataFrame.
+
+        Returns:
+            A DataFrame loaded from ``tables/charts.parquet``.
         """
 
         output_dir = self._require_saved_output()
@@ -80,8 +101,10 @@ class ParseResult:
         return pd.read_parquet(output_dir / "tables" / "charts.parquet")
 
     def series_dataframe(self) -> pd.DataFrame:
-        """
-        Load series.parquet as a DataFrame.
+        """Load ``series.parquet`` as a DataFrame.
+
+        Returns:
+            A DataFrame loaded from ``tables/series.parquet``.
         """
 
         output_dir = self._require_saved_output()
@@ -89,8 +112,10 @@ class ParseResult:
         return pd.read_parquet(output_dir / "tables" / "series.parquet")
 
     def points_dataframe(self) -> pd.DataFrame:
-        """
-        Load points.parquet as a DataFrame.
+        """Load ``points.parquet`` as a DataFrame.
+
+        Returns:
+            A DataFrame loaded from ``tables/points.parquet``.
         """
 
         output_dir = self._require_saved_output()
@@ -108,31 +133,19 @@ def parse_folder(
     ocr: bool = True,
     vlm: bool = True,
 ) -> ParseResult:
-    """
-    Parse all PDFs inside a folder.
+    """Parse all PDFs inside a folder.
 
-    Parameters
-    ----------
-    input_dir
-        Folder containing PDF files.
+    Args:
+        input_dir: Folder containing PDF files.
+        output_dir: If provided, save JSONL and Parquet outputs.
+        extracted_image_dir: Temporary folder used during image extraction.
+        vlm_config: Path to the VLM configuration file.
+        classify: Whether to run chart classification.
+        ocr: Whether to run OCR.
+        vlm: Whether to run VLM extraction.
 
-    output_dir
-        If provided, save JSONL and Parquet outputs.
-
-    extracted_image_dir
-        Temporary folder used during image extraction.
-
-    vlm_config
-        Path to the VLM configuration file.
-
-    classify
-        Run chart classification.
-
-    ocr
-        Run OCR.
-
-    vlm
-        Run VLM extraction.
+    Returns:
+        A parse result containing the populated image and PDF sets.
     """
 
     image_set = ImageSet()
