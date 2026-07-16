@@ -1,3 +1,5 @@
+"""VLM endpoint configuration and its loading from .toml files."""
+
 from __future__ import annotations
 
 import tomllib
@@ -26,29 +28,36 @@ DEFAULT_PROMPT = (
 
 @dataclass(slots=True)
 class VLMProfile:
-    """VLM profile with defaults.
+    """Connection and prompt settings for a VLM endpoint.
 
-    Args:
-        model: requested model, for Ollama endpoint
-        prompt: prompt for a VLM generation request
-        base_url: base url of the VLM endpoint
-        api_key: API key of the endpoint, if any
+    Defaults target a local Ollama instance.
+
+    Attributes:
+        model: Name of the model to request.
+        prompt: Prompt sent with each extraction request.
+        base_url: Base URL of the OpenAI-compatible endpoint.
+        api_key: API key for the endpoint; a dummy value if none is required.
     """
 
     model: str = "qwen2.5vl:7b"
     prompt: str = DEFAULT_PROMPT
-    base_url: str = "http://localhost:11434/v1"
-    api_key: str = "API_KEY"
+    base_url: str = "http://localhost:11434"
+    api_key: str = "sk-no-key"
 
 
 def load_profile(path: Path) -> VLMProfile:
-    """Loads a VLM config from a .toml file and checks if its valid.
+    """Loads a `VLMProfile` from a .toml file.
+
+    Keys missing from the file keep their `VLMProfile` defaults.
 
     Args:
-        path: `Path` to the config .toml file.
+        path: Path to the config .toml file.
 
     Returns:
-        VLMProfile instance with the specified config.
+        A `VLMProfile` with the loaded settings.
+
+    Raises:
+        ValueError: If the file contains keys that are not `VLMProfile` fields.
     """
     with path.open("rb") as fh:
         raw = tomllib.load(fh)

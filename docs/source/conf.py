@@ -14,6 +14,5 @@ extensions = [
 autosummary_generate = True
 autodoc_default_options = {
     "members": True,
-    "undoc-members": False,
     "show-inheritance": True,
 }

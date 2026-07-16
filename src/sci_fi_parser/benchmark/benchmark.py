@@ -96,7 +96,7 @@ class NoisyOracle:
         miss_p: float = 0.05,
         extra_p: float = 0.06,
     ):
-        self.name = "noisy-oracle"
+        self._model = "noisy-oracle"
         self._truth = truth_by_image
         self._rng = rng
         self._rel_noise = rel_noise
@@ -153,12 +153,12 @@ class NoisyOracle:
             bias = float(self._rng.uniform(-50, 50))
             spread = float(self._rng.uniform(5, 80))
             out_series = [self._mock_series(s, bias, spread) for s in entry.series]
-            chart = ChartData(chart_type=entry.chart_type, series=out_series)
+            chart = ChartData(chart_type=entry.chart_type or "none", log_scale=False, series=out_series)
             return chart.model_dump(), {}
         lo, hi = entry.data_range
         span = abs(hi - lo) or 1.0
         out_series = [self._perturb(s, lo, hi, span) for s in entry.series]
-        chart = ChartData(chart_type=entry.chart_type, series=out_series)
+        chart = ChartData(chart_type=entry.chart_type or "none", log_scale=False, series=out_series)
         return chart.model_dump(), {}
 
 
@@ -352,7 +352,7 @@ def _resolve_profile(config_arg: Path | None) -> VLMProfile:
 
 def _write_results_json(out: Path, extractor: Extractor, agg: dict, results: list[ChartResult]) -> None:
     payload = {
-        "extractor": extractor.name,
+        "extractor": extractor._model,
         "aggregate": agg,
         "by_preset": group_summary(results, "preset"),
         "by_density": group_summary(results, "density"),
@@ -384,7 +384,7 @@ def _print_summary(extractor: Extractor, agg: dict, results: list[ChartResult], 
     errs = f"{_pct(agg['mean_pct'])} / {_pct(agg['median_pct'])} / {_pct(agg['p95_pct'])}"
     type_acc = agg["type_accuracy"]
     type_str = "-" if math.isnan(type_acc) else f"{type_acc * 100:.0f}%"
-    print(f"\n  extractor : {extractor.name}")
+    print(f"\n  extractor : {extractor._model}")
     print(f"  charts    : {agg['n_charts']}  ({agg['n_bars_true']} bars)")
     print(f"  mean/med/p95 error : {errs}  (% of axis range)")
     print(f"  recall/precision   : {agg['recall'] * 100:.1f}% / {agg['precision'] * 100:.1f}%")

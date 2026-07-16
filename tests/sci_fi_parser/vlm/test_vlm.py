@@ -43,7 +43,7 @@ def test_inlined_chartdata_schema_has_no_refs():
 
 def test_model_override_takes_precedence_over_profile():
     vlm = ChatCompletionsVLM(VLMProfile(model="profile-model"), model_override="override-model")
-    assert vlm.name == "override-model"
+    assert vlm._model == "override-model"
 
 
 def test_api_key_falls_back_when_env_missing(monkeypatch):
@@ -69,9 +69,8 @@ def test_extract_posts_image_and_parses_response(monkeypatch, tmp_path):
         return _FakeResponse(raw)
 
     monkeypatch.setattr(httpx, "post", fake_post)
-    monkeypatch.setenv("API_KEY", "secret")
 
-    profile = VLMProfile(base_url="http://vlm.local/v1/")
+    profile = VLMProfile(base_url="http://vlm.local/", api_key="secret")
     parsed, returned_raw = ChatCompletionsVLM(profile).extract(image_path, "ocr text")
 
     assert parsed == chart
