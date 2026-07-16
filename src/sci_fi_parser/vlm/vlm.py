@@ -1,3 +1,5 @@
+"""VLM client for extracting structured chart data from images."""
+
 from __future__ import annotations
 
 import base64

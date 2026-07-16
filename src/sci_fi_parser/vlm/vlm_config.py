@@ -1,3 +1,5 @@
+"""VLM endpoint configuration and its loading from .toml files."""
+
 from __future__ import annotations
 
 import tomllib
