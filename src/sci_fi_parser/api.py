@@ -19,7 +19,7 @@ from sci_fi_parser.vlm.vlm_pipeline import start_vlm
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_EXTRACTED_IMAGE_DIR = PROJECT_ROOT / "temp" / "extracted_images"
-DEFAULT_VLM_CONFIG = PROJECT_ROOT / "src" / "sci_fi_parser" / "config" / "vlm.toml"
+DEFAULT_VLM_CONFIG = PROJECT_ROOT / "config" / "vlm.toml"
 
 
 class ParseResult:
