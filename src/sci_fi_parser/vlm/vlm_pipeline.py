@@ -1,3 +1,5 @@
+"""Pipeline step that extracts chart data from an `ImageSet` with a VLM."""
+
 from __future__ import annotations
 
 import logging
