@@ -23,13 +23,7 @@ DEFAULT_VLM_CONFIG = PROJECT_ROOT / "src" / "sci_fi_parser" / "config" / "vlm.to
 
 
 class ParseResult:
-    """Represents the result of one parsing run.
-
-    Attributes:
-        image_set: Parsed images and their associated metadata.
-        pdf_set: Parsed PDFs and their associated metadata.
-        output_dir: Output directory containing saved results, if available.
-    """
+    """Represents the result of one parsing run."""
 
     def __init__(
         self,
