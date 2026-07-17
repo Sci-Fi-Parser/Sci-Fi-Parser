@@ -5,6 +5,7 @@ result object for accessing the parsed image and PDF sets, saving outputs, and
 loading benchmark-friendly data frames.
 """
 
+from importlib.resources import files
 from pathlib import Path
 
 import pandas as pd
@@ -19,7 +20,7 @@ from sci_fi_parser.vlm.vlm_pipeline import start_vlm
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_EXTRACTED_IMAGE_DIR = PROJECT_ROOT / "temp" / "extracted_images"
-DEFAULT_VLM_CONFIG = PROJECT_ROOT / "src" / "sci_fi_parser" / "config" / "vlm.toml"
+DEFAULT_VLM_CONFIG = files("sci_fi_parser.config").joinpath("vlm.toml")
 
 
 class ParseResult:
