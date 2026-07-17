@@ -18,10 +18,9 @@ Full documentation can be found [here](https://sci-fi-parser.readthedocs.io/en/l
 from sci_fi_parser import parse_folder
 
 result = parse_folder(
-    "path/to/pdfs",
+    input_dir="path/to/pdfs",
     output_dir="output",
-    extracted_image_dir="temp/extracted_images",
-    vlm_config="config/vlm.toml",
+    extracted_image_dir="output/extracted_images",
 )
 
 print(result.summary())
