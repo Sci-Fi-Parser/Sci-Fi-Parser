@@ -11,7 +11,7 @@ The main entry point for the package is:
 
 .. code-block:: bash
 
-   scifi-parser INPUT
+   parse-folder INPUT
 
 where ``INPUT`` is either a PDF file or a directory containing PDF files.
 
@@ -27,7 +27,7 @@ Example:
 
 .. code-block:: bash
 
-   scifi-parser train_data/small_pdfs
+   parse-folder train_data/small_pdfs
 
 Custom output directory
 -----------------------
@@ -36,7 +36,7 @@ Use ``--output`` (or ``-o``) to specify a custom output directory:
 
 .. code-block:: bash
 
-   scifi-parser train_data/small_pdfs --output results
+   parse-folder train_data/small_pdfs --output results
 
 Disabling pipeline stages
 -------------------------
@@ -45,25 +45,25 @@ Disable chart classification:
 
 .. code-block:: bash
 
-   scifi-parser train_data/small_pdfs --no-classify
+   parse-folder train_data/small_pdfs --no-classify
 
 Disable OCR:
 
 .. code-block:: bash
 
-   scifi-parser train_data/small_pdfs --no-ocr
+   parse-folder train_data/small_pdfs --no-ocr
 
 Disable VLM extraction:
 
 .. code-block:: bash
 
-   scifi-parser train_data/small_pdfs --no-vlm
+   parse-folder train_data/small_pdfs --no-vlm
 
 Multiple stages may be disabled simultaneously:
 
 .. code-block:: bash
 
-   scifi-parser train_data/small_pdfs --no-classify --no-ocr
+   parse-folder train_data/small_pdfs --no-classify --no-ocr
 
 Displaying help
 ---------------
@@ -72,7 +72,7 @@ To see all available options:
 
 .. code-block:: bash
 
-   scifi-parser --help
+   parse-folder --help
 
 Other command-line tools
 ------------------------
