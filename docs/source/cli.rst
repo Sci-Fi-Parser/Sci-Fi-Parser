@@ -1,19 +1,21 @@
-# Command Line Interface
+Command Line Interface
+======================
 
 Sci-Fi Parser installs several command-line entry points via
-`[project.scripts]` in `pyproject.toml`.
+``[project.scripts]`` in ``pyproject.toml``.
 
-## Parsing PDFs
+Parsing PDFs
+------------
 
 The main entry point for the package is:
 
 .. code-block:: bash
 
-scifi-parser INPUT
+   scifi-parser INPUT
 
-where `INPUT` is either a PDF file or a directory containing PDF files.
+where ``INPUT`` is either a PDF file or a directory containing PDF files.
 
-By default, the parser writes its outputs to an `output` directory and runs
+By default, the parser writes its outputs to an ``output`` directory and runs
 the full pipeline:
 
 * Image extraction
@@ -25,62 +27,67 @@ Example:
 
 .. code-block:: bash
 
-scifi-parser train_data/small_pdfs
+   scifi-parser train_data/small_pdfs
 
-## Custom output directory
+Custom output directory
+-----------------------
 
-Use `--output` (or `-o`) to specify a custom output directory:
+Use ``--output`` (or ``-o``) to specify a custom output directory:
 
 .. code-block:: bash
 
-scifi-parser train_data/small_pdfs --output results
+   scifi-parser train_data/small_pdfs --output results
 
-## Disabling pipeline stages
-
-Individual stages of the pipeline can be disabled:
+Disabling pipeline stages
+-------------------------
 
 Disable chart classification:
 
 .. code-block:: bash
 
-scifi-parser train_data/small_pdfs --no-classify
+   scifi-parser train_data/small_pdfs --no-classify
 
 Disable OCR:
 
 .. code-block:: bash
 
-scifi-parser train_data/small_pdfs --no-ocr
+   scifi-parser train_data/small_pdfs --no-ocr
 
 Disable VLM extraction:
 
 .. code-block:: bash
 
-scifi-parser train_data/small_pdfs --no-vlm
+   scifi-parser train_data/small_pdfs --no-vlm
 
 Multiple stages may be disabled simultaneously:
 
 .. code-block:: bash
 
-scifi-parser train_data/small_pdfs --no-classify --no-ocr
+   scifi-parser train_data/small_pdfs --no-classify --no-ocr
 
-## Displaying help
+Displaying help
+---------------
 
 To see all available options:
 
 .. code-block:: bash
 
-scifi-parser --help
+   scifi-parser --help
 
-## Other command-line tools
+Other command-line tools
+------------------------
 
-Sci-Fi Parser also installs several utilities for benchmarking and synthetic
-dataset generation:
+Sci-Fi Parser also installs utilities for benchmarking and synthetic dataset
+generation:
 
 .. code-block:: bash
 
-bench-pipeline
-synthetic-bars
+   bench-pipeline
+   synthetic-bars
 
 The benchmark package has its own documentation in
-`src/sci_fi_parser/benchmark/README.md`, which describes the benchmarking
-workflow, configuration, and output formats in detail.
+
+``src/sci_fi_parser/benchmark/README.md``
+
+which describes the benchmarking workflow, configuration, and output formats in
+detail.
