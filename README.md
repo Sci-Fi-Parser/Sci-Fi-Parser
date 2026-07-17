@@ -1,21 +1,31 @@
 # Scientific Figure Parser
 
-To get the development environment:
+[![CI](https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/actions/workflows/ci.yaml/badge.svg)](https://github.com/Sci-Fi-Parser/Sci-Fi-Parser/actions/workflows/ci.yaml) [![codecov](https://codecov.io/gh/Sci-Fi-Parser/Sci-Fi-Parser/graph/badge.svg?token=BOEBN5S4C7)](https://codecov.io/gh/Sci-Fi-Parser/Sci-Fi-Parser) [![docs](https://app.readthedocs.org/projects/Sci-Fi-Parser/badge/?version=project-demo&style=flat-default)](https://sci-fi-parser.readthedocs.io/en/latest)
 
-- Clone repo and cd into the directory
+Sci-Fi-Parser is a Python package that provides a pipeline to take charts from PDF documents and extract data from them.
 
-- Make virtual environment and install dependencies
+## Installation
 
 ```bash
-uv sync --group dev
+$ pip install sci-fi-parser
 ```
 
-To run tests enter the virtual environment:
-```bash
-source .venv/bin/activate
-pytest
+## Usage
+
+Full documentation can be found [here](https://sci-fi-parser.readthedocs.io/en/latest).
+
+```python
+from sci_fi_parser import parse_folder
+
+result = parse_folder(
+    input_dir="path/to/pdfs",
+    output_dir="output",
+    extracted_image_dir="output/extracted_images",
+)
+
+print(result.summary())
 ```
-Alternatively run them directly: 
-```bash
-uv run pytest
-```
+
+## License
+
+Sci-Fi-Parser is licensed under the terms of the [MIT license](LICENSE).

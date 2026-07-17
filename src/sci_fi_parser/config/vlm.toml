@@ -1,0 +1,13 @@
+# Requested model for an Ollama server.
+# model = "qwen2.5vl:3b"
+
+# VLM endpoint base url, default: "http://localhost:11434/v1"
+# 11434: ollama default port
+# 8080: llama.cpp default port
+# base_url = ""
+
+# VLM API key
+# api_key_env = ""
+
+# VLM prompt
+# prompt = ""

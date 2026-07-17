@@ -1,19 +1,34 @@
 name: CI
+
 on:
   push:
-    branches:
-      - main
+    branches: [main, dev]
   pull_request:
+    branches: [main, dev]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
       - uses: astral-sh/setup-uv@v1
         with:
           version: "latest"
-      - run: uv sync --group dev   # install package + dev deps
-      - run: uv run pytest
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run unit tests
+        run: uv run pytest --cov --cov-branch --cov-report=xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
       - name: Lint
-        run: PYTHONPATH=src uv run pylint src
+        run: uv run ruff check .
