@@ -2833,6 +2833,22 @@ dev = [
     { name = "sphinx" },
     { name = "types-tqdm" },
 ]
+docs = [
+    { name = "sphinx" },
+]
+lint = [
+    { name = "ruff" },
+]
+test = [
+    { name = "coverage" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+]
+typing = [
+    { name = "mypy" },
+    { name = "pandas-stubs" },
+    { name = "types-tqdm" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -2866,6 +2882,18 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.20" },
     { name = "sphinx", specifier = ">=9.1.0" },
+    { name = "types-tqdm", specifier = ">=4.68.0.20260608" },
+]
+docs = [{ name = "sphinx", specifier = ">=9.1.0" }]
+lint = [{ name = "ruff", specifier = ">=0.15.20" }]
+test = [
+    { name = "coverage", specifier = ">=7.14.1" },
+    { name = "pytest", specifier = ">=9.0.3" },
+    { name = "pytest-cov", specifier = ">=7.1.0" },
+]
+typing = [
+    { name = "mypy", specifier = ">=2.1.0" },
+    { name = "pandas-stubs", specifier = ">=3.0.3.260530" },
     { name = "types-tqdm", specifier = ">=4.68.0.20260608" },
 ]
 
