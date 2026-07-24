@@ -19,6 +19,7 @@ dependencies = [
   "duckdb>=1.5.4",
   "pandas>=3.0.3",
   "imagehash>=4.3.2",
+  "diskcache>=5.6.3",
 ]
 description = "A package to parse data from graphs in documents."
 readme = "README.md"
@@ -61,7 +62,8 @@ cv = ["opencv-python>=4.10"]
 [project.scripts]
 bench-pipeline = "sci_fi_parser.benchmark.bench_pipeline:main"
 synthetic-bars = "scripts.synthetic.cli:main"
-parse-folder = "sci_fi_parser.cli:main"
+parse-folder = "sci_fi_parser.cli:cli_parse_folder"
+clear-cache = "sci_fi_parser.cli:cli_clear_cache"
 
 [build-system]
 requires = ["hatchling >= 1.26"]

@@ -12,12 +12,17 @@ storage.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pymupdf
+from diskcache import Cache
+from tqdm import tqdm
 
 from sci_fi_parser.image_extraction.image_parser import start_parser
 from sci_fi_parser.schema import ImageSet, PdfSet
+
+DEFAULT_CACHE_DIR = "temp"
 
 
 def start_extraction(
@@ -39,7 +44,13 @@ def start_extraction(
     if extracted_image_folder:
         extracted_image_folder.mkdir(parents=True, exist_ok=True)
 
-    for pdf_path in pdf_paths:
+    pdf_cache = Cache(DEFAULT_CACHE_DIR)
+    for pdf_path in tqdm(pdf_paths):
+        pdf_hash = _hash_pdf(pdf_path)
+        if pdf_hash in pdf_cache:
+            continue
+        pdf_cache.add(pdf_hash, pdf_path.name)
+
         with pymupdf.open(pdf_path) as doc:
             pdf_data, image_data = start_parser(doc)
 
@@ -76,3 +87,10 @@ def _find_pdfs(input_path: Path) -> list[Path]:
         )
 
     raise ValueError(f"Input path must be a PDF or directory of PDFs: {input_path}")
+
+
+def _hash_pdf(pdf: Path) -> str:
+    with open(pdf, "rb") as f:
+        file_contents = f.read()
+    hash = hashlib.sha256(file_contents).hexdigest()
+    return hash
