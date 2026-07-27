@@ -89,16 +89,13 @@ def test_is_duplicate_returns_true_when_hash_in_cache(monkeypatch):
 
     monkeypatch.setattr(extraction_pipeline, "_hash_pdf", fake_hash_pdf)
 
-    conn = MagicMock()
-    conn.__contains__.return_value = True
-
     cache = MagicMock()
-    cache.__enter__.return_value = conn
+    cache.__contains__.return_value = True
 
     result = extraction_pipeline.is_duplicate(Path("test.pdf"), cache)
 
     assert result is True
-    conn.add.assert_not_called()
+    cache.add.assert_not_called()
 
 
 def test_is_duplicate_returns_false_and_adds_hash_when_not_in_cache(monkeypatch):
@@ -107,13 +104,10 @@ def test_is_duplicate_returns_false_and_adds_hash_when_not_in_cache(monkeypatch)
 
     monkeypatch.setattr(extraction_pipeline, "_hash_pdf", fake_hash_pdf)
 
-    conn = MagicMock()
-    conn.__contains__.return_value = False
-
     cache = MagicMock()
-    cache.__enter__.return_value = conn
+    cache.__contains__.return_value = False
 
     result = extraction_pipeline.is_duplicate(Path("test.pdf"), cache)
 
     assert result is False
-    conn.add.assert_called_once_with("abc123", "test.pdf")
+    cache.add.assert_called_once_with("abc123", "test.pdf")

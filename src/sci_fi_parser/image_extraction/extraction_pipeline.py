@@ -44,29 +44,29 @@ def start_extraction(
     if extracted_image_folder:
         extracted_image_folder.mkdir(parents=True, exist_ok=True)
 
-    for pdf_path in tqdm(pdf_paths):
-        with Cache(DEFAULT_CACHE_DIR) as pdf_cache:
+    with Cache(DEFAULT_CACHE_DIR) as pdf_cache:
+        for pdf_path in tqdm(pdf_paths):
             if is_duplicate(pdf_path, pdf_cache):
                 continue
 
-        with pymupdf.open(pdf_path) as doc:
-            pdf_data, image_data = start_parser(doc)
+            with pymupdf.open(pdf_path) as doc:
+                pdf_data, image_data = start_parser(doc)
 
-        for pdf_id, pdf_metadata in pdf_data.items():
-            pdf_set.add(pdf_id, {"metadata": pdf_metadata})
+            for pdf_id, pdf_metadata in pdf_data.items():
+                pdf_set.add(pdf_id, {"metadata": pdf_metadata})
 
-        for image_id, image_payload in image_data.items():
-            image, img_metadata = image_payload
-            if image:
-                image_path = None
-                if extracted_image_folder:
-                    image_path = extracted_image_folder / f"{image_id}.png"
-                    image.save(image_path)
-                image_set.add_extracted_image(
-                    image_id,
-                    image_path=image_path or Path(f"{image_id}.png"),
-                    extraction_metadata=img_metadata,
-                )
+            for image_id, image_payload in image_data.items():
+                image, img_metadata = image_payload
+                if image:
+                    image_path = None
+                    if extracted_image_folder:
+                        image_path = extracted_image_folder / f"{image_id}.png"
+                        image.save(image_path)
+                    image_set.add_extracted_image(
+                        image_id,
+                        image_path=image_path or Path(f"{image_id}.png"),
+                        extraction_metadata=img_metadata,
+                    )
 
 
 def is_duplicate(pdf_path: Path, cache: Cache) -> bool:
@@ -80,10 +80,9 @@ def is_duplicate(pdf_path: Path, cache: Cache) -> bool:
         True if PDF is in cache. False otherwise.
     """
     pdf_hash = _hash_pdf(pdf_path)
-    with cache as conn:
-        if pdf_hash in conn:
-            return True
-        conn.add(pdf_hash, pdf_path.name)
+    if pdf_hash in cache:
+        return True
+    cache.add(pdf_hash, pdf_path.name)
     return False
 
 
