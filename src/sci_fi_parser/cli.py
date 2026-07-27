@@ -63,6 +63,6 @@ def cli_clear_cache():
     _ = argparse.ArgumentParser(prog="clear-cache", description="Clear cache of handled PDFs.")
 
     print("Clearing cache...")
-    pdf_cache = Cache("temp")
-    pdf_cache.clear()
+    with Cache("temp") as conn:
+        conn.clear()
     print("\nFinished.")

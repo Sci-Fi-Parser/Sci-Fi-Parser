@@ -20,6 +20,7 @@ dependencies = [
   "pandas>=3.0.3",
   "imagehash>=4.3.2",
   "diskcache>=5.6.3",
+  "diskcache-stubs>=5.6.3.6.20240818",
 ]
 description = "A package to parse data from graphs in documents."
 readme = "README.md"

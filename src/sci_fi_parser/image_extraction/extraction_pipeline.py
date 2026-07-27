@@ -44,12 +44,10 @@ def start_extraction(
     if extracted_image_folder:
         extracted_image_folder.mkdir(parents=True, exist_ok=True)
 
-    pdf_cache = Cache(DEFAULT_CACHE_DIR)
     for pdf_path in tqdm(pdf_paths):
-        pdf_hash = _hash_pdf(pdf_path)
-        if pdf_hash in pdf_cache:
-            continue
-        pdf_cache.add(pdf_hash, pdf_path.name)
+        with Cache(DEFAULT_CACHE_DIR) as pdf_cache:
+            if is_duplicate(pdf_path, pdf_cache):
+                continue
 
         with pymupdf.open(pdf_path) as doc:
             pdf_data, image_data = start_parser(doc)
@@ -71,6 +69,39 @@ def start_extraction(
                 )
 
 
+def is_duplicate(pdf_path: Path, cache: Cache) -> bool:
+    """Check the on-disk cache for the hash of a PDF.
+
+    Args:
+        pdf_path (Path): Path to a PDF.
+        cache (Cache): Initialized cache.
+
+    Returns:
+        True if PDF is in cache. False otherwise.
+    """
+    pdf_hash = _hash_pdf(pdf_path)
+    with cache as conn:
+        if pdf_hash in conn:
+            return True
+        conn.add(pdf_hash, pdf_path.name)
+    return False
+
+
+def _hash_pdf(pdf: Path) -> str:
+    """Create a hash of a PDF. Hash is constructed from the contents of the PDF.
+
+    Args:
+        pdf (Path): Path to a PDF.
+
+    Returns:
+        String of the PDF contents in hexadecimal
+    """
+    with open(pdf, "rb") as f:
+        file_contents = f.read()
+    hash = hashlib.sha256(file_contents).hexdigest()
+    return hash
+
+
 def _find_pdfs(input_path: Path) -> list[Path]:
     """Return PDF files to process from a file or one directory level.
 
@@ -87,10 +118,3 @@ def _find_pdfs(input_path: Path) -> list[Path]:
         )
 
     raise ValueError(f"Input path must be a PDF or directory of PDFs: {input_path}")
-
-
-def _hash_pdf(pdf: Path) -> str:
-    with open(pdf, "rb") as f:
-        file_contents = f.read()
-    hash = hashlib.sha256(file_contents).hexdigest()
-    return hash
