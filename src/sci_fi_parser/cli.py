@@ -60,7 +60,8 @@ def cli_parse_folder():
 
 
 def cli_clear_cache():
-    _ = argparse.ArgumentParser(prog="clear-cache", description="Clear cache of handled PDFs.")
+    parser = argparse.ArgumentParser(prog="clear-cache", description="Clear cache of handled PDFs.")
+    parser.parse_args()
 
     print("Clearing cache...")
     with Cache("temp") as conn:
