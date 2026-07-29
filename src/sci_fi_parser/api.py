@@ -9,6 +9,7 @@ from importlib.resources import files
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
 
 from sci_fi_parser.classifier.classifier_pipeline import start_classification
 from sci_fi_parser.image_extraction.extraction_pipeline import start_extraction
@@ -16,6 +17,7 @@ from sci_fi_parser.object_detection.detection_pipeline import start_ocr
 from sci_fi_parser.schema import ImageSet, PdfSet
 from sci_fi_parser.storage.writer import save_image_set
 from sci_fi_parser.vlm.vlm_pipeline import start_vlm
+from sci_fi_parser.cache import in_cache, init_cache, add_to_cache
 
 DEFAULT_EXTRACTED_IMAGE_DIR = Path.cwd() / "temp" / "extracted_images"
 DEFAULT_VLM_CONFIG = files("sci_fi_parser.config").joinpath("vlm.toml")
@@ -144,39 +146,50 @@ def parse_folder(
         vlm: Whether to run VLM extraction.
 
     Returns:
-        A parse result containing the populated image and PDF sets.
+        A parse result containing the populated image and PDF sets.        for pdf_path in tqdm(pdf_paths):
+
     """
 
-    image_set = ImageSet()
-    pdf_set = PdfSet()
+    input_pdfs = Path(input_dir).iterdir()
 
-    start_extraction(
-        Path(input_dir),
-        image_set,
-        pdf_set,
-        Path(extracted_image_dir),
-    )
+    with init_cache() as cache:
+        for pdf in tqdm(input_pdfs):
+            if in_cache(pdf, cache):
+                continue
 
-    if classify:
-        start_classification(image_set)
+            image_set = ImageSet()
+            pdf_set = PdfSet()
 
-    if ocr:
-        start_ocr(image_set)
+            start_extraction(
+                pdf,
+                image_set,
+                pdf_set,
+                Path(extracted_image_dir),
+            )
 
-    if vlm:
-        start_vlm(
-            image_set,
-            Path(vlm_config),
-        )
+            if classify:
+                start_classification(image_set)
 
-    if output_dir is not None:
-        save_image_set(
-            image_set=image_set,
-            output_dir=Path(output_dir),
-        )
+            if ocr:
+                start_ocr(image_set)
 
-    return ParseResult(
-        image_set=image_set,
-        pdf_set=pdf_set,
-        output_dir=output_dir,
-    )
+            if vlm:
+                start_vlm(
+                    image_set,
+                    Path(vlm_config),
+                )
+
+            if output_dir is not None:
+                save_image_set(
+                    image_set=image_set,
+                    output_dir=Path(output_dir),
+                )
+
+            add_to_cache(pdf, cache)
+
+            # return ParseResult(
+            #     image_set=image_set,
+            #     pdf_set=pdf_set,
+            #     output_dir=output_dir,
+            # )
+        return ParseResult(image_set=ImageSet(), pdf_set=PdfSet())

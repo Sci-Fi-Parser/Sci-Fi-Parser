@@ -32,7 +32,7 @@ def save_image_set(image_set, output_dir: Path) -> None:
     series_rows = []
     points = []
 
-    with raw_path.open("w", encoding="utf-8") as f:
+    with raw_path.open("a", encoding="utf-8", newline="\n") as f:
         for image_id, image_record in image_set.items():
             record = _record_to_dict(image_record)
 
