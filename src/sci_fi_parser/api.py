@@ -11,13 +11,13 @@ from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
 
+from sci_fi_parser.cache import add_to_cache, in_cache, init_cache
 from sci_fi_parser.classifier.classifier_pipeline import start_classification
 from sci_fi_parser.image_extraction.extraction_pipeline import start_extraction
 from sci_fi_parser.object_detection.detection_pipeline import start_ocr
 from sci_fi_parser.schema import ImageSet, PdfSet
 from sci_fi_parser.storage.writer import save_image_set
 from sci_fi_parser.vlm.vlm_pipeline import start_vlm
-from sci_fi_parser.cache import in_cache, init_cache, add_to_cache
 
 DEFAULT_EXTRACTED_IMAGE_DIR = Path.cwd() / "temp" / "extracted_images"
 DEFAULT_VLM_CONFIG = files("sci_fi_parser.config").joinpath("vlm.toml")

@@ -12,11 +12,9 @@ storage.
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pymupdf
-from diskcache import Cache
 from tqdm import tqdm
 
 from sci_fi_parser.image_extraction.image_parser import start_parser

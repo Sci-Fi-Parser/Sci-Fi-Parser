@@ -11,9 +11,7 @@ def init_cache() -> Cache:
 
 
 def in_cache(pdf, cache: Cache) -> bool:
-    if _hash_pdf(pdf) in cache:
-        return True
-    return False
+    return _hash_pdf(pdf) in cache
 
 
 def add_to_cache(pdf_path: Path, cache: Cache) -> None:
