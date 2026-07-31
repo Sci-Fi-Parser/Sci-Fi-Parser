@@ -28,7 +28,7 @@ def start_vlm(image_set: ImageSet, vlm: ChatCompletionsVLM) -> None:
         profile: `VLMProfile` instance or `Path` to a config .toml.
     """
     image_ids = image_set.filter_by_type(_SUPPORTED_CHARTS)
-    for image_id in tqdm(image_ids):
+    for image_id in image_ids:
         if image_set.get_classification_result(image_id) not in _SUPPORTED_CHARTS:
             continue
         ocr_result = image_set.get_ocrcv_result(image_id)

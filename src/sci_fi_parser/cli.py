@@ -47,7 +47,7 @@ def cli_parse_folder():
         "output_dir": args.output,
         "classify": not args.no_classify,
         "ocr": not args.no_ocr,
-        "run_vlm": not args.no_vlm,
+        "vlm": not args.no_vlm,
     }
 
     result = parse_folder(

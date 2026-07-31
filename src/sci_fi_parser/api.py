@@ -135,7 +135,7 @@ def parse_folder(
     vlm_config: str | Path = DEFAULT_VLM_CONFIG,
     classify: bool = True,
     ocr: bool = True,
-    run_vlm: bool = True,
+    vlm: bool = True,
 ) -> ParseResult:
     """Parse all PDFs inside a folder.
 
@@ -155,13 +155,13 @@ def parse_folder(
 
     input_pdfs = Path(input_dir).iterdir()
 
-    if run_vlm:
-        profile = load_profile(Path(vlm_config))
-        vlm = ChatCompletionsVLM(profile)
-
     with init_cache() as cache:
         if ocr:
             ocr_instance = Ocr()
+
+        if vlm:
+            profile = load_profile(Path(vlm_config))
+            vlm_instance = ChatCompletionsVLM(profile)
 
         for pdf in tqdm(input_pdfs):
             if in_cache(pdf, cache):
@@ -183,10 +183,10 @@ def parse_folder(
             if ocr:
                 start_ocr(image_set, ocr_instance)
 
-            if run_vlm:
+            if vlm:
                 start_vlm(
                     image_set,
-                    vlm,
+                    vlm_instance,
                 )
 
             if output_dir is not None:
