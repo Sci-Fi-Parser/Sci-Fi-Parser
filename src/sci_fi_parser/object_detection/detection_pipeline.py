@@ -7,7 +7,6 @@ bars with OCR bounding boxes, formatting results for storage, and running
 the whole pipeline over an `ImageSet` in batches.
 """
 
-import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -38,19 +37,19 @@ class OcrExtractionResult:
     matched: object
 
 
-def extract_ocr_data(paths: list[tuple[str, Path]]) -> list[OcrExtractionResult]:
+def extract_ocr_data(paths: list[tuple[str, Path]], ocr: Ocr) -> list[OcrExtractionResult]:
     """Run CV and OCR on a list of images.
 
     Args:
         paths: A list of tuples `(image_id, image_path)` where `image_path` is
             a `Path` pointing to the image file to process.
+        ocr: Instance of an OCR.
 
     Returns:
         A list of `OcrExtractionResult` instances, in the same order as
         `paths`, containing detected bar candidates, OCR output, and the
         matched associations between them.
     """
-    ocr = Ocr()
     results = []
 
     for image in paths:
@@ -115,35 +114,30 @@ def format_ocr_output(result: OcrExtractionResult) -> str:
     return f"{result.bar_candidates}{result.ocr_result}{result.matched}"
 
 
-def start_ocr(image_set: ImageSet, batch_size=100) -> None:
+def start_ocr(image_set: ImageSet, ocr: Ocr) -> None:
     """Run OCR + CV pipeline over an `ImageSet` and persist results.
 
     The function processes images in `image_set` by chart type defined in
-    `SUPPORTED_CHARTS`, in batches of `batch_size`. For each image it runs
+    `SUPPORTED_CHARTS`. For each image it runs
     bar detection and OCR, formats a compact result string and saves both
     the compact string and the raw extraction as a dictionary using
     `ImageSet`'s storage methods.
 
     Args:
         image_set: An `ImageSet` instance.
-        batch_size: Maximum number of images to process per chart type in
-            one invocation. If `<= 0`, the function returns immediately.
+        ocr: Instance of an OCR.
 
     Side effects:
         Updates the provided `image_set` by adding OCR/CV results for
         processed images.
     """
-    if batch_size <= 0:
-        logging.info("Object detection batch size is 0 or less. Skipping stage.")
-        return
-
-    chart_ids = image_set.filter_by_type(SUPPORTED_CHARTS, batch_size)
+    chart_ids = image_set.filter_by_type(SUPPORTED_CHARTS)
 
     image_paths: list[tuple[str, Path]] = []
     for image_id in chart_ids:
         image_paths.append((image_id, image_set.get_image_path(image_id)))
 
-    results = extract_ocr_data(image_paths)
+    results = extract_ocr_data(image_paths, ocr)
     for image_id, result in zip(chart_ids, results, strict=True):
         image_set.add_ocrcv_result(image_id, format_ocr_output(result))
         image_set.add_ocrcv_raw(image_id, asdict(result))

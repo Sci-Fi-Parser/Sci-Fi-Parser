@@ -15,6 +15,7 @@ from sci_fi_parser.cache import add_to_cache, in_cache, init_cache
 from sci_fi_parser.classifier.classifier_pipeline import start_classification
 from sci_fi_parser.image_extraction.extraction_pipeline import start_extraction
 from sci_fi_parser.object_detection.detection_pipeline import start_ocr
+from sci_fi_parser.object_detection.ocr import Ocr
 from sci_fi_parser.schema import ImageSet, PdfSet
 from sci_fi_parser.storage.writer import save_image_set
 from sci_fi_parser.vlm.vlm_pipeline import start_vlm
@@ -146,13 +147,16 @@ def parse_folder(
         vlm: Whether to run VLM extraction.
 
     Returns:
-        A parse result containing the populated image and PDF sets.        for pdf_path in tqdm(pdf_paths):
+        A parse result containing the populated image and PDF sets.
 
     """
 
     input_pdfs = Path(input_dir).iterdir()
 
     with init_cache() as cache:
+        if ocr:
+            ocr_instance = Ocr()
+
         for pdf in tqdm(input_pdfs):
             if in_cache(pdf, cache):
                 continue
@@ -171,7 +175,7 @@ def parse_folder(
                 start_classification(image_set)
 
             if ocr:
-                start_ocr(image_set)
+                start_ocr(image_set, ocr_instance)
 
             if vlm:
                 start_vlm(
