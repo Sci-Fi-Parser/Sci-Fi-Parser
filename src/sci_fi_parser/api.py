@@ -18,6 +18,8 @@ from sci_fi_parser.object_detection.detection_pipeline import start_ocr
 from sci_fi_parser.object_detection.ocr import Ocr
 from sci_fi_parser.schema import ImageSet, PdfSet
 from sci_fi_parser.storage.writer import save_image_set
+from sci_fi_parser.vlm.vlm import ChatCompletionsVLM
+from sci_fi_parser.vlm.vlm_config import load_profile
 from sci_fi_parser.vlm.vlm_pipeline import start_vlm
 
 DEFAULT_EXTRACTED_IMAGE_DIR = Path.cwd() / "temp" / "extracted_images"
@@ -133,7 +135,7 @@ def parse_folder(
     vlm_config: str | Path = DEFAULT_VLM_CONFIG,
     classify: bool = True,
     ocr: bool = True,
-    vlm: bool = True,
+    run_vlm: bool = True,
 ) -> ParseResult:
     """Parse all PDFs inside a folder.
 
@@ -152,6 +154,10 @@ def parse_folder(
     """
 
     input_pdfs = Path(input_dir).iterdir()
+
+    if run_vlm:
+        profile = load_profile(Path(vlm_config))
+        vlm = ChatCompletionsVLM(profile)
 
     with init_cache() as cache:
         if ocr:
@@ -177,10 +183,10 @@ def parse_folder(
             if ocr:
                 start_ocr(image_set, ocr_instance)
 
-            if vlm:
+            if run_vlm:
                 start_vlm(
                     image_set,
-                    Path(vlm_config),
+                    vlm,
                 )
 
             if output_dir is not None:
