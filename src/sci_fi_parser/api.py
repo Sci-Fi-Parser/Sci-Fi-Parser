@@ -155,7 +155,7 @@ def parse_folder(
 
     input_pdfs = Path(input_dir).iterdir()
 
-    with init_cache() as cache:
+    with init_cache(output_dir) as cache:
         if ocr:
             ocr_instance = Ocr()
 

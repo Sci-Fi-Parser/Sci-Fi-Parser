@@ -6,9 +6,8 @@ from diskcache import Cache
 DEFAULT_CACHE_LOCATION = Path.cwd() / "temp"
 
 
-def init_cache() -> Cache:
-    return Cache(DEFAULT_CACHE_LOCATION)
-
+def init_cache(cache_location=DEFAULT_CACHE_LOCATION) -> Cache:
+    return Cache(cache_location)
 
 def in_cache(pdf, cache: Cache) -> bool:
     return _hash_pdf(pdf) in cache
