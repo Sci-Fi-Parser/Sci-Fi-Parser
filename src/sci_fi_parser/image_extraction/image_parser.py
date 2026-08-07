@@ -9,7 +9,6 @@ Pillow images are kept outside metadata so later pipeline stages can save them.
 import logging
 from pathlib import Path
 from typing import cast
-from uuid import uuid4
 
 import imagehash
 import pymupdf
@@ -25,23 +24,25 @@ def _create_hash(img: Image.Image) -> str:
 
 def start_parser(
     doc: pymupdf.Document,
+    pdf_id: str,
 ) -> tuple[dict[str, dict[str, str]], dict[str, tuple[Image.Image, dict[str, str]]]]:
     """Parse a PyMuPDF document into PDF metadata and extracted image data.
 
     Args:
         doc (pymupdf.Document): An open PyMuPDF Document to parse.
+        pdf_id (str): Content hash identifying this PDF, used as the key
+            for both pdf_data and any images extracted from it.
 
     Returns:
         A tuple of pdf_data and image_data:
         - "pdf_data" (dict[pdf_id str, metadata dict]):
-          PDF-level metadata entries keyed by string of UUID.
+          PDF-level metadata entries keyed by content hash.
         - "image_data" (dict[image_id str, tuple(Image.Image, metadata dict)]):
           Pillow image and metadata keyed by UUID string
     """
     if not doc.name:
         raise ValueError("Document has no name; cannot build metadata")
 
-    pdf_id = str(uuid4())
     pdf_data = {
         pdf_id: {
             "file_name": Path(doc.name).name,

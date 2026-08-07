@@ -9,6 +9,7 @@ DEFAULT_CACHE_LOCATION = Path.cwd() / "temp"
 def init_cache(cache_location=DEFAULT_CACHE_LOCATION) -> Cache:
     return Cache(cache_location)
 
+
 def in_cache(pdf, cache: Cache) -> bool:
     return _hash_pdf(pdf) in cache
 
@@ -27,7 +28,4 @@ def _hash_pdf(pdf: Path) -> str:
     Returns:
         String of the PDF contents in hexadecimal
     """
-    with open(pdf, "rb") as f:
-        file_contents = f.read()
-    hash = hashlib.sha256(file_contents).hexdigest()
-    return hash
+    return hashlib.sha256(pdf.read_bytes()).hexdigest()

@@ -12,6 +12,7 @@ storage.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pymupdf
@@ -19,8 +20,6 @@ from tqdm import tqdm
 
 from sci_fi_parser.image_extraction.image_parser import start_parser
 from sci_fi_parser.schema import ImageSet, PdfSet
-
-DEFAULT_CACHE_DIR = "temp"
 
 
 def start_extraction(
@@ -42,25 +41,27 @@ def start_extraction(
     if extracted_image_folder:
         extracted_image_folder.mkdir(parents=True, exist_ok=True)
 
-        for pdf_path in tqdm(pdf_paths):
-            with pymupdf.open(pdf_path) as doc:
-                pdf_data, image_data = start_parser(doc)
+    for pdf_path in tqdm(pdf_paths):
+        pdf_id = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
 
-            for pdf_id, pdf_metadata in pdf_data.items():
-                pdf_set.add(pdf_id, {"metadata": pdf_metadata})
+        with pymupdf.open(pdf_path) as doc:
+            pdf_data, image_data = start_parser(doc, pdf_id)
 
-            for image_id, image_payload in image_data.items():
-                image, img_metadata = image_payload
-                if image:
-                    image_path = None
-                    if extracted_image_folder:
-                        image_path = extracted_image_folder / f"{image_id}.png"
-                        image.save(image_path)
-                    image_set.add_extracted_image(
-                        image_id,
-                        image_path=image_path or Path(f"{image_id}.png"),
-                        extraction_metadata=img_metadata,
-                    )
+        for pdf_id, pdf_metadata in pdf_data.items():
+            pdf_set.add(pdf_id, {"metadata": pdf_metadata})
+
+        for image_id, image_payload in image_data.items():
+            image, img_metadata = image_payload
+            if image:
+                image_path = None
+                if extracted_image_folder:
+                    image_path = extracted_image_folder / f"{image_id}.png"
+                    image.save(image_path)
+                image_set.add_extracted_image(
+                    image_id,
+                    image_path=image_path or Path(f"{image_id}.png"),
+                    extraction_metadata=img_metadata,
+                )
 
 
 def _find_pdfs(input_path: Path) -> list[Path]:

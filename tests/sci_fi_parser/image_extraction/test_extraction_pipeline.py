@@ -23,7 +23,7 @@ def test_start_extraction_writes_images_and_metadata(tmp_path, monkeypatch):
         assert path == pdf_path
         return DummyDocument()
 
-    def fake_start_parser(doc: DummyDocument):
+    def fake_start_parser(doc: DummyDocument, hash: str):
         image = Image.new("RGB", (1, 1), "white")
         pdf_data = {"pdf-1": {"title": "source"}}
         image_data = {"image-1": (image, {"pdf_id": "pdf-1"})}
