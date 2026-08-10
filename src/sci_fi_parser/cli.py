@@ -1,8 +1,6 @@
 import argparse
 from pathlib import Path
 
-from diskcache import Cache
-
 from sci_fi_parser.api import parse_folder
 
 
@@ -57,13 +55,3 @@ def cli_parse_folder():
 
     print("\nFinished.")
     print(result.summary())
-
-
-def cli_clear_cache():
-    parser = argparse.ArgumentParser(prog="clear-cache", description="Clear cache of handled PDFs.")
-    parser.parse_args()
-
-    print("Clearing cache...")
-    with Cache("temp") as conn:
-        conn.clear()
-    print("\nFinished.")
