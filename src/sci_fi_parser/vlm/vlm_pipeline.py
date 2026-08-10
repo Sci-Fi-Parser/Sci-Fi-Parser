@@ -3,13 +3,9 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-
-from tqdm import tqdm
 
 from sci_fi_parser.schema import ImageSet
 from sci_fi_parser.vlm.vlm import ChatCompletionsVLM
-from sci_fi_parser.vlm.vlm_config import VLMProfile, load_profile
 
 _SUPPORTED_CHARTS = ["bar_chart"]
 
