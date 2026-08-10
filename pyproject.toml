@@ -1,6 +1,6 @@
 [project]
 name = "sci-fi-parser"
-version = "0.1.0"
+dynamic = ["version"]
 requires-python = ">=3.12"
 dependencies = [
   "matplotlib>=3.9",
@@ -63,8 +63,11 @@ synthetic-bars = "scripts.synthetic.cli:main"
 parse-folder = "sci_fi_parser.cli:main"
 
 [build-system]
-requires = ["hatchling >= 1.26"]
+requires = ["hatchling >= 1.26", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
 
 [dependency-groups]
 dev = [

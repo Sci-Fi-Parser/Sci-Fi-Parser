@@ -1,9 +1,11 @@
 """Sphinx configuration for Sci-Fi-Parser."""
 
+from importlib.metadata import version
+
 project = "Sci-Fi-Parser"
 copyright = "2026, Sci-Fi-Parser"
 author = "Sci-Fi-Parser"
-release = "0.1.0"
+release = version("sci-fi-parser")
 
 extensions = [
     "sphinx.ext.autodoc",
