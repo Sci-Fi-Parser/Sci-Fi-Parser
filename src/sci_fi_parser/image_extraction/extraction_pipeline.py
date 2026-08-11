@@ -12,9 +12,11 @@ storage.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pymupdf
+from tqdm import tqdm
 
 from sci_fi_parser.image_extraction.image_parser import start_parser
 from sci_fi_parser.schema import ImageSet, PdfSet
@@ -39,9 +41,11 @@ def start_extraction(
     if extracted_image_folder:
         extracted_image_folder.mkdir(parents=True, exist_ok=True)
 
-    for pdf_path in pdf_paths:
+    for pdf_path in tqdm(pdf_paths):
+        pdf_id = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+
         with pymupdf.open(pdf_path) as doc:
-            pdf_data, image_data = start_parser(doc)
+            pdf_data, image_data = start_parser(doc, pdf_id)
 
         for pdf_id, pdf_metadata in pdf_data.items():
             pdf_set.add(pdf_id, {"metadata": pdf_metadata})

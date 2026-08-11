@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
@@ -28,14 +29,27 @@ def test_summary():
 @patch("sci_fi_parser.api.start_ocr")
 @patch("sci_fi_parser.api.start_classification")
 @patch("sci_fi_parser.api.start_extraction")
+@patch("sci_fi_parser.api.Path.iterdir")
+@patch("sci_fi_parser.api.Ocr")
+@patch("sci_fi_parser.api.in_cache")
+@patch("sci_fi_parser.api.add_to_cache")
 def test_parse_folder_returns_parse_result(
+    mock_add_to_cache,
+    mock_in_cache,
+    mock_ocr_inst,
+    mock_iterdir,
     mock_extraction,
     mock_classification,
     mock_ocr,
     mock_vlm,
 ):
+    mock_iterdir.return_value = [Path("file1.pdf")]
+    mock_in_cache.return_value = False
+
     result = parse_folder("dummy_folder")
 
+    assert isinstance(result, ParseResult)
+    mock_extraction.assert_called()
     assert isinstance(result, ParseResult)
 
     mock_extraction.assert_called_once()
@@ -48,12 +62,23 @@ def test_parse_folder_returns_parse_result(
 @patch("sci_fi_parser.api.start_ocr")
 @patch("sci_fi_parser.api.start_classification")
 @patch("sci_fi_parser.api.start_extraction")
+@patch("sci_fi_parser.api.Path.iterdir")
+@patch("sci_fi_parser.api.Ocr")
+@patch("sci_fi_parser.api.in_cache")
+@patch("sci_fi_parser.api.add_to_cache")
 def test_parse_folder_respects_pipeline_flags(
+    mock_add_to_cache,
+    mock_in_cache,
+    mock_ocr_inst,
+    mock_iterdir,
     mock_extraction,
     mock_classification,
     mock_ocr,
     mock_vlm,
 ):
+    mock_iterdir.return_value = [Path("file1.pdf")]
+    mock_in_cache.return_value = False
+
     parse_folder(
         "dummy_folder",
         classify=False,

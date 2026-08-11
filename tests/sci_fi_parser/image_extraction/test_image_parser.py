@@ -14,7 +14,7 @@ def test_start_parser_returns_pdf_metadata() -> None:
     mock_doc.page_count = 5
     mock_doc.__iter__ = lambda s: iter([])
 
-    pdf_data, image_data = image_parser.start_parser(mock_doc)
+    pdf_data, image_data = image_parser.start_parser(mock_doc, "id")
 
     assert len(pdf_data) == 1
     meta = next(iter(pdf_data.values()))
@@ -27,7 +27,7 @@ def test_start_parser_raises_on_empty_doc_name():
     mock_doc = MagicMock()
     mock_doc.name = ""
     with pytest.raises(ValueError, match="no name"):
-        image_parser.start_parser(mock_doc)
+        image_parser.start_parser(mock_doc, "id")
 
 
 def test_extract_images_adds_entry() -> None:

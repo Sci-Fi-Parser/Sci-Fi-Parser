@@ -9,38 +9,40 @@ Pillow images are kept outside metadata so later pipeline stages can save them.
 import logging
 from pathlib import Path
 from typing import cast
-from uuid import uuid4
 
+import imagehash
 import pymupdf
 from PIL import Image
 
 MAX_IMAGE_SIZE = 1000
 
 
-def create_image_id() -> str:
-    """Create an image id shared by extracted and input images."""
-    return str(uuid4())
+def _create_hash(img: Image.Image) -> str:
+    """Create an image hash shared by extracted and input images."""
+    return str(imagehash.average_hash(img))
 
 
 def start_parser(
     doc: pymupdf.Document,
+    pdf_id: str,
 ) -> tuple[dict[str, dict[str, str]], dict[str, tuple[Image.Image, dict[str, str]]]]:
     """Parse a PyMuPDF document into PDF metadata and extracted image data.
 
     Args:
         doc (pymupdf.Document): An open PyMuPDF Document to parse.
+        pdf_id (str): Content hash identifying this PDF, used as the key
+            for both pdf_data and any images extracted from it.
 
     Returns:
         A tuple of pdf_data and image_data:
         - "pdf_data" (dict[pdf_id str, metadata dict]):
-          PDF-level metadata entries keyed by string of UUID.
+          PDF-level metadata entries keyed by content hash.
         - "image_data" (dict[image_id str, tuple(Image.Image, metadata dict)]):
           Pillow image and metadata keyed by UUID string
     """
     if not doc.name:
         raise ValueError("Document has no name; cannot build metadata")
 
-    pdf_id = str(uuid4())
     pdf_data = {
         pdf_id: {
             "file_name": Path(doc.name).name,
@@ -82,8 +84,8 @@ def extract_images(
                     continue
 
                 if downsized_img:
-                    image_id = create_image_id()
-                    image_data[image_id] = (
+                    image_hash = _create_hash(downsized_img)
+                    image_data[image_hash] = (
                         downsized_img,
                         {
                             "pdf_id": pdf_id,
@@ -117,8 +119,8 @@ def extract_drawings(
                 continue
 
             if img:
-                image_id = create_image_id()
-                image_data[image_id] = (
+                image_hash = _create_hash(img)
+                image_data[image_hash] = (
                     img,
                     {
                         "pdf_id": pdf_id,

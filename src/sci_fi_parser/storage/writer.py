@@ -28,16 +28,25 @@ def save_image_set(image_set, output_dir: Path) -> None:
 
     raw_path = raw_dir / "image_set.jsonl"
 
-    charts = []
-    series_rows = []
-    points = []
-
-    with raw_path.open("w", encoding="utf-8") as f:
+    with raw_path.open("a", encoding="utf-8", newline="\n") as f:
         for image_id, image_record in image_set.items():
-            record = _record_to_dict(image_record)
-
-            # Always preserve full raw record
+            record = {"image_id": image_id, **_record_to_dict(image_record)}
             f.write(json.dumps(record, default=_json_default, ensure_ascii=False) + "\n")
+
+    _rebuild_tables(raw_path, table_dir)
+
+
+def _rebuild_tables(raw_path: Path, table_dir: Path) -> None:
+    """Rebuild charts/series/points parquet from the full accumulated JSONL."""
+    charts, series_rows, points = [], [], []
+
+    with raw_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            image_id = record["image_id"]
 
             metadata = record.get("metadata", {})
             extraction = metadata.get("extraction", {})
@@ -67,7 +76,6 @@ def save_image_set(image_set, output_dir: Path) -> None:
 
             for series_index, s in enumerate(vlm_result.get("series", []) or []):
                 series_id = str(uuid4())
-
                 series_rows.append(
                     {
                         "series_id": series_id,
@@ -76,10 +84,8 @@ def save_image_set(image_set, output_dir: Path) -> None:
                         "series_name": s.get("name"),
                     }
                 )
-
                 for point_index, p in enumerate(s.get("points", []) or []):
                     x_raw = p.get("x")
-
                     points.append(
                         {
                             "point_id": str(uuid4()),
@@ -137,3 +143,35 @@ def _infer_x_type(value: Any) -> str:
         return "numeric"
     except ValueError:
         return "category"
+
+
+def save_pdf_set(pdf_set, output_dir: Path) -> None:
+    output_dir = Path(output_dir)
+    raw_dir = output_dir / "raw"
+    table_dir = output_dir / "tables"
+
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    table_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_path = raw_dir / "pdf_set.jsonl"
+
+    with raw_path.open("a", encoding="utf-8", newline="\n") as f:
+        for pdf_id, pdf_record in pdf_set.items():
+            record = {"pdf_id": pdf_id, **_record_to_dict(pdf_record)}
+            f.write(json.dumps(record, default=_json_default, ensure_ascii=False) + "\n")
+
+    _rebuild_pdfs_table(raw_path, table_dir)
+
+
+def _rebuild_pdfs_table(raw_path: Path, table_dir: Path) -> None:
+    """Rebuild pdfs.parquet from the full accumulated pdf_set.jsonl."""
+    rows = []
+
+    with raw_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            rows.append(json.loads(line))
+
+    pd.DataFrame(rows).to_parquet(table_dir / "pdfs.parquet", index=False)

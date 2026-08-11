@@ -53,9 +53,8 @@ def test_extract_ocr_data_uses_detected_bars_and_ocr_output(monkeypatch, tmp_pat
 
     monkeypatch.setattr(detection_pipeline.cv2, "imread", lambda path: image_array)
     monkeypatch.setattr(detection_pipeline, "detect_bars", lambda image: [bar])
-    monkeypatch.setattr(detection_pipeline, "Ocr", FakeOcr)
 
-    results = detection_pipeline.extract_ocr_data([("chart-1", image_path)])
+    results = detection_pipeline.extract_ocr_data([("chart-1", image_path)], FakeOcr())
 
     assert calls == [image_array]
     assert len(results) == 1
@@ -85,13 +84,22 @@ def test_start_ocr_writes_results_for_each_matching_image(monkeypatch, tmp_path)
         matched=[("bar-2", [[22, 0, 14, 0]])],
     )
 
-    def fake_extract(image_paths):
+    def fake_extract(image_paths, _):
         assert image_paths == [("chart-1", first_path), ("chart-2", second_path)]
         return [first_result, second_result]
 
     monkeypatch.setattr(detection_pipeline, "extract_ocr_data", fake_extract)
 
-    detection_pipeline.start_ocr(image_set, batch_size=2)
+    calls: list[object] = []
+
+    class FakeOcr:
+        def read_image(self, input_image):
+            calls.append(input_image)
+
+        def run_ocr(self):
+            return []
+
+    detection_pipeline.start_ocr(image_set, FakeOcr())
 
     first_record = image_set.get("chart-1")
     second_record = image_set.get("chart-2")

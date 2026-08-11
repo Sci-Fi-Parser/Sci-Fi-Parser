@@ -18,6 +18,9 @@ dependencies = [
   "pyarrow>=24.0.0",
   "duckdb>=1.5.4",
   "pandas>=3.0.3",
+  "imagehash>=4.3.2",
+  "diskcache>=5.6.3",
+  "diskcache-stubs>=5.6.3.6.20240818",
 ]
 description = "A package to parse data from graphs in documents."
 readme = "README.md"
@@ -60,7 +63,8 @@ cv = ["opencv-python>=4.10"]
 [project.scripts]
 bench-pipeline = "sci_fi_parser.benchmark.bench_pipeline:main"
 synthetic-bars = "scripts.synthetic.cli:main"
-parse-folder = "sci_fi_parser.cli:main"
+parse-folder = "sci_fi_parser.cli:cli_parse_folder"
+clear-cache = "sci_fi_parser.cli:cli_clear_cache"
 
 [build-system]
 requires = ["hatchling >= 1.26"]
@@ -77,6 +81,7 @@ test = [
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
     "coverage>=7.14.1",
+    "pytest-mock>=3.15.1",
 ]
 lint = [
     "ruff>=0.15.20",
