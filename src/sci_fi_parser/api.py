@@ -4,9 +4,10 @@ This module exposes a convenience function for parsing a folder of PDFs and a
 result object for accessing the parsed image and PDF sets, saving outputs, and
 loading benchmark-friendly data frames.
 """
-from sys import exit
+
 from importlib.resources import files
 from pathlib import Path
+from sys import exit
 
 import pandas as pd
 from tqdm import tqdm
@@ -157,7 +158,6 @@ def parse_folder(
     except OSError as e:
         print(f"Parse folder input error: {e}")
         exit(1)
-
 
     if ocr:
         ocr_instance = Ocr()
