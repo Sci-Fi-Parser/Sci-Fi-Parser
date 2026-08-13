@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from sci_fi_parser.cli import main
+from sci_fi_parser.cli import cli_parse_folder
 
 
 @patch("sci_fi_parser.cli.parse_folder")
@@ -14,7 +14,7 @@ def test_cli_defaults(mock_parse_folder):
         "image_count": 10,
     }
 
-    main()
+    cli_parse_folder()
 
     mock_parse_folder.assert_called_once_with(
         Path("train_data/small_pdfs"),
@@ -38,7 +38,7 @@ def test_cli_defaults(mock_parse_folder):
 def test_cli_custom_output(mock_parse_folder):
     mock_parse_folder.return_value.summary.return_value = {}
 
-    main()
+    cli_parse_folder()
 
     mock_parse_folder.assert_called_once_with(
         Path("train_data/small_pdfs"),
@@ -63,7 +63,7 @@ def test_cli_custom_output(mock_parse_folder):
 def test_cli_pipeline_flags(mock_parse_folder):
     mock_parse_folder.return_value.summary.return_value = {}
 
-    main()
+    cli_parse_folder()
 
     mock_parse_folder.assert_called_once_with(
         Path("train_data/small_pdfs"),
@@ -77,4 +77,4 @@ def test_cli_pipeline_flags(mock_parse_folder):
 @patch("sys.argv", ["scifi-parser", "--help"])
 def test_cli_help():
     with pytest.raises(SystemExit):
-        main()
+        cli_parse_folder()
