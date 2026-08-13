@@ -9,6 +9,7 @@ lives in :mod:`sci_fi_parser.data_pipeline` (data containers + offloader),
 from pathlib import Path
 
 from sci_fi_parser.classifier.classifier_pipeline import start_classification
+from sci_fi_parser.classifier.image_classifier import DoclingClassifier
 from sci_fi_parser.image_extraction.extraction_pipeline import start_extraction
 from sci_fi_parser.object_detection.detection_pipeline import start_ocr
 from sci_fi_parser.object_detection.ocr import Ocr
@@ -29,7 +30,7 @@ def main() -> None:
     pdf_set = PdfSet()
 
     start_extraction(PDF_INPUT_FOLDER, image_set, pdf_set, EXTRACTED_IMAGE_FOLDER)
-    start_classification(image_set)
+    start_classification(image_set, DoclingClassifier())
     start_ocr(image_set, Ocr())
     start_vlm(image_set, ChatCompletionsVLM(load_profile(VLM_CONFIG)))
 

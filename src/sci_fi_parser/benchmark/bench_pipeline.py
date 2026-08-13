@@ -90,8 +90,9 @@ def load_inputs(
 
 def run_classification_stage(inputs: PipelineInputs) -> None:
     from sci_fi_parser.classifier.classifier_pipeline import start_classification
+    from sci_fi_parser.classifier.image_classifier import DoclingClassifier
 
-    start_classification(inputs.image_set)
+    start_classification(inputs.image_set, DoclingClassifier())
 
 
 def run_ocr_cv_stage(inputs: PipelineInputs) -> None:

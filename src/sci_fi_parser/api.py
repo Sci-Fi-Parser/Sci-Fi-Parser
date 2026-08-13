@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 from sci_fi_parser.cache import add_to_cache, in_cache, init_cache
 from sci_fi_parser.classifier.classifier_pipeline import start_classification
+from sci_fi_parser.classifier.image_classifier import DoclingClassifier
 from sci_fi_parser.image_extraction.extraction_pipeline import start_extraction
 from sci_fi_parser.object_detection.detection_pipeline import start_ocr
 from sci_fi_parser.object_detection.ocr import Ocr
@@ -155,6 +156,9 @@ def parse_folder(
 
     input_pdfs = Path(input_dir).iterdir()
 
+    if classify:
+        classifier_instance = DoclingClassifier()
+
     if ocr:
         ocr_instance = Ocr()
 
@@ -183,7 +187,7 @@ def parse_folder(
             )
 
             if classify:
-                start_classification(single_image_set)
+                start_classification(single_image_set, classifier_instance)
 
             if ocr:
                 start_ocr(single_image_set, ocr_instance)
