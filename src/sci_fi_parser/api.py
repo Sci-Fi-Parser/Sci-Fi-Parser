@@ -4,7 +4,7 @@ This module exposes a convenience function for parsing a folder of PDFs and a
 result object for accessing the parsed image and PDF sets, saving outputs, and
 loading benchmark-friendly data frames.
 """
-
+from sys import exit
 from importlib.resources import files
 from pathlib import Path
 
@@ -152,8 +152,12 @@ def parse_folder(
         A parse result containing the populated image and PDF sets.
 
     """
+    try:
+        input_pdfs = Path(input_dir).iterdir()
+    except OSError as e:
+        print(f"Parse folder input error: {e}")
+        exit(1)
 
-    input_pdfs = Path(input_dir).iterdir()
 
     if ocr:
         ocr_instance = Ocr()
