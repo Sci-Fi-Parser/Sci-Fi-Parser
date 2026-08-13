@@ -15,7 +15,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-import pymupdf
+import pypdfium2 as pdfium
 from tqdm import tqdm
 
 from sci_fi_parser.image_extraction.image_parser import start_parser
@@ -44,8 +44,8 @@ def start_extraction(
     for pdf_path in tqdm(pdf_paths):
         pdf_id = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
 
-        with pymupdf.open(pdf_path) as doc:
-            pdf_data, image_data = start_parser(doc, pdf_id)
+        with pdfium.PdfDocument(pdf_path) as doc:
+            pdf_data, image_data = start_parser(doc, pdf_path, pdf_id)
 
         for pdf_id, pdf_metadata in pdf_data.items():
             pdf_set.add(pdf_id, {"metadata": pdf_metadata})

@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 from PIL import Image
@@ -23,7 +24,9 @@ def test_start_extraction_writes_images_and_metadata(tmp_path, monkeypatch):
         assert path == pdf_path
         return DummyDocument()
 
-    def fake_start_parser(doc: DummyDocument, hash: str):
+    def fake_start_parser(doc: DummyDocument, source_path: Path, pdf_id: str):
+        assert source_path == pdf_path
+        assert pdf_id == hashlib.sha256(pdf_path.read_bytes()).hexdigest()
         image = Image.new("RGB", (1, 1), "white")
         pdf_data = {"pdf-1": {"title": "source"}}
         image_data = {"image-1": (image, {"pdf_id": "pdf-1"})}
@@ -31,7 +34,7 @@ def test_start_extraction_writes_images_and_metadata(tmp_path, monkeypatch):
 
     image_set = ImageSet()
     pdf_set = PdfSet()
-    monkeypatch.setattr(extraction_pipeline.pymupdf, "open", fake_open)
+    monkeypatch.setattr(extraction_pipeline.pdfium, "PdfDocument", fake_open)
     monkeypatch.setattr(extraction_pipeline, "start_parser", fake_start_parser)
 
     extraction_pipeline.start_extraction(pdf_path, image_set, pdf_set, output_path)

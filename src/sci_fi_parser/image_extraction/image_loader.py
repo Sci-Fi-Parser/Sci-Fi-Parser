@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from sci_fi_parser.image_extraction.image_parser import _create_hash
+from sci_fi_parser.image_extraction.hashing import create_hash
 from sci_fi_parser.schema import ImageSet
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
@@ -23,7 +23,7 @@ def load_image_file(
         "source_type": "input_image",
     }
 
-    image_id = _create_hash(Image.open(image_path))
+    image_id = create_hash(Image.open(image_path))
     image_set.add_extracted_image(image_id, image_path, extraction_metadata=metadata)
 
 
