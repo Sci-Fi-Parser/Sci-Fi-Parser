@@ -9,16 +9,13 @@ from sci_fi_parser.object_detection.computer_vision.config import CvConfig
 from sci_fi_parser.object_detection.computer_vision.lines import (
     LineSegment,
     MergedLine,
+    detect_directional_lines,
     detect_raw_line_segments,
     merge_line_segments,
 )
 
 
-def draw_raw_line_overlay(
-    image: np.ndarray, segments: list[LineSegment]
-) -> np.ndarray:
-    """Draw raw Hough segments over a copy of the input image."""
-
+def draw_raw_line_overlay(image: np.ndarray, segments: list[LineSegment]) -> np.ndarray:
     overlay = _to_bgr(image)
     for segment in segments:
         color = (255, 180, 0) if segment.orientation == "horizontal" else (180, 0, 255)
@@ -28,26 +25,22 @@ def draw_raw_line_overlay(
     return overlay
 
 
-def draw_merged_line_overlay(
-    image: np.ndarray, lines: list[MergedLine]
-) -> np.ndarray:
-    """Draw consolidated lines and their source counts over the input image."""
-
+def draw_merged_line_overlay(image: np.ndarray, lines: list[MergedLine]) -> np.ndarray:
     overlay = _to_bgr(image)
     for line in lines:
         color = (0, 180, 0) if line.orientation == "horizontal" else (0, 90, 255)
         cv2.line(overlay, line.p1, line.p2, color, 2, cv2.LINE_AA)
-        label_position = (line.p1[0] + 3, max(12, line.p1[1] - 4))
-        cv2.putText(
-            overlay,
-            f"x{line.source_count}",
-            label_position,
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.35,
-            color,
-            1,
-            cv2.LINE_AA,
-        )
+        if line.source_count:
+            cv2.putText(
+                overlay,
+                f"x{line.source_count}",
+                (line.p1[0] + 3, max(12, line.p1[1] - 4)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.35,
+                color,
+                1,
+                cv2.LINE_AA,
+            )
     return overlay
 
 
@@ -56,22 +49,26 @@ def write_line_detection_overlays(
     output_directory: str | Path,
     stem: str,
     config: CvConfig | None = None,
+    morphology: bool = False,
 ) -> tuple[Path, Path]:
-    """Detect lines and write separate raw and merged PNG overlays."""
-
+    """Write raw Hough and merged-Hough or morphology overlays."""
     config = config or CvConfig()
     raw_segments = detect_raw_line_segments(image, config)
-    merged_lines = merge_line_segments(raw_segments, config)
+    if morphology:
+        lines = detect_directional_lines(image, config)
+        result_suffix = "morphology_lines"
+    else:
+        lines = merge_line_segments(raw_segments, config)
+        result_suffix = "merged_lines"
     output_directory = Path(output_directory)
     output_directory.mkdir(parents=True, exist_ok=True)
     raw_path = output_directory / f"{stem}_raw_lines.png"
-    merged_path = output_directory / f"{stem}_merged_lines.png"
-
+    result_path = output_directory / f"{stem}_{result_suffix}.png"
     if not cv2.imwrite(str(raw_path), draw_raw_line_overlay(image, raw_segments)):
         raise OSError(f"could not write line overlay to {raw_path}")
-    if not cv2.imwrite(str(merged_path), draw_merged_line_overlay(image, merged_lines)):
-        raise OSError(f"could not write line overlay to {merged_path}")
-    return raw_path, merged_path
+    if not cv2.imwrite(str(result_path), draw_merged_line_overlay(image, lines)):
+        raise OSError(f"could not write line overlay to {result_path}")
+    return raw_path, result_path
 
 
 def _to_bgr(image: np.ndarray) -> np.ndarray:

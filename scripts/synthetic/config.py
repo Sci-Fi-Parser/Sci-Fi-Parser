@@ -109,7 +109,7 @@ class GenConfig:
     # (min, max) INCLUSIVE series for "multi" presets (grouped/stacked/multiline).
     n_series: tuple[int, int] = (2, 4)
 
-    # Fraction [0..1] of charts emitting full geometry (else values only).
+    # Fraction [0..1] emitting item geometry; structural geometry is always emitted.
     geometry_full_prob: float = 0.5
 
     # Figure size (inches), sampled once per series; pixel size comes from resolution.

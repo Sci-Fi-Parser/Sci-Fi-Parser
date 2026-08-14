@@ -46,17 +46,13 @@ def to_grayscale(image: np.ndarray) -> np.ndarray:
     raise ValueError("image must be grayscale, BGR, or BGRA")
 
 
-def detect_line_segments(
-    image: np.ndarray, config: CvConfig | None = None
-) -> list[LineSegment]:
+def detect_line_segments(image: np.ndarray, config: CvConfig | None = None) -> list[LineSegment]:
     """Compatibility alias for raw line-segment detection."""
 
     return detect_raw_line_segments(image, config)
 
 
-def detect_raw_line_segments(
-    image: np.ndarray, config: CvConfig | None = None
-) -> list[LineSegment]:
+def detect_raw_line_segments(image: np.ndarray, config: CvConfig | None = None) -> list[LineSegment]:
     """Detect unmerged horizontal and vertical probabilistic Hough segments."""
 
     config = config or CvConfig()
@@ -71,23 +67,13 @@ def detect_raw_line_segments(
         config.line_min_length_pixels,
         round(max(image_height, image_width) * config.line_min_length_ratio),
     )
-    hough_threshold = (
-        config.hough_threshold
-        if config.hough_threshold is not None
-        else config.line_hough_threshold
-    )
-    hough_max_gap = (
-        config.max_line_gap
-        if config.max_line_gap is not None
-        else config.line_hough_max_gap_pixels
-    )
     raw_lines = cv2.HoughLinesP(
         edges,
         1,
         np.pi / 180,
-        threshold=hough_threshold,
+        threshold=config.hough_threshold,
         minLineLength=min_line_length,
-        maxLineGap=hough_max_gap,
+        maxLineGap=config.max_line_gap,
     )
 
     if raw_lines is None:
@@ -109,18 +95,69 @@ def detect_raw_line_segments(
     return line_segments
 
 
-def detect_merged_lines(
-    image: np.ndarray, config: CvConfig | None = None
-) -> list[MergedLine]:
+def detect_merged_lines(image: np.ndarray, config: CvConfig | None = None) -> list[MergedLine]:
     """Detect raw segments and merge fragments of the same physical line."""
 
     config = config or CvConfig()
     return merge_line_segments(detect_raw_line_segments(image, config), config)
 
 
-def merge_line_segments(
-    segments: list[LineSegment], config: CvConfig | None = None
-) -> list[MergedLine]:
+def detect_directional_lines(image: np.ndarray, config: CvConfig | None = None) -> list[MergedLine]:
+    """Detect long physical lines as foreground regions in each direction."""
+
+    config = config or CvConfig()
+    gray = to_grayscale(image)
+    if gray.size == 0:
+        return []
+
+    _, foreground = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+    image_height, image_width = gray.shape[:2]
+    lines: list[MergedLine] = []
+
+    directions: tuple[tuple[Literal["horizontal", "vertical"], int], ...] = (
+        ("horizontal", image_width),
+        ("vertical", image_height),
+    )
+    for orientation, image_length in directions:
+        minimum_length = max(
+            config.directional_line_min_length_pixels,
+            round(image_length * config.directional_line_min_length_ratio),
+        )
+        kernel_shape = (minimum_length, 1) if orientation == "horizontal" else (1, minimum_length)
+        directional = cv2.morphologyEx(
+            foreground,
+            cv2.MORPH_OPEN,
+            cv2.getStructuringElement(cv2.MORPH_RECT, kernel_shape),
+        )
+        component_count, _, stats, _ = cv2.connectedComponentsWithStats(directional, connectivity=8)
+
+        for x, y, width, height, _ in stats[1:component_count]:
+            component_length = width if orientation == "horizontal" else height
+            if component_length < minimum_length:
+                continue
+            if orientation == "horizontal":
+                coordinate = y + (height - 1) // 2
+                p1 = (int(x), int(coordinate))
+                p2 = (int(x + width - 1), int(coordinate))
+            else:
+                coordinate = x + (width - 1) // 2
+                p1 = (int(coordinate), int(y))
+                p2 = (int(coordinate), int(y + height - 1))
+            lines.append(
+                MergedLine(
+                    p1=p1,
+                    p2=p2,
+                    orientation=orientation,
+                    length=segment_length(*p1, *p2),
+                    source_segments=(),
+                )
+            )
+
+    lines.sort(key=_merged_line_sort_key)
+    return lines
+
+
+def merge_line_segments(segments: list[LineSegment], config: CvConfig | None = None) -> list[MergedLine]:
     """Merge compatible segments using order-independent connected components."""
 
     config = config or CvConfig()
@@ -152,15 +189,10 @@ def merge_line_segments(
     return merged
 
 
-def _segments_are_mergeable(
-    left: LineSegment, right: LineSegment, config: CvConfig
-) -> bool:
+def _segments_are_mergeable(left: LineSegment, right: LineSegment, config: CvConfig) -> bool:
     if left.orientation != right.orientation:
         return False
-    if (
-        _angle_distance(left.angle_degrees, right.angle_degrees)
-        > config.line_merge_angle_tolerance_degrees
-    ):
+    if _angle_distance(left.angle_degrees, right.angle_degrees) > config.line_merge_angle_tolerance_degrees:
         return False
 
     if left.orientation == "horizontal":
@@ -191,17 +223,13 @@ def _merge_component(segments: list[LineSegment]) -> MergedLine:
     weights = np.asarray([segment.length for segment in segments], dtype=float)
 
     if orientation == "horizontal":
-        coordinates = np.asarray(
-            [(segment.p1[1] + segment.p2[1]) / 2 for segment in segments]
-        )
+        coordinates = np.asarray([(segment.p1[1] + segment.p2[1]) / 2 for segment in segments])
         coordinate = round(float(np.average(coordinates, weights=weights)))
         start = min(min(segment.p1[0], segment.p2[0]) for segment in segments)
         end = max(max(segment.p1[0], segment.p2[0]) for segment in segments)
         p1, p2 = (start, coordinate), (end, coordinate)
     else:
-        coordinates = np.asarray(
-            [(segment.p1[0] + segment.p2[0]) / 2 for segment in segments]
-        )
+        coordinates = np.asarray([(segment.p1[0] + segment.p2[0]) / 2 for segment in segments])
         coordinate = round(float(np.average(coordinates, weights=weights)))
         start = min(min(segment.p1[1], segment.p2[1]) for segment in segments)
         end = max(max(segment.p1[1], segment.p2[1]) for segment in segments)

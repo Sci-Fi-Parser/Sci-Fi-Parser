@@ -94,8 +94,23 @@ def run_classification_stage(inputs: PipelineInputs) -> None:
     start_classification(inputs.image_set)
 
 
-def run_ocr_cv_stage(inputs: PipelineInputs) -> None:
+def run_ocr_cv_stage(inputs: PipelineInputs, output_dir: Path) -> None:
+    from sci_fi_parser.benchmark.axis_benchmark import run_axis_benchmark
+    from sci_fi_parser.benchmark.line_benchmark import run_line_benchmark
     from sci_fi_parser.object_detection.detection_pipeline import start_ocr
+
+    run_line_benchmark(
+        inputs.image_set,
+        inputs.truth_by_image_id,
+        output_dir / "line_benchmark.json",
+        output_dir / "line_benchmark_evidence",
+    )
+    run_axis_benchmark(
+        inputs.image_set,
+        inputs.truth_by_image_id,
+        output_dir / "axis_benchmark.json",
+        modes=("oracle",),
+    )
 
     scoped = ImageSet()
     for image_id in inputs.truth_by_image_id:
@@ -168,7 +183,7 @@ def run_pipeline(
     if classification:
         run_classification_stage(inputs)
     if ocr_cv:
-        run_ocr_cv_stage(inputs)
+        run_ocr_cv_stage(inputs, out)
 
     extractor = benchmark.build_extractor(
         extractor_name,

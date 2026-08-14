@@ -215,6 +215,44 @@ def _value_ticks(ax, style: Style, to_img) -> list[dict]:
     ]
 
 
+def _artist_segment(artist, image_height: int) -> tuple[list[float], list[float]]:
+    vertices = artist.get_path().transformed(artist.get_transform()).vertices
+    vertices = vertices[np.isfinite(vertices).all(axis=1)]
+    x0, y0 = vertices.min(axis=0)
+    x1, y1 = vertices.max(axis=0)
+    return [float(x0), float(image_height - y1)], [float(x1), float(image_height - y0)]
+
+
+def _structural_lines(ax, style: Style, image: np.ndarray) -> dict:
+    """Collect rendered axis and gridline geometry for line benchmarks."""
+    image_height = image.shape[0]
+    spine = ax.spines["left"]
+    axis_p1, axis_p2 = _artist_segment(spine, image_height)
+    dpi_scale = ax.figure.dpi / 72
+    gridlines = []
+    if not style.horizontal:
+        for line in ax.get_ygridlines():
+            if line.get_visible():
+                p1, p2 = _artist_segment(line, image_height)
+                gridlines.append(
+                    {
+                        "value": float(line.get_ydata()[0]),
+                        "p1_px": p1,
+                        "p2_px": p2,
+                        "linewidth_px": float(line.get_linewidth() * dpi_scale),
+                    }
+                )
+    return {
+        "y_axis": {
+            "visible": bool(spine.get_visible()),
+            "p1_px": axis_p1,
+            "p2_px": axis_p2,
+            "linewidth_px": float(spine.get_linewidth() * dpi_scale),
+        },
+        "horizontal_gridlines": gridlines,
+    }
+
+
 def _collect_geometry(
     ax,
     style: Style,
@@ -224,16 +262,19 @@ def _collect_geometry(
     items: list,
     to_img,
     image: np.ndarray,
+    include_items: bool,
 ) -> dict:
-    """Pixel-space ground truth: plot box, value ticks, and per-element marks."""
+    """Pixel-space structural truth and optional per-element marks."""
     h_px, w_px = image.shape[:2]
     ext = ax.get_window_extent()
     plot_area = [float(ext.x0), float(h_px - ext.y1), float(ext.x1), float(h_px - ext.y0)]
-    marks = (
-        _line_marks(style, cats, svals, pos, to_img)
-        if style.family == "line"
-        else _bar_marks(style, cats, svals, items, to_img)
-    )
+    marks = []
+    if include_items:
+        marks = (
+            _line_marks(style, cats, svals, pos, to_img)
+            if style.family == "line"
+            else _bar_marks(style, cats, svals, items, to_img)
+        )
     return {
         "image_size": [int(w_px), int(h_px)],
         "family": style.family,
@@ -241,6 +282,8 @@ def _collect_geometry(
         "plot_area_px": plot_area,
         "value_ticks": _value_ticks(ax, style, to_img),
         "items": marks,
+        "items_full": include_items,
+        **_structural_lines(ax, style, image),
     }
 
 
@@ -279,6 +322,7 @@ def _build_metadata(
         "density": n,
         "n_series": style.n_series,
         "labels_on": bool(labels_on),
+        "grid_on": bool(style.grid),
         "geometry_full": bool(geometry_full),
         "resolution": resolution,
         **meta_extra,
@@ -294,6 +338,7 @@ def render_chart(
     geometry_full: bool,
     meta_extra: dict,
     resolution: int | None = None,
+    axis_challenge: dict | None = None,
 ) -> tuple[np.ndarray, dict, dict]:
     """Render one chart -> (RGB image, JSON truth, report metadata)."""
     fs = fit_fontsize(cfg, len(cats))
@@ -303,9 +348,43 @@ def render_chart(
     pos = np.arange(len(cats))
     items = _draw(ax, style, pos, svals, cats, fs, labels_on)
     _decorate(ax, style)
+    if axis_challenge:
+        spine = ax.spines["left"]
+        spine.set_visible(axis_challenge.get("axis_visible", True))
+        spine.set_linewidth(axis_challenge.get("axis_width", 1.5))
+        spine.set_color(axis_challenge.get("axis_color", "black"))
+        ax.tick_params(
+            axis="y",
+            left=axis_challenge.get("tick_marks", True),
+            labelleft=axis_challenge.get("numeric_labels", True),
+        )
+        if axis_challenge.get("grid", style.grid):
+            ax.grid(True, axis="y", color=axis_challenge.get("grid_color", "0.75"))
+        else:
+            ax.grid(False, axis="y")
+        if axis_challenge.get("bar_distance") == "near":
+            ax.margins(x=0.01)
+        if axis_challenge.get("vertical_rule"):
+            ax.axvline(0.82 * max(1, len(cats) - 1), color="0.25", linewidth=2)
     image, to_img = _rasterize(fig, ax)
-    geometry = _collect_geometry(ax, style, cats, svals, pos, items, to_img, image) if geometry_full else None
+    geometry = _collect_geometry(
+        ax, style, cats, svals, pos, items, to_img, image, include_items=geometry_full
+    )
     truth = _build_truth(style, cats, svals, geometry)
     metadata = _build_metadata(style, len(cats), labels_on, geometry_full, meta_extra, resolution)
     plt.close(fig)
+    quality = (axis_challenge or {}).get("image_quality", "clean")
+    if quality != "clean":
+        import cv2
+
+        if quality == "blur":
+            image = cv2.GaussianBlur(image, (5, 5), 0)
+        elif quality == "jpeg":
+            ok, encoded = cv2.imencode(
+                ".jpg",
+                cv2.cvtColor(image, cv2.COLOR_RGB2BGR),
+                [cv2.IMWRITE_JPEG_QUALITY, 45],
+            )
+            if ok:
+                image = cv2.cvtColor(cv2.imdecode(encoded, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
     return image, truth, metadata

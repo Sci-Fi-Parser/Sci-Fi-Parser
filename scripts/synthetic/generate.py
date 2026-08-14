@@ -92,3 +92,63 @@ def generate_preview(cfg: GenConfig) -> Iterator[Sample]:
             cfg, style, cats, svals, False, False, {"series_id": alias, "pair_id": None, "density_step": None}
         )
         yield f"{alias}.png", image, truth, metadata
+
+
+def generate_axis_challenges(rng: np.random.Generator, cfg: GenConfig) -> Iterator[Sample]:
+    """Generate controlled pairs where one Y-axis factor changes at a time."""
+    style = sample_style(rng, cfg, "simple")
+    style.grid = True
+    style.value_lo = 0.0
+    cats = make_categories(rng, 6)
+    values = series_values(rng, style, 6)
+    baseline = {
+        "axis_visible": True,
+        "axis_width": 1.5,
+        "axis_color": "black",
+        "tick_marks": True,
+        "numeric_labels": True,
+        "grid": True,
+        "grid_color": "0.8",
+        "bar_distance": "normal",
+        "image_quality": "clean",
+    }
+    variants = [
+        ("axis_absent", {"axis_visible": False}),
+        ("axis_05px", {"axis_width": 0.5}),
+        ("axis_3px", {"axis_width": 3.0}),
+        ("axis_5px", {"axis_width": 5.0}),
+        ("axis_medium_gray", {"axis_color": "0.5"}),
+        ("axis_light_gray", {"axis_color": "0.8"}),
+        ("ticks_off", {"tick_marks": False}),
+        ("numeric_labels_off", {"numeric_labels": False}),
+        ("grid_off", {"grid": False}),
+        ("grid_dark", {"grid_color": "0.25"}),
+        ("bars_near_axis", {"bar_distance": "near"}),
+        ("jpeg", {"image_quality": "jpeg"}),
+        ("blur", {"image_quality": "blur"}),
+        ("internal_vertical_rule", {"vertical_rule": True}),
+    ]
+    for pair_index, (name, change) in enumerate(variants):
+        for side, settings in (("base", baseline), ("changed", {**baseline, **change})):
+            challenge = dict(settings)
+            metadata = {
+                "series_id": "axis_challenge",
+                "pair_id": f"axis_{pair_index:02d}_{name}",
+                "density_step": None,
+                "challenge": name,
+                "challenge_side": side,
+                "image_quality": challenge["image_quality"],
+                "axis_factors": challenge,
+            }
+            image, truth, report_metadata = render_chart(
+                cfg,
+                style,
+                cats,
+                values,
+                False,
+                True,
+                metadata,
+                resolution=cfg.resolutions[0],
+                axis_challenge=challenge,
+            )
+            yield f"axis_{pair_index:02d}_{name}_{side}.png", image, truth, report_metadata

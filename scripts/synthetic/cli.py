@@ -23,7 +23,7 @@ import numpy as np
 from PIL import Image
 
 from .config import CATALOG, GenConfig, load_config
-from .generate import generate_preview, generate_random, generate_series
+from .generate import generate_axis_challenges, generate_preview, generate_random, generate_series
 from .output import SQLITE_DDL, augment, png_bytes, write_overlay
 
 
@@ -39,6 +39,7 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--preview", action="store_true", help="one sample per catalog type into <out>/preview, then exit"
     )
+    ap.add_argument("--axis-challenge", action="store_true", help="controlled visible/no-axis Y-axis pairs")
     ap.add_argument("--out", type=Path, default=Path("train_data/synthetic"))
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--config", type=Path, default=None, help="TOML overriding GenConfig")
@@ -155,7 +156,12 @@ def main() -> None:
         dbg_dir.mkdir(exist_ok=True)
     con = _open_sqlite(args.out, args.sqlite)
 
-    stream = generate_random(rng, cfg, args.random) if args.random is not None else generate_series(rng, cfg)
+    if args.axis_challenge:
+        stream = generate_axis_challenges(rng, cfg)
+    elif args.random is not None:
+        stream = generate_random(rng, cfg, args.random)
+    else:
+        stream = generate_series(rng, cfg)
     counts, n_total = _write_dataset(stream, args, img_dir, dbg_dir, con, rng)
     if con is not None:
         con.commit()
