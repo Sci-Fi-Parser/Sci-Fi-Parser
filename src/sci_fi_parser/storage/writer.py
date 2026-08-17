@@ -93,7 +93,6 @@ def save_image_set(image_set, output_dir: Path) -> None:
                             "y_unit": p.get("y_unit"),
                         }
                     )
-
     charts_df = pd.DataFrame(
         charts,
         columns=[
@@ -142,7 +141,7 @@ def save_image_set(image_set, output_dir: Path) -> None:
     points_df.to_parquet(table_dir / "points.parquet", index=False)
 
     # Create standalone DuckDB database
-    db_path = output_dir / "output.duckdb"
+    db_path = table_dir.parent / "output.duckdb"
 
     with duckdb.connect(str(db_path)) as conn:
         conn.execute(
