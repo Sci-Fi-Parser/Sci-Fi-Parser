@@ -157,6 +157,7 @@ def save_image_set(image_set, output_dir: Path) -> None:
             [str(table_dir / "points.parquet")],
         )
 
+
 def _record_to_dict(record: Any) -> dict[str, Any]:
     if isinstance(record, dict):
         return record
