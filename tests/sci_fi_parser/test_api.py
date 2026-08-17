@@ -31,11 +31,13 @@ def test_summary():
 @patch("sci_fi_parser.api.start_extraction")
 @patch("sci_fi_parser.api.Path.iterdir")
 @patch("sci_fi_parser.api.Ocr")
+@patch("sci_fi_parser.api.DoclingClassifier")
 @patch("sci_fi_parser.api.in_cache")
 @patch("sci_fi_parser.api.add_to_cache")
 def test_parse_folder_returns_parse_result(
     mock_add_to_cache,
     mock_in_cache,
+    mock_classifier_inst,
     mock_ocr_inst,
     mock_iterdir,
     mock_extraction,
