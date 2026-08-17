@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import duckdb
 import json
 from pathlib import Path
 from typing import Any
@@ -94,10 +94,69 @@ def save_image_set(image_set, output_dir: Path) -> None:
                         }
                     )
 
-    pd.DataFrame(charts).to_parquet(table_dir / "charts.parquet", index=False)
-    pd.DataFrame(series_rows).to_parquet(table_dir / "series.parquet", index=False)
-    pd.DataFrame(points).to_parquet(table_dir / "points.parquet", index=False)
+    charts_df = pd.DataFrame(
+        charts,
+        columns=[
+            "chart_id",
+            "pdf_id",
+            "page_number",
+            "source_type",
+            "image_path",
+            "chart_type",
+            "model",
+            "created_at",
+            "total_duration",
+            "load_duration",
+            "eval_count",
+            "eval_duration",
+        ],
+    )
 
+    series_df = pd.DataFrame(
+        series_rows,
+        columns=[
+            "series_id",
+            "chart_id",
+            "series_index",
+            "series_name",
+        ],
+    )
+
+    points_df = pd.DataFrame(
+        points,
+        columns=[
+            "point_id",
+            "chart_id",
+            "series_id",
+            "point_index",
+            "x_raw",
+            "x_numeric",
+            "x_type",
+            "y",
+            "y_unit",
+        ],
+    )
+
+    charts_df.to_parquet(table_dir / "charts.parquet", index=False)
+    series_df.to_parquet(table_dir / "series.parquet", index=False)
+    points_df.to_parquet(table_dir / "points.parquet", index=False)
+
+    # Create standalone DuckDB database
+    db_path = output_dir / "output.duckdb"
+
+    with duckdb.connect(str(db_path)) as conn:
+        conn.execute(
+            "CREATE OR REPLACE TABLE charts AS SELECT * FROM read_parquet(?)",
+            [str(table_dir / "charts.parquet")],
+        )
+        conn.execute(
+            "CREATE OR REPLACE TABLE series AS SELECT * FROM read_parquet(?)",
+            [str(table_dir / "series.parquet")],
+        )
+        conn.execute(
+            "CREATE OR REPLACE TABLE points AS SELECT * FROM read_parquet(?)",
+            [str(table_dir / "points.parquet")],
+        )
 
 def _record_to_dict(record: Any) -> dict[str, Any]:
     if isinstance(record, dict):
