@@ -1,10 +1,11 @@
 from __future__ import annotations
-import duckdb
+
 import json
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+import duckdb
 import pandas as pd
 
 
