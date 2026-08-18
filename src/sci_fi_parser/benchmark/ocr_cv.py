@@ -131,9 +131,15 @@ def _role_counts(result, truth_tokens: list[dict]) -> dict[str, dict[str, int]]:
 
 
 def _tick_recall(result, truth_tokens: list[dict]) -> tuple[int, int]:
-    matches = set(_match_ocr_tokens(result, truth_tokens).values())
+    matches = _match_ocr_tokens(result, truth_tokens)
+    tokens = {token.token_id: token for token in result.ocr.tokens}
+    recognized = {
+        truth_index
+        for token_id, truth_index in matches.items()
+        if _text_key(tokens[token_id].original_text) == _text_key(truth_tokens[truth_index]["text"])
+    }
     y_tick_indices = {index for index, token in enumerate(truth_tokens) if token["role"] == "y_tick"}
-    return len(matches.intersection(y_tick_indices)), len(y_tick_indices)
+    return len(recognized.intersection(y_tick_indices)), len(y_tick_indices)
 
 
 def _calibration_metrics(result, geometry: dict) -> dict:

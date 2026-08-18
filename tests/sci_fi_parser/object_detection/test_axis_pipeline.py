@@ -1,6 +1,7 @@
 import json
 
 import numpy as np
+import pytest
 
 from sci_fi_parser.object_detection.axis_analysis import analyze_ocr_cv
 from sci_fi_parser.object_detection.detection_pipeline import OcrExtractionResult, format_ocr_output
@@ -10,14 +11,15 @@ from sci_fi_parser.object_detection.normalization import normalize_ocr_output
 def test_line_chart_uses_chart_neutral_axis_evidence():
     image = np.zeros((100, 100, 3), dtype=np.uint8)
     ocr = normalize_ocr_output(
-        ["100", "50", "0", "A", "B"],
-        [0.99] * 5,
+        ["100", "50", "0", "A", "B", "Quarterly results"],
+        [0.99] * 6,
         [
             [5, 15, 25, 25],
             [5, 45, 25, 55],
             [5, 75, 25, 85],
             [40, 88, 50, 98],
             [70, 88, 80, 98],
+            [35, 2, 75, 12],
         ],
     )
 
@@ -49,6 +51,12 @@ def test_line_chart_uses_chart_neutral_axis_evidence():
         )
     )
     calibration = context["y_calibration"]
-    assert calibration["detected_tick_value_range"] == [0.0, 100.0]
-    assert calibration["approximate_supported_value_range"] == [-25.0, 125.0]
-    assert "normally remain near this range" in calibration["range_guidance"]
+    assert calibration["visible_labeled_range"] == [0.0, 100.0]
+    assert calibration["extrapolation_limits"]["value_at_pixel_y_min"] == pytest.approx(125.0)
+    assert calibration["extrapolation_limits"]["value_at_pixel_y_max"] == pytest.approx(-25.0)
+    assert "normally remain near" in context["calibration_guidance"]
+    assert context["image_size"] == {"width": 100, "height": 100}
+    assert len(context["ocr_tokens"]) == 6
+    title = next(token for token in context["ocr_tokens"] if token["text"] == "Quarterly results")
+    assert title["role"] == "other"
+    assert title["bbox"] == {"left": 35.0, "top": 2.0, "right": 75.0, "bottom": 12.0}

@@ -53,9 +53,7 @@ class OcrExtractionResult:
         return payload
 
 
-def extract_ocr_data(
-    paths: list[tuple[str, Path, ChartType]], ocr: Ocr
-) -> list[OcrExtractionResult]:
+def extract_ocr_data(paths: list[tuple[str, Path, ChartType]], ocr: Ocr) -> list[OcrExtractionResult]:
     """Run CV and OCR on a list of images.
 
     Args:
@@ -138,57 +136,65 @@ def match_bars_and_ocr(bars: list, ocr_result: OcrOutput | dict) -> list:
 
 
 def format_ocr_output(result: OcrExtractionResult) -> str:
-    """Create concise, structured evidence for the VLM without claiming final data."""
+    """Create structured OCR/CV evidence for the VLM without claiming final data."""
 
     if result.stage_result is None:
         return ""
     stage = result.stage_result
-    assignments = {assignment.token_id: assignment.role for assignment in stage.roles.assignments}
-    labels = [
+    assignments = {assignment.token_id: assignment for assignment in stage.roles.assignments}
+    tokens = [
         {
+            "token_id": token.token_id,
             "text": token.original_text,
-            "role": assignments[token.token_id],
+            "normalized_text": token.normalized_text,
             "confidence": round(token.confidence, 3),
+            "bbox": token.box.model_dump(mode="json"),
+            "parsed_number": token.parsed_number.model_dump(mode="json") if token.parsed_number else None,
+            "role": assignments[token.token_id].role,
+            "role_confidence": round(assignments[token.token_id].confidence, 3),
+            "role_reason": assignments[token.token_id].reason,
         }
         for token in stage.ocr.tokens
-        if assignments[token.token_id] != "other"
     ]
-    calibration = None
-    if stage.calibration.succeeded:
-        extrapolation = stage.calibration.extrapolation_limits
-        approximate_range = None
-        if extrapolation is not None:
-            approximate_range = sorted(
-                (
-                    round(extrapolation.value_at_pixel_y_min, 6),
-                    round(extrapolation.value_at_pixel_y_max, 6),
-                )
-            )
-        calibration = {
-            "slope": stage.calibration.slope,
-            "intercept": stage.calibration.intercept,
-            "detected_tick_value_range": stage.calibration.visible_labeled_range,
-            "approximate_supported_value_range": approximate_range,
-            "range_guidance": (
-                "Extracted values should normally remain near this range; use clearly printed "
-                "data labels when they provide stronger evidence."
-            ),
-            "confidence": round(stage.calibration.confidence, 3),
-        }
+    selected_y = next(
+        (
+            candidate
+            for candidate in stage.roles.y_candidates
+            if candidate.candidate_id == stage.roles.selected_y_candidate_id
+        ),
+        None,
+    )
+    selected_x = next(
+        (
+            candidate
+            for candidate in stage.roles.x_candidates
+            if candidate.candidate_id == stage.roles.selected_x_candidate_id
+        ),
+        None,
+    )
     context = {
         "scope": "OCR/CV evidence only; VLM remains responsible for final ChartData",
+        "coordinate_system": "pixel coordinates with origin at the image's top-left",
         "chart_type": stage.chart_type,
-        "initial_element_counts": {
-            kind: sum(element.kind == kind for element in stage.initial_elements)
-            for kind in {element.kind for element in stage.initial_elements}
+        "image_size": {"width": stage.image_width, "height": stage.image_height},
+        "ocr_tokens": tokens,
+        "initial_elements": [element.model_dump(mode="json") for element in stage.initial_elements],
+        "axis_roles": {
+            "confidence": round(stage.roles.confidence, 3),
+            "abstention": stage.roles.abstention_reason,
+            "x_abstention": stage.roles.x_abstention_reason,
+            "y_abstention": stage.roles.y_abstention_reason,
+            "winner_runner_up_margin": stage.roles.winner_runner_up_margin,
+            "selected_x_candidate": selected_x.model_dump(mode="json") if selected_x else None,
+            "selected_y_candidate": selected_y.model_dump(mode="json") if selected_y else None,
         },
-        "axis_labels": labels,
-        "axis_role_confidence": round(stage.roles.confidence, 3),
-        "axis_abstention": stage.roles.abstention_reason,
-        "x_axis_abstention": stage.roles.x_abstention_reason,
-        "y_axis_abstention": stage.roles.y_abstention_reason,
-        "y_calibration": calibration,
-        "calibration_failure": stage.calibration.failure_reason,
+        "y_calibration": stage.calibration.model_dump(mode="json"),
+        "calibration_guidance": (
+            "When calibration succeeded, value = slope * pixel_y + intercept. Extracted values should "
+            "normally remain near the visible or extrapolated range, but clearly printed data labels "
+            "are stronger evidence."
+        ),
+        "unsupported_scope": stage.unsupported_scope,
     }
     return json.dumps(context, ensure_ascii=False, separators=(",", ":"))
 

@@ -155,22 +155,3 @@ A lot more refining and experimentation needed for bars and especially lines.
 
 #### Next
 Bar detection testing and refinement
-
-
-## 28-05-2026
-
-### Aapo
-
-#### Worked On
-Integrating OCR and CV, connecting them to main.py, pairing the cv and ocr data.
-
-#### Learned
-
-
-#### Problems
-- Some import things need clarification, the way I got it to work doesn't make pylint happy
-- How the input and eventually the output folder are passed needs more discussion.
-- Automated testing and a place to store debugging info could be nice for dev
-
-#### Next
-Seeing if I can run the benchmarks on GPU, refining the start ocr output, possibly some refactoring in the cv folder

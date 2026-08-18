@@ -60,9 +60,7 @@ def test_extract_ocr_data_uses_detected_bars_and_ocr_output(monkeypatch, tmp_pat
     monkeypatch.setattr(detection_pipeline.cv2, "imread", lambda path: image_array)
     monkeypatch.setattr(detection_pipeline, "detect_bars", lambda image: [bar])
 
-    results = detection_pipeline.extract_ocr_data(
-        [("chart-1", image_path, "bar_chart")], FakeOcr()
-    )
+    results = detection_pipeline.extract_ocr_data([("chart-1", image_path, "bar_chart")], FakeOcr())
 
     assert calls == [image_array]
     assert len(results) == 1
@@ -95,9 +93,7 @@ def test_extract_ocr_data_skips_bar_detection_for_line_charts(monkeypatch, tmp_p
         "detect_bars",
         lambda image: (_ for _ in ()).throw(AssertionError("bar detector called for line chart")),
     )
-    result = detection_pipeline.extract_ocr_data(
-        [("line-1", image_path, "line_chart")], FakeOcr()
-    )[0]
+    result = detection_pipeline.extract_ocr_data([("line-1", image_path, "line_chart")], FakeOcr())[0]
 
     assert result.chart_type == "line_chart"
     assert result.element_candidates == []
