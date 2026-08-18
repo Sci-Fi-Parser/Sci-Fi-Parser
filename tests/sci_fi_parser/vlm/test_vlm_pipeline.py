@@ -26,19 +26,20 @@ class _FakeVLM:
         return ({"chart_type": "vertical_bar"}, {"choices": []})
 
 
-def test_start_vlm_extracts_only_supported_charts(tmp_path):
+def test_start_vlm_extracts_bar_and_line_charts(tmp_path):
     image_set = ImageSet()
     bar_path = tmp_path / "bar.png"
     image_set.add("bar-1", _image_record(bar_path, "bar_chart", "ocr text"))
-    image_set.add("line-1", _image_record(tmp_path / "line.png", "line_chart"))
+    line_path = tmp_path / "line.png"
+    image_set.add("line-1", _image_record(line_path, "line_chart", "line ocr"))
 
     vlm = _FakeVLM()
     start_vlm(image_set, vlm)
 
-    assert vlm.calls == [(bar_path, "ocr text")]
+    assert vlm.calls == [(bar_path, "ocr text"), (line_path, "line ocr")]
     assert image_set.get_vlm_result("bar-1") == {"chart_type": "vertical_bar"}
     assert image_set.get_vlm_raw("bar-1") == {"choices": []}
-    assert image_set.get("line-1")["vlm"]["result"] == {}
+    assert image_set.get_vlm_result("line-1") == {"chart_type": "vertical_bar"}
 
 
 def test_start_vlm_continues_after_extraction_failure(tmp_path, caplog):

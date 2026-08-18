@@ -11,13 +11,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from sci_fi_parser.object_detection.axis_analysis import analyze_ocr_cv
 from sci_fi_parser.object_detection.computer_vision.bars import (
     BarDetectionDiagnostics,
     detect_bars_with_diagnostics,
 )
 from sci_fi_parser.object_detection.models import ChartType, OcrCvStageResult, OcrOutput
 from sci_fi_parser.object_detection.normalization import normalize_ocr_output
-from sci_fi_parser.object_detection.pipeline import analyze_ocr_cv
 
 COLORS = {
     "raw": (160, 160, 160),

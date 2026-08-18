@@ -85,9 +85,6 @@ def normalize_ocr_box(raw_box: Any) -> OcrBox:
     """Accept Paddle rectangles or polygons and return ordered coordinates."""
 
     values = raw_box.tolist() if hasattr(raw_box, "tolist") else raw_box
-    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
-        raise ValueError(f"OCR box is not a coordinate sequence: {raw_box!r}")
-
     if len(values) == 4 and all(not isinstance(value, Sequence) for value in values):
         x1, y1, x2, y2 = (float(value) for value in values)
         return OcrBox(left=min(x1, x2), top=min(y1, y2), right=max(x1, x2), bottom=max(y1, y2))

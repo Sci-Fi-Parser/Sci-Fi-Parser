@@ -14,10 +14,10 @@ from typing import Any, Literal, cast
 import cv2
 import numpy as np
 
+from sci_fi_parser.object_detection.axis_analysis import analyze_ocr_cv
 from sci_fi_parser.object_detection.computer_vision.bars import detect_bars
 from sci_fi_parser.object_detection.models import OcrOutput
 from sci_fi_parser.object_detection.normalization import normalize_ocr_output
-from sci_fi_parser.object_detection.pipeline import analyze_ocr_cv
 
 OcrMode = Literal["oracle", "detected"]
 

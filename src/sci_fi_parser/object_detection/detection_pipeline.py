@@ -14,11 +14,11 @@ from typing import cast
 
 import cv2
 
+from sci_fi_parser.object_detection.axis_analysis import analyze_ocr_cv
 from sci_fi_parser.object_detection.computer_vision.bars import detect_bars
 from sci_fi_parser.object_detection.models import ChartType, OcrCvStageResult, OcrOutput
 from sci_fi_parser.object_detection.normalization import normalize_ocr_output
 from sci_fi_parser.object_detection.ocr import Ocr
-from sci_fi_parser.object_detection.pipeline import analyze_ocr_cv
 from sci_fi_parser.schema import ImageSet
 
 SUPPORTED_CHARTS: tuple[ChartType, ...] = ("bar_chart", "line_chart")
@@ -155,10 +155,24 @@ def format_ocr_output(result: OcrExtractionResult) -> str:
     ]
     calibration = None
     if stage.calibration.succeeded:
+        extrapolation = stage.calibration.extrapolation_limits
+        approximate_range = None
+        if extrapolation is not None:
+            approximate_range = sorted(
+                (
+                    round(extrapolation.value_at_pixel_y_min, 6),
+                    round(extrapolation.value_at_pixel_y_max, 6),
+                )
+            )
         calibration = {
             "slope": stage.calibration.slope,
             "intercept": stage.calibration.intercept,
-            "visible_labeled_range": stage.calibration.visible_labeled_range,
+            "detected_tick_value_range": stage.calibration.visible_labeled_range,
+            "approximate_supported_value_range": approximate_range,
+            "range_guidance": (
+                "Extracted values should normally remain near this range; use clearly printed "
+                "data labels when they provide stronger evidence."
+            ),
             "confidence": round(stage.calibration.confidence, 3),
         }
     context = {
