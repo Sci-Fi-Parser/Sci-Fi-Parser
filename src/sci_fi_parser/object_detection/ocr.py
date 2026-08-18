@@ -6,7 +6,10 @@ with predefined PaddleOCR settings.
 
 from typing import Any
 
-from paddleocr import PaddleOCR
+from paddleocr import PaddleOCR  # type: ignore[import-untyped]
+
+from sci_fi_parser.object_detection.models import OcrOutput
+from sci_fi_parser.object_detection.normalization import normalize_ocr_output
 
 
 class Ocr:
@@ -40,26 +43,24 @@ class Ocr:
         """Store the image data that should be processed next."""
         self.input_data = input_data
 
-    def run_ocr(self) -> dict[str, Any]:
-        """Run OCR on the stored input and return extracted data.
-
-        Returns:
-            dict[str, Any]: A dict containing the results from the OCR:
-
-            - "labels" `list[str]`: List of text recognition results.
-            - "confidence" `list[float]`: List of text recognition confidence scores.
-            - "bbox" `list[numpy.ndarray]`: List of text detection boxes filtered by confidence.
-        """
+    def run_ocr(self) -> OcrOutput:
+        """Run OCR and immediately convert Paddle's parallel arrays to typed tokens."""
         result = self.ocr.predict(self.input_data)
-        extracted = {}
+        labels: list[Any] = []
+        confidences: list[Any] = []
+        boxes: list[Any] = []
         for res in result:
-            # res.save_to_img("output")
-            # res.save_to_json("output")
-            extracted["labels"] = res.get("rec_texts")
-            extracted["confidence"] = res.get("rec_scores")
-            extracted["bbox"] = res.get("rec_boxes")
-
-        return extracted
+            raw_labels = res.get("rec_texts")
+            raw_confidences = res.get("rec_scores")
+            labels.extend(raw_labels.tolist() if hasattr(raw_labels, "tolist") else raw_labels or [])
+            confidences.extend(
+                raw_confidences.tolist()
+                if hasattr(raw_confidences, "tolist")
+                else raw_confidences or []
+            )
+            raw_boxes = res.get("rec_boxes")
+            boxes.extend(raw_boxes.tolist() if hasattr(raw_boxes, "tolist") else raw_boxes or [])
+        return normalize_ocr_output(labels, confidences, boxes)
 
 
 if __name__ == "__main__":

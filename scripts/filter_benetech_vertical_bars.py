@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy extracted Benetech vertical bar charts with data-series labels."""
+"""Copy extracted Benetech charts of one type with data-series labels."""
 
 from __future__ import annotations
 
@@ -20,10 +20,10 @@ def has_xy_data_series(annotation: dict[str, Any]) -> bool:
     return any(isinstance(point, dict) and "x" in point and "y" in point for point in data_series)
 
 
-def is_wanted_annotation(annotation: dict[str, Any]) -> bool:
+def is_wanted_annotation(annotation: dict[str, Any], chart_type: str = "vertical_bar") -> bool:
     return (
         annotation.get("source") == "extracted"
-        and annotation.get("chart-type") == "vertical_bar"
+        and annotation.get("chart-type") == chart_type
         and has_xy_data_series(annotation)
     )
 
@@ -36,7 +36,12 @@ def find_image(images_dir: Path, stem: str) -> Path | None:
     return None
 
 
-def copy_matching_files(input_dir: Path, output_dir: Path, dry_run: bool) -> None:
+def copy_matching_files(
+    input_dir: Path,
+    output_dir: Path,
+    dry_run: bool,
+    chart_type: str = "vertical_bar",
+) -> None:
     annotations_dir = input_dir / "annotations"
     images_dir = input_dir / "images"
     output_annotations_dir = output_dir / "annotations"
@@ -66,7 +71,7 @@ def copy_matching_files(input_dir: Path, output_dir: Path, dry_run: bool) -> Non
             malformed += 1
             continue
 
-        if not isinstance(annotation, dict) or not is_wanted_annotation(annotation):
+        if not isinstance(annotation, dict) or not is_wanted_annotation(annotation, chart_type):
             continue
 
         matched += 1
@@ -99,9 +104,15 @@ def copy_matching_files(input_dir: Path, output_dir: Path, dry_run: bool) -> Non
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Copy extracted Benetech vertical_bar annotations that contain "
+            "Copy extracted Benetech chart annotations of one type that contain "
             "data-series x/y values, plus their corresponding images."
         )
+    )
+    parser.add_argument(
+        "--chart-type",
+        choices=("vertical_bar", "line"),
+        default="vertical_bar",
+        help="Benetech chart-type value to select.",
     )
     parser.add_argument(
         "--input",
@@ -125,7 +136,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    copy_matching_files(args.input, args.output, args.dry_run)
+    copy_matching_files(args.input, args.output, args.dry_run, args.chart_type)
 
 
 if __name__ == "__main__":
