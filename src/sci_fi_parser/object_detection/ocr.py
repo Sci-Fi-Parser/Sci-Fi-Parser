@@ -54,9 +54,7 @@ class Ocr:
             raw_confidences = res.get("rec_scores")
             labels.extend(raw_labels.tolist() if hasattr(raw_labels, "tolist") else raw_labels or [])
             confidences.extend(
-                raw_confidences.tolist()
-                if hasattr(raw_confidences, "tolist")
-                else raw_confidences or []
+                raw_confidences.tolist() if hasattr(raw_confidences, "tolist") else raw_confidences or []
             )
             raw_boxes = res.get("rec_boxes")
             boxes.extend(raw_boxes.tolist() if hasattr(raw_boxes, "tolist") else raw_boxes or [])

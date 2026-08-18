@@ -192,11 +192,7 @@ def detect_bars_with_diagnostics(
                 reasons.append("rectangularity below minimum")
             if source == "outline" and (len(polygon) != 4 or not cv2.isContourConvex(polygon)):
                 reasons.append("raw outline is not a closed rectangle")
-            if (
-                source != "outline"
-                and width * height < max(100.0, min_area * 10.0)
-                and rectangularity < 0.9
-            ):
+            if source != "outline" and width * height < max(100.0, min_area * 10.0) and rectangularity < 0.9:
                 reasons.append("small convex contour does not fill its rectangle")
             diagnostic = ContourDiagnostic(
                 contour_id=f"contour-{len(diagnostics.contours)}",

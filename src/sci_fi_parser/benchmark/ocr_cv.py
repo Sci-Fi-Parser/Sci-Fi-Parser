@@ -359,9 +359,7 @@ def _bar_breakdowns(records: list[dict]) -> dict:
     ):
         values = sorted({record["bar_slices"][key] for record in records})
         breakdowns[key] = {
-            value: _summarize_bar_group(
-                [record for record in records if record["bar_slices"][key] == value]
-            )
+            value: _summarize_bar_group([record for record in records if record["bar_slices"][key] == value])
             for value in values
         }
     return breakdowns
@@ -485,9 +483,7 @@ def _summarize(records: list[dict]) -> dict:
         "both_axis_selection_rate": mean(record["both_axes_selected"] for record in records)
         if records
         else None,
-        "role_confidence_mean": mean(record["role_confidence"] for record in records)
-        if records
-        else None,
+        "role_confidence_mean": mean(record["role_confidence"] for record in records) if records else None,
         "calibration": {
             "eligible": len(calibration_records),
             "fit_produced_rate": _ratio(len(produced_calibrations), len(calibration_records)),
@@ -627,9 +623,7 @@ def run_benchmark(
             mode: _summarize([record for record in records if record["mode"] == mode]) for mode in modes
         },
         "axis_junction_pairs_by_mode": {
-            mode: _paired_axis_junction_summary(
-                [record for record in records if record["mode"] == mode]
-            )
+            mode: _paired_axis_junction_summary([record for record in records if record["mode"] == mode])
             for mode in modes
         },
         "samples": records,

@@ -126,11 +126,7 @@ def run_ocr_cv_stage(
 
     from sci_fi_parser.benchmark.ocr_cv import OcrMode, run_benchmark
 
-    modes: tuple[OcrMode, ...] = (
-        ("oracle", "detected")
-        if ocr_mode == "both"
-        else (cast(OcrMode, ocr_mode),)
-    )
+    modes: tuple[OcrMode, ...] = ("oracle", "detected") if ocr_mode == "both" else (cast(OcrMode, ocr_mode),)
     return run_benchmark(data, out, dataset=dataset, modes=modes, limit=limit)
 
 

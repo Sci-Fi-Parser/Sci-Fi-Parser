@@ -75,9 +75,7 @@ def _score_y_candidate(
     tokens = list(tokens)
     for token in tokens:
         parsed = values[token.token_id]
-        explicit_multiplier = (
-            "e" in token.normalized_text.lower() or parsed.magnitude_suffix is not None
-        )
+        explicit_multiplier = "e" in token.normalized_text.lower() or parsed.magnitude_suffix is not None
         others = [other for other in tokens if other.token_id != token.token_id]
         if (
             explicit_multiplier
@@ -132,9 +130,7 @@ def _score_y_candidate(
             np.mean([_element_box(element).center_x > boundary for element in element_anchors])
         )
     else:
-        elements_on_right = max(
-            0.0, min(1.0, 1.0 - _bounds(tokens).right / max(width * 0.55, 1.0))
-        )
+        elements_on_right = max(0.0, min(1.0, 1.0 - _bounds(tokens).right / max(width * 0.55, 1.0)))
 
     components = {
         "alignment": alignment,
@@ -184,9 +180,7 @@ def _score_x_candidate(tokens, width: int, height: int, element_anchors) -> Axis
     lower_position = max(0.0, min(1.0, (y_center / max(height, 1) - 0.45) / 0.45))
     if element_anchors:
         bottoms = np.asarray([_element_box(element).bottom for element in element_anchors], dtype=float)
-        below_elements = float(
-            np.mean([token.box.center_y >= float(np.median(bottoms)) for token in tokens])
-        )
+        below_elements = float(np.mean([token.box.center_y >= float(np.median(bottoms)) for token in tokens]))
         element_centers = np.asarray(
             [_element_box(element).center_x for element in element_anchors], dtype=float
         )
@@ -351,11 +345,7 @@ def infer_axis_roles(
     )
 
     selected_y = best_pair[1] if best_pair and best_pair[1].score >= 0.52 else None
-    selected_x = (
-        best_pair[2]
-        if best_pair and selected_y is not None and best_pair[2].score >= 0.35
-        else None
-    )
+    selected_x = best_pair[2] if best_pair and selected_y is not None and best_pair[2].score >= 0.35 else None
     if selected_y is None and y_candidates and y_candidates[0].score >= 0.52:
         selected_y = y_candidates[0]
     if selected_x is not None:

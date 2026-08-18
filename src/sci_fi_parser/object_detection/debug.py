@@ -335,10 +335,7 @@ def _load_cached_ocr(directory: Path, image_path: Path) -> OcrOutput:
         labels = [entry["text"] for entry in entries]
         confidences = [1.0] * len(entries)
         boxes = [
-            [
-                [entry["polygon"][f"x{index}"], entry["polygon"][f"y{index}"]]
-                for index in range(4)
-            ]
+            [[entry["polygon"][f"x{index}"], entry["polygon"][f"y{index}"]] for index in range(4)]
             for entry in entries
         ]
         return normalize_ocr_output(labels, confidences, boxes)
