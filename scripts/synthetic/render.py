@@ -24,11 +24,17 @@ def _tick_ha(rotation: int) -> str:
 
 def _bar_colors(style: Style, n: int):
     """Per-bar colour spec; ``None`` lets matplotlib colour each series itself."""
-    if style.color_mode == "single":
+    if style.color_mode in {"single", "achromatic", "pale"}:
         return style.base_color
     if style.color_mode == "colormap":
         return plt.get_cmap(style.cmap_name)(np.linspace(0.1, 0.9, n))
     return None
+
+
+def _bar_kwargs(style: Style, color) -> dict:
+    if style.fill_mode == "outline":
+        return {"color": "none", "edgecolor": color, "linewidth": style.outline_width}
+    return {"color": color}
 
 
 def _annotate_points(ax, pos: np.ndarray, vals: np.ndarray, fs: int) -> None:
@@ -76,7 +82,7 @@ def _draw_vertical_bars(ax, style: Style, pos: np.ndarray, svals: list[np.ndarra
                 svals[s],
                 width=style.bar_w,
                 bottom=bottom,
-                color=style.series_colors[s],
+                **_bar_kwargs(style, style.series_colors[s]),
                 label=style.series_names[s],
             )
             items += [(s, j, r) for j, r in enumerate(cont)]
@@ -89,14 +95,14 @@ def _draw_vertical_bars(ax, style: Style, pos: np.ndarray, svals: list[np.ndarra
             cont = ax.bar(
                 pos + off,
                 svals[s],
-                width=sub * 0.9,
-                color=style.series_colors[s],
+                width=sub * (1.0 - style.group_gap_ratio),
+                **_bar_kwargs(style, style.series_colors[s]),
                 label=style.series_names[s],
             )
             items += [(s, j, r) for j, r in enumerate(cont)]
             containers.append(cont)
     else:  # simple / multicolor: a single series
-        cont = ax.bar(pos, svals[0], width=style.bar_w, color=col)
+        cont = ax.bar(pos, svals[0], width=style.bar_w, **_bar_kwargs(style, col))
         items = [(0, j, r) for j, r in enumerate(cont)]
         containers.append(cont)
     return items, containers
@@ -215,6 +221,52 @@ def _value_ticks(ax, style: Style, to_img) -> list[dict]:
     ]
 
 
+def _ocr_token_marks(ax, image: np.ndarray) -> list[dict]:
+    """Axis tick text boxes used as oracle OCR for component benchmarks."""
+
+    renderer = ax.figure.canvas.get_renderer()
+    image_height, image_width = image.shape[:2]
+    marks = []
+
+    def image_box(extent) -> list[float] | None:
+        left = float(extent.x0)
+        top = float(image_height - extent.y1)
+        right = float(extent.x1)
+        bottom = float(image_height - extent.y0)
+        if right <= 0 or left >= image_width or bottom <= 0 or top >= image_height:
+            return None
+        return [
+            max(0.0, left),
+            max(0.0, top),
+            min(float(image_width), right),
+            min(float(image_height), bottom),
+        ]
+
+    for role, labels in (("x_label", ax.get_xticklabels()), ("y_tick", ax.get_yticklabels())):
+        for label in labels:
+            text = label.get_text()
+            if not text or not label.get_visible():
+                continue
+            extent = label.get_window_extent(renderer=renderer)
+            bbox = image_box(extent)
+            if bbox is None:
+                continue
+            marks.append(
+                {
+                    "text": text,
+                    "role": role,
+                    "bbox_px": bbox,
+                }
+            )
+    offset_label = ax.yaxis.get_offset_text()
+    if offset_label.get_visible() and offset_label.get_text():
+        extent = offset_label.get_window_extent(renderer=renderer)
+        bbox = image_box(extent)
+        if bbox is not None:
+            marks.append({"text": offset_label.get_text(), "role": "other", "bbox_px": bbox})
+    return marks
+
+
 def _collect_geometry(
     ax,
     style: Style,
@@ -235,11 +287,13 @@ def _collect_geometry(
         else _bar_marks(style, cats, svals, items, to_img)
     )
     return {
+        "schema_version": "synthetic-geometry-v2",
         "image_size": [int(w_px), int(h_px)],
         "family": style.family,
         "orientation": style.orientation,
         "plot_area_px": plot_area,
         "value_ticks": _value_ticks(ax, style, to_img),
+        "ocr_tokens": _ocr_token_marks(ax, image),
         "items": marks,
     }
 
@@ -278,7 +332,14 @@ def _build_metadata(
         "orientation": style.orientation,
         "density": n,
         "n_series": style.n_series,
+        "color_mode": style.color_mode,
+        "bar_fill": style.fill_mode,
+        "outline_type": "none" if style.fill_mode == "filled" else "closed_rectangle",
+        "outline_width": style.outline_width,
+        "group_gap": style.group_gap_ratio if style.n_series > 1 and not style.stacked else "not_grouped",
+        "grid": style.grid,
         "labels_on": bool(labels_on),
+        "label_rotation": style.rotation,
         "geometry_full": bool(geometry_full),
         "resolution": resolution,
         **meta_extra,

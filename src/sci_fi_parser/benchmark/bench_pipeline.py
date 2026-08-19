@@ -7,10 +7,11 @@ and report formatting are reused from the legacy benchmark where possible.
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 
@@ -42,6 +43,8 @@ class PipelineInputs:
 
 
 DatasetKind = Literal["synthetic", "benetech"]
+BenchmarkTarget = Literal["vlm", "ocr-cv"]
+OcrModeArgument = Literal["oracle", "detected", "both"]
 
 
 def load_inputs(
@@ -95,13 +98,36 @@ def run_classification_stage(inputs: PipelineInputs) -> None:
     start_classification(inputs.image_set, DoclingClassifier())
 
 
-def run_ocr_cv_stage(inputs: PipelineInputs) -> None:
+def run_ocr_cv_context_stage(inputs: PipelineInputs) -> None:
+    """Populate detected OCR/CV context for eligible VLM benchmark images."""
+
     from sci_fi_parser.object_detection.detection_pipeline import start_ocr
+    from sci_fi_parser.object_detection.ocr import Ocr
 
     scoped = ImageSet()
     for image_id in inputs.truth_by_image_id:
+        truth = inputs.truth_by_image_id[image_id]
+        record = inputs.image_set.get(image_id)
+        if not record["classification"]["result"] and truth.chart_type == "vertical_bar":
+            record["classification"]["result"] = "bar_chart"
         scoped.add(image_id, inputs.image_set.get(image_id))
-    start_ocr(scoped)
+    start_ocr(scoped, Ocr())
+
+
+def run_ocr_cv_stage(
+    *,
+    data: Path,
+    out: Path,
+    dataset: DatasetKind,
+    ocr_mode: OcrModeArgument,
+    limit: int | None,
+) -> dict:
+    """Run the component benchmark without classification or VLM construction."""
+
+    from sci_fi_parser.benchmark.ocr_cv import OcrMode, run_benchmark
+
+    modes: tuple[OcrMode, ...] = ("oracle", "detected") if ocr_mode == "both" else (cast(OcrMode, ocr_mode),)
+    return run_benchmark(data, out, dataset=dataset, modes=modes, limit=limit)
 
 
 def _prompt_suffix(inputs: PipelineInputs, image_id: str) -> str:
@@ -163,13 +189,24 @@ def run_pipeline(
     dataset: DatasetKind = "synthetic",
     classification: bool = False,
     ocr_cv: bool = False,
+    target: BenchmarkTarget = "vlm",
+    ocr_mode: OcrModeArgument = "both",
     print_summary: bool = True,
 ) -> dict:
+    if target == "ocr-cv":
+        return run_ocr_cv_stage(
+            data=data,
+            out=out,
+            dataset=dataset,
+            ocr_mode=ocr_mode,
+            limit=limit,
+        )
+
     inputs = load_inputs(data, limit, dataset)
     if classification:
         run_classification_stage(inputs)
     if ocr_cv:
-        run_ocr_cv_stage(inputs)
+        run_ocr_cv_context_stage(inputs)
 
     extractor = benchmark.build_extractor(
         extractor_name,
@@ -193,7 +230,7 @@ def run_pipeline(
     return agg
 
 
-def _parse_args() -> argparse.Namespace:
+def _parse_args(*, default_target: BenchmarkTarget = "vlm") -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "--data",
@@ -202,7 +239,9 @@ def _parse_args() -> argparse.Namespace:
         help="dataset dir containing images/ plus truth.jsonl or annotations/",
     )
     ap.add_argument("--dataset", choices=("synthetic", "benetech"), default="synthetic")
-    ap.add_argument("--out", type=Path, default=Path("reports/pipeline"))
+    ap.add_argument("--out", type=Path)
+    ap.add_argument("--target", choices=("vlm", "ocr-cv"), default=default_target)
+    ap.add_argument("--ocr-mode", choices=("oracle", "detected", "both"), default="both")
     ap.add_argument(
         "--extractor",
         default="noisy-oracle",
@@ -216,19 +255,37 @@ def _parse_args() -> argparse.Namespace:
     return ap.parse_args()
 
 
-def main() -> None:
-    args = _parse_args()
-    run_pipeline(
+def _run_args(args: argparse.Namespace) -> None:
+    target = cast(BenchmarkTarget, args.target)
+    out = args.out or (
+        Path("reports/ocr_cv_stage/benchmark") if target == "ocr-cv" else Path("reports/pipeline")
+    )
+    payload = run_pipeline(
         data=args.data,
-        out=args.out,
+        out=out,
         extractor_name=args.extractor,
-        profile=benchmark._resolve_profile(args.vlm_config),
+        profile=benchmark._resolve_profile(args.vlm_config) if target == "vlm" else None,
         seed=args.seed,
         limit=args.limit,
         dataset=args.dataset,
         classification=args.classification,
         ocr_cv=args.ocr_cv,
+        target=target,
+        ocr_mode=cast(OcrModeArgument, args.ocr_mode),
     )
+    if target == "ocr-cv":
+        print(json.dumps(payload["summary_by_mode"], indent=2, allow_nan=False))
+        print(f"OCR/CV component report: {out / 'report.html'}")
+
+
+def main() -> None:
+    _run_args(_parse_args())
+
+
+def ocr_cv_main() -> None:
+    """Compatibility entry point for the former standalone component command."""
+
+    _run_args(_parse_args(default_target="ocr-cv"))
 
 
 if __name__ == "__main__":
