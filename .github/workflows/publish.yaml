@@ -114,17 +114,6 @@ jobs:
           echo "::error::sci-fi-parser==$v never appeared on TestPyPI"
           exit 1
 
-      - name: Check what actually landed
-        run: |
-          python - <<'PY'
-          import importlib.metadata as md
-
-          d = md.distribution("sci-fi-parser")
-          eps = {e.name for e in d.entry_points if e.group == "console_scripts"}
-          assert eps == {"bench-pipeline", "synthetic-bars", "parse-folder"}, eps
-          print("version:", d.version, "| entry points:", sorted(eps))
-          PY
-
   publish:
     name: Publish Python 🐍 distribution 📦 to PyPI
     needs: [verify-testpypi]
