@@ -174,7 +174,6 @@ def detect_bars_with_diagnostics(
             x, y, width, height = cv2.boundingRect(contour)
             bbox = BoundingBox(x=x, y=y, width=width, height=height)
             contour_area = float(cv2.contourArea(contour))
-            # OpenCV contour coordinates span width-1 by height-1 for raster rectangles.
             contour_box_area = max(float((width - 1) * (height - 1)), 1.0)
             rectangularity = min(1.0, contour_area / contour_box_area)
             perimeter = cv2.arcLength(contour, True)
