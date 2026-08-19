@@ -7,7 +7,7 @@ import logging
 from sci_fi_parser.schema import ImageSet
 from sci_fi_parser.vlm.vlm import ChatCompletionsVLM
 
-_SUPPORTED_CHARTS = ["bar_chart"]
+_SUPPORTED_CHARTS = ["bar_chart", "line_chart"]
 
 
 def start_vlm(image_set: ImageSet, vlm: ChatCompletionsVLM) -> None:
