@@ -10,6 +10,7 @@ PdfSet stores per-PDF metadata such as file name and page count.
 
 from __future__ import annotations
 
+import json
 from collections.abc import ItemsView, Iterator
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
@@ -60,6 +61,15 @@ class ImageSet:
     def add(self, id: str, payload: ImageRecord) -> None:
         self._data[id] = payload
 
+    def extend(self, other: ImageSet) -> None:
+        """Merge records from another ImageSet into this one.
+
+        Args:
+            other: The ImageSet whose records should be added. On id
+                collisions, records from ``other`` overwrite existing ones.
+        """
+        self._data.update(other._data)
+
     def items(self) -> ItemsView[str, ImageRecord]:
         return self._data.items()
 
@@ -77,6 +87,25 @@ class ImageSet:
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._data)
+
+    @classmethod
+    def from_jsonl(cls, path: str | Path) -> ImageSet:
+        """Reconstruct an ImageSet from a JSONL file written by save_image_set."""
+        image_set = cls()
+        path = Path(path)
+        if not path.exists():
+            return image_set
+
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                record = json.loads(line)
+                image_id = record.pop("image_id")
+                image_set.add(image_id, record)
+
+        return image_set
 
     def add_extracted_image(
         self,
@@ -201,6 +230,15 @@ class PdfSet:
     def add(self, id: str, payload: dict) -> None:
         self._data[id] = payload
 
+    def extend(self, other: PdfSet) -> None:
+        """Merge records from another PdfSet into this one.
+
+        Args:
+            other: The PdfSet whose records should be added. On id
+                collisions, records from ``other`` overwrite existing ones.
+        """
+        self._data.update(other._data)
+
     def items(self):
         return self._data.items()
 
@@ -215,3 +253,22 @@ class PdfSet:
 
     def __str__(self) -> str:
         return str(self.__repr__)
+
+    @classmethod
+    def from_jsonl(cls, path: str | Path) -> PdfSet:
+        """Reconstruct a PdfSet from a JSONL file written by save_pdf_set."""
+        pdf_set = cls()
+        path = Path(path)
+        if not path.exists():
+            return pdf_set
+
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                record = json.loads(line)
+                pdf_id = record.pop("pdf_id")
+                pdf_set.add(pdf_id, record)
+
+        return pdf_set

@@ -98,8 +98,10 @@ Anything implementing the `Extractor` protocol from
 from pathlib import Path
 from sci_fi_parser.schema import ChartData
 
+
 class MyExtractor:
     name = "my-extractor"
+
     def extract(self, image_path: Path) -> ChartData: ...
 ```
 

@@ -9,12 +9,18 @@ from importlib.resources import files
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
 
+from sci_fi_parser.cache import add_to_cache, in_cache, init_cache
 from sci_fi_parser.classifier.classifier_pipeline import start_classification
+from sci_fi_parser.classifier.image_classifier import DoclingClassifier
 from sci_fi_parser.image_extraction.extraction_pipeline import start_extraction
 from sci_fi_parser.object_detection.detection_pipeline import start_ocr
+from sci_fi_parser.object_detection.ocr import Ocr
 from sci_fi_parser.schema import ImageSet, PdfSet
-from sci_fi_parser.storage.writer import save_image_set
+from sci_fi_parser.storage.writer import save_image_set, save_pdf_set
+from sci_fi_parser.vlm.vlm import ChatCompletionsVLM
+from sci_fi_parser.vlm.vlm_config import load_profile
 from sci_fi_parser.vlm.vlm_pipeline import start_vlm
 
 DEFAULT_EXTRACTED_IMAGE_DIR = Path.cwd() / "temp" / "extracted_images"
@@ -145,35 +151,65 @@ def parse_folder(
 
     Returns:
         A parse result containing the populated image and PDF sets.
+
     """
 
-    image_set = ImageSet()
-    pdf_set = PdfSet()
-
-    start_extraction(
-        Path(input_dir),
-        image_set,
-        pdf_set,
-        Path(extracted_image_dir),
-    )
+    input_pdfs = Path(input_dir).iterdir()
 
     if classify:
-        start_classification(image_set)
+        classifier_instance = DoclingClassifier()
 
     if ocr:
-        start_ocr(image_set)
+        ocr_instance = Ocr()
 
     if vlm:
-        start_vlm(
-            image_set,
-            Path(vlm_config),
-        )
+        profile = load_profile(Path(vlm_config))
+        vlm_instance = ChatCompletionsVLM(profile)
 
-    if output_dir is not None:
-        save_image_set(
-            image_set=image_set,
-            output_dir=Path(output_dir),
-        )
+    image_set = (
+        ImageSet.from_jsonl(Path(output_dir) / "raw" / "image_set.jsonl") if output_dir else ImageSet()
+    )
+    pdf_set = PdfSet.from_jsonl(Path(output_dir) / "raw" / "pdf_set.jsonl") if output_dir else PdfSet()
+
+    with init_cache(output_dir) as cache:
+        for pdf in tqdm(input_pdfs):
+            if in_cache(pdf, cache):
+                continue
+
+            single_image_set = ImageSet()
+            single_pdf_set = PdfSet()
+
+            start_extraction(
+                pdf,
+                single_image_set,
+                single_pdf_set,
+                Path(extracted_image_dir),
+            )
+
+            if classify:
+                start_classification(single_image_set, classifier_instance)
+
+            if ocr:
+                start_ocr(single_image_set, ocr_instance)
+
+            if vlm:
+                start_vlm(
+                    single_image_set,
+                    vlm_instance,
+                )
+
+            if output_dir is not None:
+                save_image_set(
+                    image_set=single_image_set,
+                    output_dir=Path(output_dir),
+                )
+
+                save_pdf_set(pdf_set=single_pdf_set, output_dir=Path(output_dir))
+
+            image_set.extend(single_image_set)
+            pdf_set.extend(single_pdf_set)
+
+            add_to_cache(pdf, cache)
 
     return ParseResult(
         image_set=image_set,
