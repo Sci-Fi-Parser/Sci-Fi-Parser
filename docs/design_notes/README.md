@@ -1,0 +1,1 @@
+This directory contains notes on the current design choises of the software.

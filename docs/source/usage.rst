@@ -44,3 +44,12 @@ Saved output is organized as append-only JSONL records and derived Parquet table
 * ``tables/series.parquet`` for one row per series
 * ``tables/points.parquet`` for one row per extracted point
 * ``tables/pdfs.parquet`` for one row per PDF
+
+The VLM config file has these variables:
+
+.. code-block:: toml
+    
+    model = "qwen2.5vl:3b" # Ollama only
+    base_url = "http://localhost:11434/v1" # VLM endpoint base url
+    api_key_env = "" # API key, if any
+    prompt = "" # VLM prompt if any
