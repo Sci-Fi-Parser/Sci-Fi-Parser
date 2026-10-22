@@ -1,83 +1,155 @@
-"""Scoring for typed benchmark truth."""
+"""Score extracted ``ChartData`` against benchmark truth.
+
+Points are matched on (series name, x label), ignoring case and surrounding
+whitespace. If both truth and prediction have exactly one series, the series
+names are ignored: single-series charts rarely have a legend to read a name from.
+
+Value error is ``|pred - true|`` as a percentage of the truth data range, so a
+misread of the same pixel distance weighs the same on small and large values.
+It only covers matched points, so always read it together with recall and
+precision.
+"""
 
 from __future__ import annotations
 
-from sci_fi_parser.benchmark import benchmark
-from sci_fi_parser.benchmark.truth import ChartTruth
-from sci_fi_parser.schema import ImageSet
-from sci_fi_parser.vlm.vlm_schema import ChartData
+from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from sci_fi_parser.benchmark.dataset import Sample
+from sci_fi_parser.vlm.vlm_schema import ChartData, ChartType
 
 
-def score_chart_values(
-    image_id: str,
-    truth: ChartTruth,
-    pred: ChartData,
-    seconds: float = 0.0,
-    metadata: dict | None = None,
-) -> benchmark.ChartResult:
-    lo, hi = truth.data_range
-    span = abs(hi - lo) or 1.0
-    tmap = {(s.name, benchmark._cat_key(p.x)): float(p.y) for s in truth.series for p in s.points}
-    pmap = benchmark._align_series_names(tmap, benchmark.series_map(pred))
-    pnorm = {benchmark.normalize_key(s, c): k for k in pmap for s, c in [k]}
-
-    errors, matched = [], 0
-    for tkey, tv in tmap.items():
-        pkey = pnorm.get(benchmark.normalize_key(*tkey))
-        if pkey is not None:
-            matched += 1
-            errors.append(benchmark._pct_of_span(pmap[pkey], tv, span))
-    matched_pkeys = {pnorm[benchmark.normalize_key(*k)] for k in tmap if benchmark.normalize_key(*k) in pnorm}
-    extra = sum(1 for k in pmap if k not in matched_pkeys)
-    errors_pos, misaligned, n_paired = benchmark._positional_score(tmap, pmap, span)
-    result = benchmark.ChartResult(
-        image_id,
-        len(tmap),
-        len(pmap),
-        matched,
-        len(tmap) - matched,
-        extra,
-        errors,
-        value_errors_pos=errors_pos,
-        misaligned=misaligned,
-        n_paired_pos=n_paired,
-        bar_count_err=abs(len(pmap) - len(tmap)),
-        span=span,
-        truth=tmap,
-        pred=pmap,
-        meta=metadata or {},
-        seconds=seconds,
-        type_true=truth.chart_type,
-        type_pred=pred.chart_type,
-    )
-    return result
+@dataclass(slots=True)
+class PointScore:
+    series: str
+    x: str
+    true: float
+    pred: float | None
 
 
-def score_vlm_outputs(
-    image_set: ImageSet,
-    truth_by_image_id: dict[str, ChartTruth],
-) -> list[benchmark.ChartResult]:
-    results: list[benchmark.ChartResult] = []
-    for image_id, record in image_set.items():
-        truth = truth_by_image_id.get(image_id)
-        if truth is None:
-            continue
-        try:
-            pred = ChartData.model_validate(image_set.get_vlm_result(image_id))
-        except Exception:  # pylint: disable=broad-exception-caught
-            pred = ChartData(chart_type=None, series=[])
-        seconds = float(record.get("metadata", {}).get("vlm", {}).get("seconds", 0.0))
-        metadata = record.get("metadata", {}).get("benchmark", {})
-        results.append(
-            score_chart_values(
-                image_set.get_image_path(image_id).name,
-                truth,
-                pred,
-                seconds=seconds,
-                metadata=metadata,
-            )
+@dataclass(slots=True)
+class ChartScore:
+    """Per-chart result. ``pred`` values are ``None`` for missed points."""
+
+    image_path: Path
+    type_true: ChartType | None
+    type_pred: ChartType | None
+    points: list[PointScore]
+    extra: int
+    span: float
+    metadata: dict[str, Any]
+
+    @property
+    def errors_pct(self) -> list[float]:
+        return [abs(p.pred - p.true) / self.span * 100.0 for p in self.points if p.pred is not None]
+
+    @property
+    def matched(self) -> int:
+        return sum(p.pred is not None for p in self.points)
+
+    @property
+    def missed(self) -> int:
+        return len(self.points) - self.matched
+
+    @property
+    def mean_pct(self) -> float | None:
+        errors = self.errors_pct
+        return float(np.mean(errors)) if errors else None
+
+    @property
+    def max_pct(self) -> float | None:
+        errors = self.errors_pct
+        return max(errors) if errors else None
+
+
+def _x_label(x: str | float) -> str:
+    # VLMs often return years as JSON numbers: 2018.0 should match "2018".
+    return str(int(x)) if isinstance(x, float) and x.is_integer() else str(x)
+
+
+def _key(series: str, x: str) -> tuple[str, str]:
+    return series.strip().casefold(), x.strip().casefold()
+
+
+def score_chart(sample: Sample, pred: ChartData | None) -> ChartScore:
+    """Match predicted points to truth points and score them.
+
+    Args:
+        sample: The ground-truth sample.
+        pred: The extracted chart, or ``None`` if extraction failed.
+    """
+
+    pred_series = pred.series if pred else []
+    rename = len(sample.series) == 1 and len(pred_series) == 1
+    pred_values = {
+        _key(sample.series[0].name if rename else series.name, _x_label(point.x)): point.y
+        for series in pred_series
+        for point in series.points
+    }
+    points = [
+        PointScore(
+            series.name,
+            _x_label(point.x),
+            point.y,
+            pred_values.get(_key(series.name, _x_label(point.x))),
         )
-    return results
+        for series in sample.series
+        for point in series.points
+    ]
+    lo, hi = sample.data_range
+    matched = sum(p.pred is not None for p in points)
+    return ChartScore(
+        image_path=sample.image_path,
+        type_true=sample.chart_type,
+        type_pred=pred.chart_type if pred else None,
+        points=points,
+        extra=len(pred_values) - matched,
+        span=abs(hi - lo) or 1.0,
+        metadata=sample.metadata,
+    )
 
 
-aggregate_value_results = benchmark.aggregate
+def _ratio(numerator: float, denominator: float) -> float | None:
+    return numerator / denominator if denominator else None
+
+
+def summarize(scores: list[ChartScore]) -> dict[str, Any]:
+    """Aggregate metrics over charts. Undefined metrics are ``None``."""
+
+    errors = np.array([e for s in scores for e in s.errors_pct], dtype=float)
+    n_true = sum(len(s.points) for s in scores)
+    matched = sum(s.matched for s in scores)
+    extra = sum(s.extra for s in scores)
+    typed = [s for s in scores if s.type_true is not None]
+    return {
+        "charts": len(scores),
+        "no_prediction": sum(s.type_pred is None for s in scores),
+        "points": n_true,
+        "mean_pct": float(errors.mean()) if errors.size else None,
+        "median_pct": float(np.median(errors)) if errors.size else None,
+        "p95_pct": float(np.percentile(errors, 95)) if errors.size else None,
+        "within_5pct": float((errors <= 5).mean()) if errors.size else None,
+        "recall": _ratio(matched, n_true),
+        "precision": _ratio(matched, matched + extra),
+        "missed": n_true - matched,
+        "extra": extra,
+        "type_accuracy": _ratio(sum(s.type_pred == s.type_true for s in typed), len(typed)),
+    }
+
+
+def breakdowns(scores: list[ChartScore], keys: tuple[str, ...]) -> dict[str, dict[str, dict[str, Any]]]:
+    """``summarize`` per value of each metadata key present in any chart."""
+
+    result = {}
+    for key in keys:
+        groups: dict[str, list[ChartScore]] = defaultdict(list)
+        for score in scores:
+            if key in score.metadata:
+                groups[str(score.metadata[key])].append(score)
+        if groups:
+            result[key] = {value: summarize(group) for value, group in sorted(groups.items())}
+    return result

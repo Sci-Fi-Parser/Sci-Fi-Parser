@@ -77,17 +77,17 @@ To see all available options:
 Other command-line tools
 ------------------------
 
-Sci-Fi Parser also installs utilities for benchmarking and synthetic dataset
-generation:
+Sci-Fi Parser also installs two developer benchmarks that score the pipeline
+against annotated chart images:
 
 .. code-block:: bash
 
-   bench-pipeline
-   synthetic-bars
+   bench-pipeline --data train_data/synthetic
+   bench-ocr-cv --data train_data/synthetic
 
-The benchmark package has its own documentation in
+``bench-pipeline`` runs the pipeline stages and a VLM end to end and scores the
+extracted data; ``bench-ocr-cv`` scores the OCR/CV stage alone. Synthetic
+datasets are generated with ``scripts/synthetic``. Datasets, flags, metrics and
+outputs are described in
 
 ``src/sci_fi_parser/benchmark/README.md``
-
-which describes the benchmarking workflow, configuration, and output formats in
-detail.

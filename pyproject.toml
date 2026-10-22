@@ -62,6 +62,7 @@ cv = ["opencv-python>=4.10"]
 
 [project.scripts]
 bench-pipeline = "sci_fi_parser.benchmark.bench_pipeline:main"
+bench-ocr-cv = "sci_fi_parser.benchmark.ocr_cv:main"
 parse-folder = "sci_fi_parser.cli:cli_parse_folder"
 clear-cache = "sci_fi_parser.cli:cli_clear_cache"
 
