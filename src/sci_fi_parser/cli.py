@@ -4,8 +4,7 @@ from pathlib import Path
 from sci_fi_parser.api import parse_folder
 
 
-def main():
-
+def cli_parse_folder():
     parser = argparse.ArgumentParser(
         prog="scifi-parser",
         description="Extract chart data from PDFs.",
@@ -56,7 +55,3 @@ def main():
 
     print("\nFinished.")
     print(result.summary())
-
-
-if __name__ == "__main__":
-    main()

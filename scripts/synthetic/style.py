@@ -84,7 +84,7 @@ class Style:
     family: str
     orientation: str
     stacked: bool
-    color_mode: str  # "single" | "colormap" | "series"
+    color_mode: str  # "single" | "colormap" | "series" | "achromatic" | "pale"
     base_color: tuple
     cmap_name: str
     series_colors: list
@@ -101,6 +101,9 @@ class Style:
     value_hi: float
     rotation: int
     grid: bool
+    fill_mode: str
+    outline_width: float
+    group_gap_ratio: float
 
     @property
     def horizontal(self) -> bool:
@@ -118,6 +121,13 @@ def sample_style(rng: np.random.Generator, cfg: GenConfig, alias: str) -> Style:
     series_colors = [cmap10(s % 10) for s in range(n_ser)]
     scale = float(rng.choice([10.0, 100.0, 1_000.0, 1e6]))
     lo = -0.4 * scale if (not p["stacked"] and rng.random() < cfg.allow_negative) else 0.0
+    if p["color"] == "achromatic":
+        level = float(rng.uniform(0.2, 0.7))
+        base_color = (level, level, level)
+    elif p["color"] == "pale":
+        base_color = tuple(rng.random(3) * 0.15 + 0.75)
+    else:
+        base_color = tuple(rng.random(3) * 0.7 + 0.1)
     return Style(
         alias=alias,
         chart_type=p["chart_type"],
@@ -125,7 +135,7 @@ def sample_style(rng: np.random.Generator, cfg: GenConfig, alias: str) -> Style:
         orientation=p["orientation"],
         stacked=p["stacked"],
         color_mode=p["color"],
-        base_color=tuple(rng.random(3) * 0.7 + 0.1),
+        base_color=base_color,
         cmap_name=str(rng.choice(_CMAPS)),
         series_colors=series_colors,
         n_series=n_ser,
@@ -141,6 +151,9 @@ def sample_style(rng: np.random.Generator, cfg: GenConfig, alias: str) -> Style:
         value_hi=scale,
         rotation=cfg.label_rotation,
         grid=rng.random() < cfg.grid_prob,
+        fill_mode=str(p.get("fill", "filled")),
+        outline_width=float(p.get("outline_width", 0.0)),
+        group_gap_ratio=float(p.get("group_gap", 0.1)),
     )
 
 

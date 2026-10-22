@@ -1,15 +1,14 @@
-from sci_fi_parser.classifier import image_classifier
+from sci_fi_parser.classifier.image_classifier import ImageClassifier
 from sci_fi_parser.schema import ImageSet
 
 IMAGE_SUFFIXES = (".png", ".jpg")
 
 
-def start_classification(image_set: ImageSet) -> None:
+def start_classification(image_set: ImageSet, classifier: ImageClassifier) -> None:
     """
     Iterates over the image set, classifies each image and adds the result.
 
     """
-    classifier = image_classifier.DoclingClassifier()
     image_paths = [(im_id, image_set.get_image_path(im_id)) for im_id in image_set]
     for im_id, im_path in image_paths:
         if im_path.suffix.lower() in IMAGE_SUFFIXES:
