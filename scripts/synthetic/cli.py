@@ -1,14 +1,10 @@
 """Command-line entry point for the synthetic generator.
 
-Run via the installed entry point (created by ``uv sync``)::
+Run from the repository root::
 
-    synthetic-bars --config config/synthetic_bars.toml --overlay
-    synthetic-bars --preview --out train_data/synthetic
-    synthetic-bars --random 200 --out /tmp/synth
-
-or as a module::
-
-    python -m sci_fi_parser.accuracy.synthetic.cli --preview
+    uv run python -m scripts.synthetic.cli --config scripts/synthetic/synthetic_bars.toml --overlay
+    uv run python -m scripts.synthetic.cli --preview --out train_data/synthetic
+    uv run python -m scripts.synthetic.cli --random 200 --out /tmp/synth
 """
 
 from __future__ import annotations

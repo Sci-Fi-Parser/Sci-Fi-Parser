@@ -1,17 +1,18 @@
 # Synthetic bar-chart generator -- configuration
 # ----------------------------------------------
 # Every key overrides the matching field in GenConfig
-# (src/sci_fi_parser/accuracy/synthetic/config.py).
+# (scripts/synthetic/config.py).
 # Default mode is a CONTROLLED DENSITY SERIES: per enabled type, the style is fixed
 # once and only the bar count varies across density_steps; each density is rendered
 # both with and without value labels (a 50/50 matched pair).
 #
-# Run:  synthetic-bars --config config/synthetic_bars.toml --out train_data/synthetic
+# Run:  uv run python -m scripts.synthetic.cli --config scripts/synthetic/synthetic_bars.toml \
+#         --out train_data/synthetic
 #
-# CLI flags for `synthetic-bars`:
+# CLI flags for `scripts.synthetic.cli`:
 #   --config <path>   THIS file (overrides GenConfig defaults). Without it,
 #                     the hard-coded defaults in config.py are used.
-#   --out <dir>       where to write images/ + labels.jsonl. Default: a
+#   --out <dir>       where to write images/ + truth.jsonl. Default: a
 #                     temp dir under CWD; set this explicitly for any real run.
 #   --seed <int>      RNG seed for reproducibility. The same seed + same
 #                     config = bit-identical dataset. RNG draw order is
@@ -32,7 +33,7 @@
 #                     when you want the dataset to look like a real PDF/scan.
 #   --overlay         also write _debug overlays (ground-truth boxes drawn
 #                     over each chart). Cheap visual sanity check.
-#   --sqlite          also write dataset.sqlite3 alongside labels.jsonl, for
+#   --sqlite          also write dataset.sqlite3 alongside truth.jsonl, for
 #                     ad-hoc SQL queries over the labels.
 
 # Which catalog types to generate (by alias). Run `--preview` to see a small

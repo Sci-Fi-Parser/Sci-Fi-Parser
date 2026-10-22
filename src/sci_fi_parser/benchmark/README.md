@@ -1,132 +1,106 @@
-# `sci_fi_parser.accuracy` — measurement layer
+# Benchmarks
 
-Tools for generating chart datasets with **ground-truth labels by construction**
-and scoring any extractor against them. Two CLI commands and a pluggable
-`Extractor` protocol.
+Developer tooling for measuring extraction against annotated chart images. It is
+not part of normal parsing. Two commands are installed with the package:
 
-The CLIs (`synthetic-bars`, `benchmark`) are installed by `uv sync` via
-`[project.scripts]` — no `python -m …` prefix needed.
+| Command | Module | Measures |
+|---|---|---|
+| `bench-pipeline` | `bench_pipeline.py` | End-to-end: pipeline stages + VLM, scored `ChartData` |
+| `bench-ocr-cv` | `ocr_cv.py` | OCR/CV component metrics, no VLM |
 
-## `synthetic-bars` — generate ground-truth chart datasets
+## Datasets
 
-Charts whose data is known *by construction* (no model-labelled images, no
-circularity risk). Default mode is a *controlled density series*: per enabled
-type the style is fixed once and only the bar count varies across
-`density_steps`; each density is rendered as a matched **labels-off / labels-on
-pair** sharing identical data. Labels are auto-fitted so they never overlap.
+Both commands read a directory with chart images in `images/` and ground truth in
+one of two layouts (`--dataset`):
+
+- `synthetic` (default): `truth.jsonl`, one record per image, written by the
+  synthetic generator. Values, and optionally pixel geometry, are known by
+  construction.
+- `benetech`: `annotations/<image stem>.json` in the
+  [Benetech](https://www.kaggle.com/competitions/benetech-making-graphs-accessible)
+  format. `scripts/filter_benetech_vertical_bars.py` copies one chart type out of
+  the extracted Benetech set.
+
+Generate a synthetic dataset from the repository root:
 
 ```bash
-synthetic-bars --config config/synthetic_bars.toml --overlay --sqlite
+uv run python -m scripts.synthetic.cli --config scripts/synthetic/synthetic_bars.toml --out train_data/synthetic
 ```
 
-Pick types, density ladder, and resolutions in
-[../../../config/synthetic_bars.toml](../../../config/synthetic_bars.toml):
-`output_types`, `density_steps`, `resolutions`. Run with `--preview` first to
-render a small sample of every catalog type.
+`--preview` renders one sample of every chart type, `--overlay` draws the truth
+over each image, `--augment` adds JPEG/noise/blur. `scripts/synthetic/ocr_cv_stage.toml`
+is a fixed vertical-bar set with full geometry for `bench-ocr-cv`. Every knob is
+documented in `scripts/synthetic/config.py`.
+
+## `bench-pipeline`
+
+```bash
+bench-pipeline --data train_data/synthetic --out reports/run1
+bench-pipeline --data train_data/benetech --dataset benetech --model qwen3-vl:8b --limit 50
+```
+
+Images go through the same stage functions as `parse_folder`
+(`start_classification`, `start_ocr`, `start_vlm`), so prompts and stage
+behaviour match a real parsing run. Only charts the pipeline would send to the
+VLM (classified as bar or line charts) get a prediction; the rest are scored as
+"no prediction".
 
 | Flag | Effect |
 |---|---|
-| `--preview` | one sample per catalog type into `preview/` |
-| `--random N` | random mode instead: N fully-random charts |
-| `--augment` | add JPEG/noise/blur realism (labels stay exact) |
-| `--overlay` | write `_debug/overlay_*.png` to eyeball label accuracy |
-| `--sqlite` | also write `dataset.sqlite3` (mirrors the real schema + geometry) |
-| `--refresh` | delete prior outputs in `--out` before generating |
-| `--seed N` | reproducibility |
+| `--vlm-config PATH` | VLM profile TOML (default: the packaged `config/vlm.toml`) |
+| `--model NAME` | Override the profile's model, e.g. to compare models |
+| `--no-classify` | Take the chart class from the truth instead of the classifier |
+| `--no-ocr` | Send no OCR/CV context to the VLM |
+| `--limit N` | Only the first N images, sorted by file name |
 
-Outputs in `--out`:
-- `images/<type>_s<k>_d<NN>_{off,on}_<res>.png` (series) or `random_NNNNN_<res>.png`
-- `labels.jsonl` — per chart: `label1` (chart type), `label2` (axes +
-  per-series points + `value_range`), `geometry` (bboxes + tick positions, or
-  `null`), `meta`
-- `_debug/` overlays (with `--overlay`)
-- `dataset.sqlite3` (with `--sqlite`)
+The VLM needs an OpenAI-compatible chat completions endpoint (see
+`docs/design_notes/vlm.md`). To compare models or prompts, run once per
+`--model` or `--vlm-config` into separate `--out` directories.
 
-Tuning: every knob is documented inline in `GenConfig`
-([synthetic/config.py](synthetic/config.py)) and mirrored with comments in the
-TOML.
+### Metrics
 
-## `benchmark` — score any extractor against ground truth
+Truth and predicted points are matched on (series name, x label), ignoring case
+and surrounding whitespace. When both sides have a single series, its name is
+ignored.
 
-```bash
-benchmark --data train_data/synthetic --out reports/run1
-```
+- **Error**: `|predicted − true|` as a percentage of the truth data range,
+  reported as mean, median, p95 and the share within 5 %. It only covers
+  matched points, so a run that misses many points can still show a low
+  error. Always read it together with recall and precision.
+- **Recall**: matched / true points. **Precision**: matched / predicted points.
+- **Missed / extra**: true points without a match / predicted points without a match.
+- **Type accuracy**: share of charts whose predicted `chart_type` equals the
+  truth; charts without a prediction count as wrong.
+- **No prediction**: charts that were not sent to the VLM or whose extraction failed.
 
-The default extractor is `noisy-oracle` (a test double that perturbs truth) so
-the harness runs without a model server. For a real model, install
-[ollama](https://ollama.com) locally, `ollama pull qwen2.5vl:7b`, then use
-`--extractor vlm` to pick up the model declared in
-[../../../config/vlm.toml](../../../config/vlm.toml) — or override per-run
-with `--extractor vlm:<tag>`. The extractor talks to any OpenAI-compatible
-chat-completions endpoint (`base_url` in the profile); ollama's `/v1` compat
-layer is the default.
+### Outputs
 
-**Metrics**
-- Error = `|predicted − true|` as **% of the true value**. Hover any card in
-  the HTML report for the exact definition.
-- **Recall** = bars found / true bars. **Precision** = correct
-  (series, category) bars / predicted.
-- **Type acc** = fraction of charts where the extractor's `chart_type` matched
-  truth. **Mean conf** = average VLM self-reported confidence (not necessarily
-  calibrated).
+- `results.json`: `run` (start time, package version, dataset, enabled stages,
+  VLM model, endpoint and prompt, seconds per stage), `summary`, `breakdowns`
+  by synthetic `preset` / `density` / `labels_on`, and one row per chart.
+- `report.html`: self-contained report with summary cards, breakdowns, the
+  distribution of signed deviations, chart cards from best to worst with
+  thumbnails, and a sortable per-chart table.
 
-**Outputs** in `--out`:
-- `report.html` — self-contained: summary cards (hover for tooltips), breakdowns
-  by preset / density / labels, ranked best/worst charts with thumbnails,
-  sortable per-chart table
-- `results.json` — machine-readable per-chart rows for CI / trend tracking
-
-## Configuring the VLM extractor
-
-The active model, prompt, and endpoint live in
-[../../../config/vlm.toml](../../../config/vlm.toml). Edit that file to swap
-models permanently, or override on the CLI for one-offs:
+## `bench-ocr-cv`
 
 ```bash
-benchmark --data ... --extractor vlm:qwen2.5vl:7b-q8_0   # one-shot
-benchmark --data ... --vlm-config config/vlm_q8.toml      # A/B test
+bench-ocr-cv --data train_data/ocr_cv_stage --ocr-mode both --out reports/ocr_cv
 ```
 
-Resolution order: CLI flag > `config/vlm.toml` in cwd > built-in defaults.
+Runs bar detection and axis analysis on vertical bar charts and scores the
+intermediate OCR/CV results. `--ocr-mode oracle` feeds the synthetic truth OCR
+tokens to the analysis, so role and calibration errors can be told apart from
+OCR errors; `detected` runs PaddleOCR; `both` runs each. Oracle mode needs
+synthetic data with full geometry.
 
-## Adding a new extractor
+Metrics per mode:
 
-Anything implementing the `Extractor` protocol from
-[../schema.py](../schema.py) plugs in:
+- **Role P/R/F1**: Y-tick and X-label role assignment of OCR tokens matched to truth tokens.
+- **Y-tick recall**: true Y-axis ticks recognised with the correct text.
+- **Calibration**: fit rate, success rate (normalized MAE < 0.01), and mean
+  tick value error of the fitted linear Y-axis, normalised by the tick span.
+- **Bars**: precision/recall of detected bar boxes at IoU ≥ 0.5, and exact bar
+  count accuracy. Benetech data only has the bar count.
 
-```python
-from pathlib import Path
-from sci_fi_parser.schema import ChartData
-
-
-class MyExtractor:
-    name = "my-extractor"
-
-    def extract(self, image_path: Path) -> ChartData: ...
-```
-
-Register it in `build_extractor` ([benchmark.py](benchmark.py)). `ChartData`
-is the single canonical schema every extractor must return: the VLM is
-constrained to emit it (via `response_format: json_schema`), CV+OCR pipelines
-are mapped into it.
-
-> Note: pure OCR is *not* a standalone extractor (it reads text, not data
-> points) — pair it with CV.
-
-## Layout
-
-```
-accuracy/
-  __init__.py
-  benchmark.py      # `benchmark` CLI: runs an extractor, writes report
-  vlm_compare.py    # `benchmark-compare` CLI: runs N models, builds leaderboard
-  synthetic/        # ground-truth chart generator
-```
-
-The VLM extractor itself (`ChatCompletionsVLM` + `VLMProfile` + `load_profile`) lives
-in the sibling package [../vlm/](../vlm/) — separated from this package so
-non-benchmark callers (e.g. the runtime pipeline) can import the model
-client without pulling in the measurement machinery.
-
-Config files live at repo-root [config/](../../../config/), separate from the
-package source so users edit data, not code.
+Outputs `results.json` (summary per mode plus per-sample records) and a small `report.html`.
